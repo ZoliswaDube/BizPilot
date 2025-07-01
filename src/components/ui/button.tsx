@@ -34,22 +34,23 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean
+  whileHover?: any
+  whileTap?: any
+  transition?: any
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
     const Comp = asChild ? Slot : motion.button
-    const { whileHover, whileTap, transition, ...restProps } = props
+    const { whileHover, whileTap, transition, ...restProps } = props as any
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
-        {...(asChild ? restProps : {
-          whileHover: whileHover || { scale: 1.02 },
-          whileTap: whileTap || { scale: 0.98 },
-          transition: transition || { type: "spring", stiffness: 400, damping: 17 },
-          ...restProps
-        })}
+        whileHover={!asChild ? (whileHover || { scale: 1.02 }) : undefined}
+        whileTap={!asChild ? (whileTap || { scale: 0.98 }) : undefined}
+        transition={!asChild ? (transition || { type: "spring", stiffness: 400, damping: 17 }) : undefined}
+        {...restProps}
       />
     )
   },

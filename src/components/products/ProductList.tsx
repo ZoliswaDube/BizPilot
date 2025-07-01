@@ -64,14 +64,14 @@ export function ProductList() {
       if (error) throw error
 
       // Transform the data to include ingredient count, category name, and supplier name
-      const productsWithDetails: Product[] = data.map(product => ({
+      const productsWithDetails = data.map(product => ({
         ...product,
         ingredient_count: Array.isArray(product.ingredients) ? product.ingredients.length : 0,
         categories: Array.isArray(product.categories) && product.categories.length > 0 ? product.categories[0] : null,
         suppliers: Array.isArray(product.suppliers) && product.suppliers.length > 0 ? product.suppliers[0] : null,
-      })) as Product[]
+      }))
 
-      setProducts(productsWithDetails)
+      setProducts(productsWithDetails as Product[])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch products')
     } finally {
