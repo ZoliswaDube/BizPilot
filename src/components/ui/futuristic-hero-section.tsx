@@ -44,12 +44,6 @@ export const AuroraHero = () => {
         <Link
           to="/auth"
           className="btn-primary group"
-          whileHover={{
-            scale: 1.015,
-          }}
-          whileTap={{
-            scale: 0.985,
-          }}
         >
           Start free trial
           <FiArrowRight className="transition-transform group-hover:-rotate-45 group-active:-rotate-12" />

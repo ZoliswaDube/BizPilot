@@ -209,7 +209,7 @@ export function useAIChat() {
       const context = await getBusinessContext()
       
       // Simulate AI response (replace with real OpenAI API call)
-      const aiResponse = await generateAIResponse(content, context)
+      const aiResponse = await generateAIResponse()
       
       // Add AI response
       await addMessage(currentConversation.id, aiResponse, false)
