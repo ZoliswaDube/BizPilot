@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Mail, KeyRound, ArrowLeft } from 'lucide-react'
 
 type AuthMode = 'signin' | 'signup' | 'reset'

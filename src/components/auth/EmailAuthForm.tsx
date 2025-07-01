@@ -18,7 +18,7 @@ export function EmailAuthForm({ mode, onModeChange, onSuccess }: EmailAuthFormPr
   const [fullName, setFullName] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState<React.ReactNode>('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
   

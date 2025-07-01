@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Send, MessageSquare, Mic, MicOff, Loader2, Lightbulb, TrendingUp, Package, DollarSign, Plus, Trash2 } from 'lucide-react'
 import { useAIChat } from '../../hooks/useAIChat'
-import { formatCurrency, formatPercentage } from '../../utils/calculations'
+import { formatPercentage } from '../../utils/calculations'
 
 interface QuickQuestion {
   id: string
@@ -67,7 +67,7 @@ export function AIChat() {
       recognition.interimResults = false
       recognition.lang = 'en-US'
 
-      recognition.onresult = (event) => {
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
         const transcript = event.results[0][0].transcript
         setInputValue(transcript)
         setIsListening(false)
