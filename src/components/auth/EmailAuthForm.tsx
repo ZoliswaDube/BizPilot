@@ -408,13 +408,18 @@ export function EmailAuthForm({ mode, onModeChange, onSuccess }: EmailAuthFormPr
 
       <motion.button
         type="submit"
-        disabled={loading}
         className="btn-primary group w-full flex justify-center items-center"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.4, ease: "easeOut" }}
+        transition={{ 
+          duration: 0.3, 
+          delay: 0.4, 
+          ease: "easeOut",
+          type: "spring", 
+          stiffness: 400, 
+          damping: 17 
+        }}
         whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.98 }}
         disabled={loading}
       >
         {loading && (
