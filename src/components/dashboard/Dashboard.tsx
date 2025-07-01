@@ -5,7 +5,7 @@ import { Package, Warehouse, TrendingUp, AlertTriangle, Loader2 } from 'lucide-r
 import { useAuth } from '../../hooks/useAuth'
 import { useInventory } from '../../hooks/useInventory' // New import
 import { supabase } from '../../lib/supabase'
-import { formatCurrency, formatPercentage } from '../../utils/calculations'
+import { formatPercentage } from '../../utils/calculations'
 import { DashboardCharts } from './DashboardCharts'
 import '../charts/ChartRegistry' // Initialize Chart.js
 

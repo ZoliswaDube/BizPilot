@@ -8,7 +8,7 @@ import { Database } from '../../lib/supabase'
 
 type InventoryItemInsert = Database['public']['Tables']['inventory']['Insert']
 type InventoryItemUpdate = Database['public']['Tables']['inventory']['Update']
-type Product = Database['public']['Tables']['products']['Row']
+type Product = Pick<Database['public']['Tables']['products']['Row'], 'id' | 'name'>
 
 export function InventoryForm() {
   const navigate = useNavigate()

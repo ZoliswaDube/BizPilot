@@ -6,7 +6,7 @@ interface OAuthButtonsProps {
   onSuccess: () => void
 }
 
-export function OAuthButtons({ onSuccess }: OAuthButtonsProps) {
+export function OAuthButtons({ }: OAuthButtonsProps) {
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError] = useState('')
   const { signInWithProvider } = useAuth()

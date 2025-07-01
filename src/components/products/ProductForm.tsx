@@ -15,11 +15,8 @@ import {
 } from '../../utils/calculations'
 import { Database } from '../../lib/supabase'
 
-type ProductRow = Database['public']['Tables']['products']['Row']
 type ProductInsert = Database['public']['Tables']['products']['Insert']
 type ProductUpdate = Database['public']['Tables']['products']['Update']
-type Category = Database['public']['Tables']['categories']['Row']
-type Supplier = Database['public']['Tables']['suppliers']['Row']
 
 interface ProductFormData {
   id?: string

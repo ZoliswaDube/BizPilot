@@ -1,5 +1,5 @@
 import { useState, useEffect, createContext, useContext } from 'react'
-import { User, Session, AuthError, AuthChangeEvent, Provider } from '@supabase/supabase-js'
+import { User, Session, AuthError, Provider } from '@supabase/supabase-js'
 import * as Sentry from '@sentry/react'
 import { supabase, getURL } from '../lib/supabase'
 import type { Database } from '../lib/supabase'
@@ -140,32 +140,6 @@ export function useAuthProvider(): AuthContextType {
       console.error('🔐 useAuth: Error in fetchUserProfile:', err)
       // Don't let profile fetch failure break the auth flow
       setUserProfile(null)
-    }
-  }
-
-  const createUserSettings = async (userId: string) => {
-    console.log('🔐 useAuth: createUserSettings called', { userId })
-    try {
-      const { error } = await supabase
-        .from('user_settings')
-        .insert({
-          user_id: userId,
-          business_name: null,
-          hourly_rate: 15.00,
-          default_margin: 40.00
-        })
-
-      console.log('🔐 useAuth: createUserSettings result', { 
-        error: error?.message,
-        errorCode: error?.code,
-        isDuplicateError: error?.code === '23505'
-      })
-
-      if (error && error.code !== '23505') { // Ignore duplicate key errors
-        console.error('Error creating user settings:', error)
-      }
-    } catch (err) {
-      console.error('Error in createUserSettings:', err)
     }
   }
 

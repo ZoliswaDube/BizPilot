@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Edit, Trash2, Loader2 } from 'lucide-react'
+import { Edit, Trash2, Loader2 } from 'lucide-react'
 import { useCategories } from '../../hooks/useCategories'
 
 export function CategoryManagement() {

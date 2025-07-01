@@ -11,7 +11,6 @@ import {
   QrCode, 
   ArrowRight,
   CheckCircle,
-  Zap,
   Shield,
   TrendingUp
 } from 'lucide-react'

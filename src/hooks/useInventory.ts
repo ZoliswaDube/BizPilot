@@ -6,7 +6,6 @@ import { Database } from '../lib/supabase'
 type InventoryItem = Database['public']['Tables']['inventory']['Row']
 type InsertInventoryItem = Database['public']['Tables']['inventory']['Insert']
 type UpdateInventoryItem = Database['public']['Tables']['inventory']['Update']
-type InventoryTransaction = Database['public']['Tables']['inventory_transactions']['Row']
 type InsertInventoryTransaction = Database['public']['Tables']['inventory_transactions']['Insert']
 
 export function useInventory() {

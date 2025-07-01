@@ -7,12 +7,13 @@ import { supabase } from '../../lib/supabase'
 import { formatCurrency, formatPercentage } from '../../utils/calculations'
 import { Database } from '../../lib/supabase'
 
-type ProductRow = Database['public']['Tables']['products']['Row']
+type ProductRow = Database['public']['Tables']['products']['Row'] & {
+  categories?: { name: string } | null
+  suppliers?: { name: string } | null
+}
 
 interface Product extends ProductRow {
   ingredient_count?: number
-  categories?: { name: string } | null
-  suppliers?: { name: string } | null
 }
 
 export function ProductList() {
@@ -63,12 +64,12 @@ export function ProductList() {
       if (error) throw error
 
       // Transform the data to include ingredient count, category name, and supplier name
-      const productsWithDetails = data.map(product => ({
+      const productsWithDetails: Product[] = data.map(product => ({
         ...product,
-        ingredient_count: product.ingredients?.[0]?.count || 0,
-        categories: product.categories,
-        suppliers: product.suppliers,
-      }))
+        ingredient_count: Array.isArray(product.ingredients) ? product.ingredients.length : 0,
+        categories: Array.isArray(product.categories) && product.categories.length > 0 ? product.categories[0] : null,
+        suppliers: Array.isArray(product.suppliers) && product.suppliers.length > 0 ? product.suppliers[0] : null,
+      })) as Product[]
 
       setProducts(productsWithDetails)
     } catch (err) {

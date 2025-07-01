@@ -5,7 +5,6 @@ import { Database } from '../lib/supabase'
 import QRCodeLib from 'qrcode'
 
 type QRCode = Database['public']['Tables']['qr_codes']['Row']
-type InsertQRCode = Database['public']['Tables']['qr_codes']['Insert']
 type UpdateQRCode = Database['public']['Tables']['qr_codes']['Update']
 
 export interface QRCodeConfig {

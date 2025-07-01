@@ -7,7 +7,7 @@ import { formatCurrency } from '../../utils/calculations'
 import { Database } from '../../lib/supabase'
 
 type InventoryItem = Database['public']['Tables']['inventory']['Row'] & {
-  products?: { name: string } | null;
+  products?: { name: string } | null
 }
 
 export function InventoryList() {
@@ -21,7 +21,6 @@ export function InventoryList() {
 
   const filteredInventory = inventory.filter(item =>
     item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.products?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.batch_lot_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.unit.toLowerCase().includes(searchTerm.toLowerCase())
   )
@@ -212,7 +211,7 @@ export function InventoryList() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ 
                 duration: 0.4, 
-                delay: 0.5 + index * 0.1, 
+                delay: 0.5 + filteredInventory.indexOf(item) * 0.1, 
                 ease: "easeOut" 
               }}
               whileHover={{ scale: 1.02, y: -4 }}
@@ -220,7 +219,7 @@ export function InventoryList() {
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
                   <h3 className="font-semibold text-gray-100 mb-1">
-                    {item.product_id ? item.products?.name : item.name}
+                    {item.name}
                   </h3>
                   <p className="text-sm text-gray-400">
                     Current Stock: {item.current_quantity} {item.unit}

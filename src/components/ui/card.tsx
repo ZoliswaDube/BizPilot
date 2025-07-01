@@ -6,18 +6,20 @@ const Card = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-  <motion.div
-    ref={ref}
-    className={cn(
-      "rounded-lg border border-dark-700/50 bg-dark-900 backdrop-blur-sm shadow-lg shadow-primary-500/10 transition-all duration-300 hover:shadow-xl hover:shadow-primary-500/20 hover:border-primary-500/30",
-      className,
-    )}
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.3, ease: "easeOut" }}
-    whileHover={{ y: -4 }}
-    {...props}
-  />
+  <div>
+    <motion.div
+      ref={ref}
+      className={cn(
+        "rounded-lg border border-dark-700/50 bg-dark-900 backdrop-blur-sm shadow-lg shadow-primary-500/10 transition-all duration-300 hover:shadow-xl hover:shadow-primary-500/20 hover:border-primary-500/30",
+        className,
+      )}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      whileHover={{ y: -4 }}
+      {...props}
+    />
+  </div>
 ))
 Card.displayName = "Card"
 

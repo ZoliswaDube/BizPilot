@@ -6,8 +6,6 @@ import { Database } from '../lib/supabase'
 
 type AIConversation = Database['public']['Tables']['ai_conversations']['Row']
 type AIMessage = Database['public']['Tables']['ai_messages']['Row']
-type InsertAIConversation = Database['public']['Tables']['ai_conversations']['Insert']
-type InsertAIMessage = Database['public']['Tables']['ai_messages']['Insert']
 
 interface BusinessContext {
   totalProducts: number
@@ -174,7 +172,7 @@ export function useAIChat() {
       ).length || 0
       
       const avgMargin = totalProducts > 0 
-        ? products.reduce((sum, p) => sum + (p.profit_margin || 0), 0) / totalProducts
+        ? (products || []).reduce((sum, p) => sum + (p.profit_margin || 0), 0) / totalProducts
         : 0
 
       return {
@@ -223,7 +221,7 @@ export function useAIChat() {
     }
   }
 
-  const generateAIResponse = async (userMessage: string, context: BusinessContext): Promise<string> => {
+  const generateAIResponse = async (): Promise<string> => {
     // TODO: Replace with actual OpenAI API integration
     // This function should:
     // 1. Send userMessage and context to OpenAI API

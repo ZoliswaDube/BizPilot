@@ -38,7 +38,7 @@ export function ProfitMarginChart({ products }: ProfitMarginChartProps) {
         font: {
           size: 16,
           family: 'Inter, sans-serif',
-          weight: '600' as const,
+          weight: 600,
         }
       }
     },

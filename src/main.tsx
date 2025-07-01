@@ -59,7 +59,7 @@ const SentryApp = Sentry.withErrorBoundary(App, {
       </div>
     </div>
   ),
-  beforeCapture: (scope, error) => {
+  beforeCapture: (scope) => {
     scope.setTag('errorBoundary', true)
     scope.setLevel('error')
   },

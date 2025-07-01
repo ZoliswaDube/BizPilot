@@ -1,18 +1,12 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Download, QrCode, Building, DollarSign, Loader2, CheckCircle, Plus, Edit, Trash2, Copy } from 'lucide-react'
+import { Loader2, CheckCircle, Plus } from 'lucide-react'
 import { useUserSettings } from '../../hooks/useUserSettings'
 import { useQRCodes, QRCodeConfig } from '../../hooks/useQRCodes'
 
-interface TipAmount {
-  id: string
-  amount: number
-  label: string
-}
-
 export function QRGenerator() {
   const { settings } = useUserSettings()
-  const { qrCodes, loading, error, createQRCode, updateQRCode, deleteQRCode, downloadQRCode, copyTipURL } = useQRCodes()
+  const { loading, error, createQRCode } = useQRCodes()
   
   const [formData, setFormData] = useState<QRCodeConfig>({
     name: '',
@@ -21,7 +15,6 @@ export function QRGenerator() {
     custom_message: 'Thank you for your support!'
   })
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [isGenerating, setIsGenerating] = useState(false)
   const [success, setSuccess] = useState(false)
   const [formError, setFormError] = useState('')
   const [showForm, setShowForm] = useState(false)
@@ -48,31 +41,12 @@ export function QRGenerator() {
     setShowForm(false)
   }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
-  }
-
-  const updateTipAmount = (index: number, amount: number) => {
-    setFormData(prev => ({
-      ...prev,
-      tip_amounts: prev.tip_amounts.map((tip, i) => i === index ? amount : tip)
-    }))
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsGenerating(true)
     setFormError('')
     setSuccess(false)
 
     // Validation
-    if (!formData.name.trim()) {
-      setFormError('QR code name is required')
-      setIsGenerating(false)
-      return
-    }
-    if (!formData.business_name.trim()) {
       setFormError('Business name is required')
       setIsGenerating(false)
       return
@@ -103,29 +77,6 @@ export function QRGenerator() {
     } finally {
       setIsGenerating(false)
     }
-  }
-
-  const handleEdit = (qrCode: any) => {
-    setFormData({
-      name: qrCode.name,
-      business_name: qrCode.business_name || '',
-      tip_amounts: qrCode.tip_amounts,
-      custom_message: qrCode.custom_message || ''
-    })
-    setEditingId(qrCode.id)
-    setShowForm(true)
-  }
-
-  const handleDelete = async (id: string, name: string) => {
-    if (window.confirm(`Are you sure you want to delete "${name}"?`)) {
-      await deleteQRCode(id)
-    }
-  }
-
-  const handleCopyURL = (qrCode: any) => {
-    copyTipURL(qrCode)
-    // Simple feedback - in a real app you might use a toast notification
-    alert('Tip page URL copied to clipboard!')
   }
 
   if (loading) {

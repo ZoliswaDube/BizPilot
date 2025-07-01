@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Save, Building, DollarSign, TrendingUp, User, Mail, Loader2, CheckCircle, Camera } from 'lucide-react'
+import { Save, Building, TrendingUp, User, Mail, Loader2, CheckCircle, Camera } from 'lucide-react'
 import { useUserSettings } from '../../hooks/useUserSettings'
 import { useAuth } from '../../hooks/useAuth'
 import { formatCurrency, formatPercentage } from '../../utils/calculations'
 
 export function UserSettings() {
   const { settings, loading: settingsLoading, error: settingsError, updateSettings } = useUserSettings()
-  const { user, userProfile, updateProfile } = useAuth()
+  const { userProfile, updateProfile } = useAuth()
   
   const [businessFormData, setBusinessFormData] = useState({
     business_name: '',
@@ -84,7 +84,7 @@ export function UserSettings() {
 
     const result = await updateSettings(businessFormData)
     
-    if (result.error) {
+    if (result?.error) {
       setBusinessFormError(result.error)
     } else {
       setBusinessSuccess(true)
