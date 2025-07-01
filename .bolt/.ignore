@@ -1,0 +1,131 @@
+# Bolt ignore file - excludes files/folders from being processed to save tokens
+
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build outputs
+dist/
+build/
+.next/
+.nuxt/
+.output/
+.vercel/
+.netlify/
+
+# Environment files (keep these private)
+.env
+.env.local
+.env.production
+.env.staging
+
+# Version control
+.git/
+.gitignore
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output/
+
+# Dependency directories
+jspm_packages/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Parcel-bundler cache
+.cache
+.parcel-cache
+
+# Storybook build outputs
+.out
+.storybook-out
+
+# Documentation (rarely modified by Bolt)
+docs/
+*.md
+README*
+CHANGELOG*
+LICENSE*
+
+# Database migrations (these are append-only and shouldn't be modified)
+supabase/migrations/
+supabase/seed.sql
+
+# Config files that rarely change
+tsconfig*.json
+vite.config.ts
+tailwind.config.js
+postcss.config.js
+eslint.config.js
+.eslintrc*
+.prettierrc*
+.gitattributes
+
+# Static assets (images, fonts, etc.)
+public/assets/
+public/images/
+public/fonts/
+src/assets/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.ico
+*.webp
+*.woff
+*.woff2
+*.ttf
+*.eot
+
+# Test files (unless specifically working on tests)
+**/*.test.*
+**/*.spec.*
+__tests__/
+coverage/
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+.temp/
