@@ -102,10 +102,7 @@ eslint.config.js
 .gitattributes
 
 # Static assets (images, fonts, etc.)
-public/assets/
-public/images/
-public/fonts/
-src/assets/
+
 *.png
 *.jpg
 *.jpeg
