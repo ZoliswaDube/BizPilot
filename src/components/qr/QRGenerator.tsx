@@ -47,6 +47,7 @@ export function QRGenerator() {
     setSuccess(false)
 
     // Validation
+    if (!formData.business_name) {
       setFormError('Business name is required')
       setIsGenerating(false)
       return
