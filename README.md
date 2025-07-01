@@ -168,6 +168,130 @@ BizPilot/
         └── 📄 index-[hash].css
 ```
 
+## 🗺️ Route Structure
+
+The application uses React Router for navigation with both public and protected routes:
+
+```mermaid
+graph TD
+    A[🏠 Root /] --> B[📄 Home Page]
+    A --> C[💰 /pricing]
+    A --> D[🔐 /auth]
+    A --> E[🔗 /auth/callback]
+    A --> F[🔑 /auth/reset-password]
+    
+    A --> G[🛡️ Protected Routes]
+    
+    G --> H[📊 /dashboard]
+    G --> I[📦 Products Routes]
+    G --> J[📋 Inventory Routes]
+    G --> K[🏷️ /categories]
+    G --> L[🏪 /suppliers]
+    G --> M[🤖 /ai]
+    G --> N[📱 /qr]
+    G --> O[⚙️ /settings]
+    G --> P[💳 /checkout]
+    G --> Q[📞 /contact]
+    
+    I --> I1[📝 /products - Product List]
+    I --> I2[➕ /products/new - Add Product]
+    I --> I3[✏️ /products/edit/:id - Edit Product]
+    
+    J --> J1[📋 /inventory - Inventory List]
+    J --> J2[➕ /inventory/new - Add Inventory]
+    J --> J3[✏️ /inventory/edit/:id - Edit Inventory]
+    
+    style A fill:#e1f5fe
+    style B fill:#f3e5f5
+    style C fill:#f3e5f5
+    style D fill:#ffebee
+    style E fill:#ffebee
+    style F fill:#ffebee
+    style G fill:#e8f5e8
+    style H fill:#fff3e0
+    style I fill:#fff3e0
+    style J fill:#fff3e0
+    style K fill:#fff3e0
+    style L fill:#fff3e0
+    style M fill:#fff3e0
+    style N fill:#fff3e0
+    style O fill:#fff3e0
+    style P fill:#fff3e0
+    style Q fill:#fff3e0
+```
+
+### Route Categories
+
+#### 🌐 **Public Routes**
+| Route | Component | Description |
+|-------|-----------|-------------|
+| `/` | HomePage | Landing page with hero section and features |
+| `/pricing` | PricingPage | Subscription plans and pricing tiers |
+| `/auth` | AuthForm | Login/register forms with social auth |
+| `/auth/callback` | AuthCallback | OAuth callback handler |
+| `/auth/reset-password` | ResetPasswordForm | Password reset interface |
+
+#### 🛡️ **Protected Routes** (Require Authentication)
+| Route | Component | Description |
+|-------|-----------|-------------|
+| `/dashboard` | Dashboard | Main analytics dashboard with charts |
+| `/products` | ProductList | Product catalog with search and filters |
+| `/products/new` | ProductForm | Create new product form |
+| `/products/edit/:id` | ProductForm | Edit existing product |
+| `/inventory` | InventoryList | Inventory management interface |
+| `/inventory/new` | InventoryForm | Add new inventory item |
+| `/inventory/edit/:id` | InventoryForm | Edit inventory item |
+| `/categories` | CategoryManagement | Manage product categories |
+| `/suppliers` | SupplierManagement | Supplier database management |
+| `/ai` | AIChat | AI assistant chat interface |
+| `/qr` | QRGenerator | QR code generation tools |
+| `/settings` | UserSettings | User preferences and configuration |
+| `/checkout` | CheckoutPage | Subscription checkout flow |
+| `/contact` | ContactForm | Contact support form |
+
+### Navigation Flow
+
+```mermaid
+flowchart LR
+    A[👤 Visitor] --> B{🔐 Authenticated?}
+    B -->|No| C[🏠 Home Page]
+    B -->|Yes| D[📊 Dashboard]
+    
+    C --> E[💰 Pricing Page]
+    C --> F[🔐 Login/Register]
+    
+    F --> G{✅ Auth Success?}
+    G -->|Yes| D
+    G -->|No| H[❌ Auth Error]
+    H --> F
+    
+    D --> I[📦 Products]
+    D --> J[📋 Inventory]
+    D --> K[🤖 AI Assistant]
+    D --> L[⚙️ Settings]
+    
+    I --> M[➕ Add Product]
+    I --> N[✏️ Edit Product]
+    
+    J --> O[➕ Add Inventory]
+    J --> P[✏️ Edit Inventory]
+    
+    style A fill:#e3f2fd
+    style B fill:#fff3e0
+    style C fill:#f3e5f5
+    style D fill:#e8f5e8
+    style F fill:#ffebee
+    style G fill:#fff3e0
+```
+
+### Route Protection
+
+All routes under the protected section use the `ProtectedRoute` wrapper that:
+- ✅ Checks user authentication status
+- 🔄 Redirects to `/auth` if not authenticated  
+- 🛡️ Wraps content in the main `Layout` component
+- 📱 Provides consistent navigation and UI structure
+
 ## 🚀 Getting Started
 
 ### Prerequisites
