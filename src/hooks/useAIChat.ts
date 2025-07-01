@@ -205,9 +205,6 @@ export function useAIChat() {
       // Add user message
       await addMessage(currentConversation.id, content, true)
       
-      // Get business context
-      const context = await getBusinessContext()
-      
       // Simulate AI response (replace with real OpenAI API call)
       const aiResponse = await generateAIResponse()
       

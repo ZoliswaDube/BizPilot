@@ -258,7 +258,7 @@ export function InventoryList() {
                     </Link>
                   </motion.div>
                   <motion.button
-                    onClick={() => handleDeleteItem(item.id, item.product_id ? item.products?.name || 'Product' : item.name)}
+                    onClick={() => handleDeleteItem(item.id, item.name)}
                     className="text-red-400 hover:text-red-300"
                     title="Delete item"
                     whileHover={{ scale: 1.2 }}

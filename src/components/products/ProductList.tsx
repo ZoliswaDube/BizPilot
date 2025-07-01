@@ -5,15 +5,24 @@ import { Plus, Search, Package, Edit, Trash2, Calculator, Tag, Truck } from 'luc
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../lib/supabase'
 import { formatCurrency, formatPercentage } from '../../utils/calculations'
-import { Database } from '../../lib/supabase'
 
-type ProductRow = Database['public']['Tables']['products']['Row'] & {
+interface Product {
+  id: string
+  name: string
+  total_cost: number | null
+  labor_minutes: number
+  selling_price: number | null
+  profit_margin: number | null
+  created_at: string
+  sku: string | null
+  min_stock_level: number | null
+  reorder_point: number | null
+  location: string | null
+  image_url: string | null
+  barcode: string | null
+  ingredient_count: number
   categories?: { name: string } | null
   suppliers?: { name: string } | null
-}
-
-interface Product extends ProductRow {
-  ingredient_count?: number
 }
 
 export function ProductList() {
@@ -285,28 +294,28 @@ export function ProductList() {
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-400">Total Cost:</span>
                   <span className="font-medium text-gray-100">
-                    {formatCurrency(product.total_cost)}
+                    {formatCurrency(product.total_cost || 0)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-400">Selling Price:</span>
                   <span className="font-medium text-gray-100">
-                    {formatCurrency(product.selling_price)}
+                    {formatCurrency(product.selling_price || 0)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-400">Profit Margin:</span>
                   <span className={`font-medium ${
-                    product.profit_margin >= 30 ? 'text-green-400' : 
-                    product.profit_margin >= 15 ? 'text-yellow-400' : 'text-red-400'
+                    (product.profit_margin || 0) >= 30 ? 'text-green-400' : 
+                    (product.profit_margin || 0) >= 15 ? 'text-yellow-400' : 'text-red-400'
                   }`}>
-                    {formatPercentage(product.profit_margin)}
+                    {formatPercentage(product.profit_margin || 0)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center pt-2 border-t border-dark-700">
                   <span className="text-sm text-gray-400">Profit:</span>
                   <span className="font-bold text-green-400">
-                    {formatCurrency(product.selling_price - product.total_cost)}
+                    {formatCurrency((product.selling_price || 0) - (product.total_cost || 0))}
                   </span>
                 </div>
               </div>
@@ -341,19 +350,19 @@ export function ProductList() {
               { 
                 label: 'Avg. Cost', 
                 value: formatCurrency(
-                  filteredProducts.reduce((sum, p) => sum + p.total_cost, 0) / filteredProducts.length
+                  filteredProducts.reduce((sum, p) => sum + (p.total_cost || 0), 0) / filteredProducts.length
                 )
               },
               { 
                 label: 'Avg. Price', 
                 value: formatCurrency(
-                  filteredProducts.reduce((sum, p) => sum + p.selling_price, 0) / filteredProducts.length
+                  filteredProducts.reduce((sum, p) => sum + (p.selling_price || 0), 0) / filteredProducts.length
                 )
               },
               { 
                 label: 'Avg. Margin', 
                 value: formatPercentage(
-                  filteredProducts.reduce((sum, p) => sum + p.profit_margin, 0) / filteredProducts.length
+                  filteredProducts.reduce((sum, p) => sum + (p.profit_margin || 0), 0) / filteredProducts.length
                 )
               }
             ].map((stat, index) => (
