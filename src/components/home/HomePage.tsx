@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Logo } from '../common/Logo'
@@ -16,15 +15,6 @@ import {
 } from 'lucide-react'
 
 export function HomePage() {
-  const [badgeAnimated, setBadgeAnimated] = useState(false)
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setBadgeAnimated(true)
-    }, 1800)
-    return () => clearTimeout(timer)
-  }, [])
-
   const features = [
     {
       icon: Package,
