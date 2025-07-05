@@ -16,26 +16,83 @@ export function AuthCallback() {
       console.log('🔐 AuthCallback: handleAuthCallback started')
       
       try {
-        const code = searchParams.get('code')
-        const error = searchParams.get('error')
-        const errorDescription = searchParams.get('error_description')
+        // First, check if we have URL fragments (for implicit flow OAuth)
+        const hash = window.location.hash
+        const hashParams = new URLSearchParams(hash.replace('#', ''))
+        const accessToken = hashParams.get('access_token')
+        const refreshToken = hashParams.get('refresh_token')
+        const error = hashParams.get('error')
+        const errorDescription = hashParams.get('error_description')
         
-        console.log('🔐 AuthCallback: URL params', { 
-          hasCode: !!code, 
-          error, 
-          errorDescription,
-          allParams: Object.fromEntries(searchParams.entries())
+        // Also check URL search params (for PKCE flow)
+        const code = searchParams.get('code')
+        const searchError = searchParams.get('error')
+        const searchErrorDescription = searchParams.get('error_description')
+        
+        console.log('🔐 AuthCallback: All params', { 
+          hashParams: Object.fromEntries(hashParams.entries()),
+          searchParams: Object.fromEntries(searchParams.entries()),
+          hasAccessToken: !!accessToken,
+          hasCode: !!code,
+          hasError: !!(error || searchError)
         })
 
-        if (error) {
-          console.log('🔐 AuthCallback: Error in URL params', { error, errorDescription })
+        // Check for errors first
+        if (error || searchError) {
+          console.log('🔐 AuthCallback: Error in params', { 
+            error: error || searchError, 
+            errorDescription: errorDescription || searchErrorDescription 
+          })
           setStatus('error')
-          setMessage(errorDescription || error)
+          setMessage(errorDescription || searchErrorDescription || error || searchError || 'Authentication failed')
           return
         }
 
+        // Handle OAuth implicit flow (access_token in URL fragment)
+        if (accessToken && refreshToken) {
+          console.log('🔐 AuthCallback: Handling OAuth implicit flow with access token')
+          
+          // The session should already be set by Supabase, but let's verify
+          const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+          
+          console.log('🔐 AuthCallback: Session check result', { 
+            hasSession: !!session, 
+            sessionError: sessionError?.message,
+            userId: session?.user?.id
+          })
+          
+          if (sessionError) {
+            console.error('🔐 AuthCallback: Session error', sessionError)
+            setStatus('error')
+            setMessage('Failed to establish session')
+            return
+          }
+
+          if (session) {
+            console.log('🔐 AuthCallback: Session confirmed, redirecting to dashboard')
+            setStatus('success')
+            setMessage('Authentication successful! Redirecting...')
+            
+            // Clear the URL fragments to clean up the URL
+            window.history.replaceState({}, document.title, window.location.pathname)
+            
+            setTimeout(() => {
+              navigate('/dashboard')
+            }, 1500)
+          } else {
+            console.log('🔐 AuthCallback: No session found, redirecting to login')
+            setStatus('error')
+            setMessage('No session found. Please try logging in again.')
+            setTimeout(() => {
+              navigate('/auth')
+            }, 2000)
+          }
+          return
+        }
+
+        // Handle PKCE flow (authorization code)
         if (code) {
-          console.log('🔐 AuthCallback: Exchanging code for session')
+          console.log('🔐 AuthCallback: Handling PKCE flow with authorization code')
           const { data, error } = await supabase.auth.exchangeCodeForSession(code)
           
           console.log('🔐 AuthCallback: exchangeCodeForSession result', { 
@@ -59,46 +116,80 @@ export function AuthCallback() {
           }
 
           if (data.session) {
-            console.log('🔐 AuthCallback: Session received, redirecting to dashboard')
+            console.log('🔐 AuthCallback: Session received from code exchange, redirecting to dashboard')
             setStatus('success')
             setMessage('Authentication successful! Redirecting...')
             setTimeout(() => {
               navigate('/dashboard')
-            }, 2000)
+            }, 1500)
           }
-        } else {
-          // Handle email verification or password reset
-          const type = searchParams.get('type')
-          
-          console.log('🔐 AuthCallback: Handling email verification/password reset', { type })
-          
+          return
+        }
+
+        // Handle email verification or password reset
+        const type = searchParams.get('type')
+        const tokenHash = searchParams.get('token_hash')
+        
+        console.log('🔐 AuthCallback: Handling email verification/password reset', { type, hasTokenHash: !!tokenHash })
+        
+        if (type && tokenHash) {
+          // Handle email verification with token hash
+          const { error: verifyError } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: type as any
+          })
+
+          if (verifyError) {
+            console.error('🔐 AuthCallback: Error verifying token hash', verifyError)
+            setStatus('error')
+            setMessage('Failed to verify email. Please try again.')
+            return
+          }
+
           if (type === 'email_change' || type === 'signup') {
-            console.log('🔐 AuthCallback: Email verification flow')
+            console.log('🔐 AuthCallback: Email verification successful')
             setStatus('success')
             setMessage('Email verified successfully! You can now sign in.')
             setTimeout(() => {
               navigate('/auth')
             }, 3000)
           } else if (type === 'recovery') {
-            console.log('🔐 AuthCallback: Password recovery flow')
+            console.log('🔐 AuthCallback: Password recovery verification successful')
             setStatus('success')
             setMessage('Password reset verified! You can now set a new password.')
             setTimeout(() => {
               navigate('/auth/reset-password')
             }, 2000)
-          } else {
-            console.log('🔐 AuthCallback: Default redirect to dashboard')
-            setStatus('success')
-            setMessage('Redirecting...')
-            setTimeout(() => {
-              navigate('/dashboard')
-            }, 1000)
           }
+          return
+        }
+
+        // If we get here, something unexpected happened
+        console.log('🔐 AuthCallback: No valid params found, checking session')
+        const { data: { session } } = await supabase.auth.getSession()
+        
+        if (session) {
+          console.log('🔐 AuthCallback: Existing session found, redirecting to dashboard')
+          setStatus('success')
+          setMessage('Welcome back! Redirecting...')
+          setTimeout(() => {
+            navigate('/dashboard')
+          }, 1000)
+        } else {
+          console.log('🔐 AuthCallback: No session found, redirecting to auth')
+          setStatus('error')
+          setMessage('Authentication failed. Please try again.')
+          setTimeout(() => {
+            navigate('/auth')
+          }, 2000)
         }
       } catch (err) {
         console.error('🔐 AuthCallback: Unexpected error in handleAuthCallback', err)
         setStatus('error')
         setMessage('An unexpected error occurred during authentication.')
+        setTimeout(() => {
+          navigate('/auth')
+        }, 3000)
       }
     }
 
@@ -221,7 +312,7 @@ export function AuthCallback() {
                 Authentication Failed
               </motion.h2>
               <motion.p 
-                className="text-red-400 mb-4"
+                className="text-red-400 text-sm"
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.6 }}
@@ -229,24 +320,13 @@ export function AuthCallback() {
                 {message}
               </motion.p>
               <motion.div 
-                className="mb-4 p-3 bg-red-900/20 border border-red-500/30 rounded text-sm text-red-200"
+                className="mt-4 p-3 bg-red-900/20 border border-red-500/30 rounded text-sm text-red-200"
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.8 }}
               >
-                <p>💡 Try clearing your browser cache or using an incognito window if the problem persists.</p>
+                <p>Please try signing in again or contact support if the problem persists.</p>
               </motion.div>
-              <motion.button
-                onClick={() => navigate('/auth')}
-                className="btn-primary group"
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 1 }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                Try Again
-              </motion.button>
             </motion.div>
           )}
         </div>
