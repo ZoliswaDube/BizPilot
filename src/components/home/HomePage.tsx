@@ -16,15 +16,6 @@ import {
 } from 'lucide-react'
 
 export function HomePage() {
-  const [badgeAnimated, setBadgeAnimated] = useState(false)
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setBadgeAnimated(true)
-    }, 1800)
-    return () => clearTimeout(timer)
-  }, [])
-
   const features = [
     {
       icon: Package,
