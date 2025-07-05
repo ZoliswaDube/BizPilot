@@ -101,30 +101,7 @@ export function HomePage() {
       </nav>
 
       {/* Hero Section - Futuristic Aurora Hero */}
-      <div className="relative">
-        {/* Custom Badge - Positioned over hero */}
-        <div className="absolute top-4 right-4 z-40">
-        <a 
-          href="https://bolt.new/?rid=os72mi" 
-          target="_blank" 
-          rel="noopener noreferrer" 
-          className="block transition-all duration-300 hover:shadow-2xl"
-        >
-          <img 
-            src="https://storage.bolt.army/white_circle_360x360.png" 
-            alt="Built with Bolt.new badge" 
-            className={`w-16 h-16 md:w-20 md:h-20 rounded-full shadow-lg transition-all duration-300 ${
-              badgeAnimated 
-                ? 'hover:scale-110 hover:rotate-12' 
-                : 'animate-[badgeIntro_0.8s_ease-out_1s_both]'
-            }`}
-            style={{
-              animation: badgeAnimated ? 'none' : undefined
-            }}
-            onAnimationEnd={() => setBadgeAnimated(true)}
-          />
-        </a>
-        </div>
+      <div className="relative">       
         <AuroraHero />
       </div>
 
