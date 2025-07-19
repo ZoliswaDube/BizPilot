@@ -12,10 +12,12 @@ import {
   Menu,
   X,
   Tag, // New icon for Categories
-  Truck // New icon for Suppliers
+  Truck, // New icon for Suppliers
+  Users // New icon for User Management
 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { Logo } from '../common/Logo'
+import { supabase } from '../../lib/supabase'
 
 const navItems = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -28,14 +30,47 @@ const navItems = [
   { name: 'Settings', href: '/settings', icon: Settings },
 ]
 
+// Admin-only nav items
+const adminNavItems = [
+  { name: 'Users', href: '/users', icon: Users },
+]
+
 export function Navigation() {
   const location = useLocation()
   const { signOut, user } = useAuth()
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false)
+  const [isAdmin, setIsAdmin] = React.useState(false)
+
+  // Check if user is admin
+  React.useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (!user) return
+      
+      try {
+        const { data, error } = await supabase
+          .from('business_users')
+          .select('role')
+          .eq('user_id', user.id)
+          .eq('role', 'admin')
+          .single()
+
+        if (!error && data) {
+          setIsAdmin(true)
+        }
+      } catch (err) {
+        console.error('Error checking admin status:', err)
+      }
+    }
+
+    checkAdminStatus()
+  }, [user])
 
   const handleSignOut = async () => {
     await signOut()
   }
+
+  // Combine regular nav items with admin items
+  const allNavItems = [...navItems, ...(isAdmin ? adminNavItems : [])]
 
   return (
     <>
@@ -69,15 +104,15 @@ export function Navigation() {
         )}
       </AnimatePresence>
 
-      {/* Sidebar */}
+      {/* Fixed Sidebar */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-dark-900/95 backdrop-blur-sm border-r border-dark-700 transform transition-transform duration-300
-          ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 lg:transform-none`}
+        className={`fixed inset-y-0 left-0 z-30 w-64 bg-dark-900/95 backdrop-blur-sm border-r border-dark-700 transform transition-transform duration-300 overflow-y-auto
+          ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 lg:transform-none`}
       >
         
         {/* Logo */}
         <motion.div 
-          className="flex items-center h-16 px-6 border-b border-dark-700"
+          className="flex items-center h-16 px-6 border-b border-dark-700 sticky top-0 bg-dark-900/95 backdrop-blur-sm"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.1 }}
@@ -88,7 +123,7 @@ export function Navigation() {
 
         {/* Navigation */}
         <nav className="flex-1 px-4 py-6 space-y-2">
-          {navItems.map((item, index) => {
+          {allNavItems.map((item, index) => {
             const isActive = location.pathname === item.href
             return (
               <motion.div
@@ -119,9 +154,9 @@ export function Navigation() {
           })}
         </nav>
 
-        {/* User info and logout */}
+        {/* User info and logout - Sticky bottom */}
         <motion.div 
-          className="border-t border-dark-700 p-4"
+          className="border-t border-dark-700 p-4 sticky bottom-0 bg-dark-900/95 backdrop-blur-sm"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}

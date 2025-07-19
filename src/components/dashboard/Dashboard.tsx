@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Package, Warehouse, TrendingUp, AlertTriangle, Loader2 } from 'lucide-react'
+import { Package, Warehouse, TrendingUp, AlertTriangle, Loader2, Building2, ArrowRight } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { useInventory } from '../../hooks/useInventory' // New import
+import { useBusiness } from '../../hooks/useBusiness' // New import
 import { supabase } from '../../lib/supabase'
 import { formatPercentage } from '../../utils/calculations'
 import { DashboardCharts } from './DashboardCharts'
@@ -19,6 +20,7 @@ interface DashboardStats {
 export function Dashboard() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { business, loading: businessLoading } = useBusiness() // New business hook
   const { inventory, loading: inventoryLoading, error: inventoryError } = useInventory() // Use useInventory hook
 
   const [stats, setStats] = useState<DashboardStats>({
@@ -31,10 +33,10 @@ export function Dashboard() {
   const [productError, setProductError] = useState('') // Separate error for products
 
   useEffect(() => {
-    if (user) {
+    if (user && business) {
       fetchProductStats()
     }
-  }, [user])
+  }, [user, business])
 
   useEffect(() => {
     // Update inventory stats when inventory data changes
@@ -54,7 +56,7 @@ export function Dashboard() {
 
 
   const fetchProductStats = async () => {
-    if (!user) return
+    if (!user || !business) return
 
     try {
       setLoadingProducts(true)
@@ -64,7 +66,7 @@ export function Dashboard() {
       const { data: products, error: productsError } = await supabase
         .from('products')
         .select('profit_margin')
-        .eq('user_id', user.id)
+        .eq('business_id', business.id)
 
       if (productsError) throw productsError
 
@@ -89,8 +91,76 @@ export function Dashboard() {
     }
   }
 
-  const overallLoading = loadingProducts || inventoryLoading
+  const overallLoading = businessLoading || loadingProducts || inventoryLoading
   const overallError = productError || inventoryError
+
+  // Show business setup for new users
+  if (!businessLoading && !business) {
+    return (
+      <motion.div 
+        className="min-h-screen bg-dark-950 flex items-center justify-center px-4"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
+        <motion.div 
+          className="max-w-md w-full"
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        >
+          <div className="text-center mb-8">
+            <motion.div
+              className="mx-auto w-16 h-16 bg-gradient-to-br from-primary-600 to-accent-600 rounded-full flex items-center justify-center mb-4"
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.2, type: "spring", stiffness: 300, damping: 30 }}
+            >
+              <Building2 className="h-8 w-8 text-white" />
+            </motion.div>
+            
+            <motion.h1 
+              className="text-2xl font-bold text-gray-100 mb-2"
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.3 }}
+            >
+              Welcome to BizPilot!
+            </motion.h1>
+            
+            <motion.p 
+              className="text-gray-400"
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.4 }}
+            >
+              Let's set up your business to get started
+            </motion.p>
+          </div>
+
+          <motion.div 
+            className="bg-dark-900 rounded-xl shadow-xl border border-dark-700 p-8"
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.5 }}
+          >
+            <motion.button
+              onClick={() => navigate('/business/new')}
+              className="w-full bg-gradient-to-r from-primary-600 to-accent-600 hover:from-primary-700 hover:to-accent-700 text-white font-medium py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2"
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.6 }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <span>Set Up Your Business</span>
+              <ArrowRight className="h-5 w-5" />
+            </motion.button>
+          </motion.div>
+        </motion.div>
+      </motion.div>
+    )
+  }
 
   if (overallLoading) {
     return (

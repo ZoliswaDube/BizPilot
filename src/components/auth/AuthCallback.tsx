@@ -49,9 +49,20 @@ export function AuthCallback() {
     console.log('🔐 AuthCallback: handleAuthCallback started')
     
     // Set a timeout for the entire auth process
-    timeoutRef.current = setTimeout(handleTimeout, 15000) // 15 second timeout
+    timeoutRef.current = setTimeout(handleTimeout, 10000) // Reduced to 10 second timeout
     
     try {
+      // First, check if we already have a session (user might be already authenticated)
+      const { data: { session: existingSession } } = await supabase.auth.getSession()
+      if (existingSession) {
+        console.log('🔐 AuthCallback: User already has a session, redirecting to dashboard')
+        clearTimeout(timeoutRef.current!)
+        setStatus('success')
+        setMessage('Welcome back! Redirecting...')
+        navigate('/dashboard')
+        return
+      }
+      
       // First, check if we have URL fragments (for implicit flow OAuth)
       const hash = window.location.hash
       const hashParams = new URLSearchParams(hash.replace('#', ''))
@@ -97,6 +108,9 @@ export function AuthCallback() {
         console.log('🔐 AuthCallback: Handling OAuth implicit flow with access token')
         
         try {
+          // Clear timeout immediately since we're processing
+          clearTimeout(timeoutRef.current!)
+          
           // Manually set the session using the access token
           const { data, error } = await supabase.auth.setSession({
             access_token: accessToken,
@@ -112,7 +126,6 @@ export function AuthCallback() {
           
           if (error) {
             console.error('🔐 AuthCallback: Error setting session', error)
-            clearTimeout(timeoutRef.current!)
             
             // Redirect to error page
             const errorParams = new URLSearchParams({
@@ -126,19 +139,16 @@ export function AuthCallback() {
 
           if (data.session) {
             console.log('🔐 AuthCallback: Session set successfully, redirecting to dashboard')
-            clearTimeout(timeoutRef.current!)
             setStatus('success')
             setMessage('Authentication successful! Redirecting...')
             
             // Clear the URL fragments to clean up the URL
             window.history.replaceState({}, document.title, window.location.pathname)
             
-            setTimeout(() => {
-              navigate('/dashboard')
-            }, 1500)
+            // Redirect immediately instead of waiting
+            navigate('/dashboard')
           } else {
             console.log('🔐 AuthCallback: No session after setSession, redirecting to login')
-            clearTimeout(timeoutRef.current!)
             setStatus('error')
             setMessage('No session found. Please try logging in again.')
             setTimeout(() => {
@@ -147,7 +157,6 @@ export function AuthCallback() {
           }
         } catch (err) {
           console.error('🔐 AuthCallback: Error in OAuth flow', err)
-          clearTimeout(timeoutRef.current!)
           
           // Redirect to error page
           const errorParams = new URLSearchParams({
@@ -165,6 +174,9 @@ export function AuthCallback() {
         console.log('🔐 AuthCallback: Handling PKCE flow with authorization code')
         
         try {
+          // Clear timeout immediately since we're processing
+          clearTimeout(timeoutRef.current!)
+          
           const { data, error } = await supabase.auth.exchangeCodeForSession(code)
           
           console.log('🔐 AuthCallback: exchangeCodeForSession result', { 
@@ -182,7 +194,6 @@ export function AuthCallback() {
           
           if (error) {
             console.error('🔐 AuthCallback: Error exchanging code for session', error)
-            clearTimeout(timeoutRef.current!)
             
             // Redirect to error page
             const errorParams = new URLSearchParams({
@@ -196,15 +207,12 @@ export function AuthCallback() {
 
           if (data.session) {
             console.log('🔐 AuthCallback: Session received from code exchange, redirecting to dashboard')
-            clearTimeout(timeoutRef.current!)
             setStatus('success')
             setMessage('Authentication successful! Redirecting...')
-            setTimeout(() => {
-              navigate('/dashboard')
-            }, 1500)
+            // Redirect immediately instead of waiting
+            navigate('/dashboard')
           } else {
             console.log('🔐 AuthCallback: No session after code exchange')
-            clearTimeout(timeoutRef.current!)
             setStatus('error')
             setMessage('Failed to establish session. Please try again.')
             retryTimeoutRef.current = setTimeout(() => {
@@ -213,7 +221,6 @@ export function AuthCallback() {
           }
         } catch (err) {
           console.error('🔐 AuthCallback: Error in PKCE flow', err)
-          clearTimeout(timeoutRef.current!)
           
           // Redirect to error page
           const errorParams = new URLSearchParams({
@@ -351,6 +358,15 @@ export function AuthCallback() {
   }
 
   useEffect(() => {
+    console.log('🔐 AuthCallback: Component mounted', {
+      currentUrl: window.location.href,
+      pathname: window.location.pathname,
+      search: window.location.search,
+      hash: window.location.hash,
+      hostname: window.location.hostname,
+      port: window.location.port
+    })
+    
     handleAuthCallback()
   }, [navigate, searchParams, retryCount])
 

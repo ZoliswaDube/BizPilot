@@ -1,22 +1,31 @@
 import React from 'react'
 
-interface NumberInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+interface NumberInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'onChange'> {
+  value: string | number
+  onChange: (value: string) => void
+  onBlur?: () => void
+  min?: number
+  max?: number
   step?: number
+  placeholder?: string
+  className?: string
 }
 
 /**
  * Reusable numeric input that
+ *  - allows decimal inputs properly
  *  - keeps the original styling (forwards className)
- *  - disables mouse-wheel value changes
  *  - shows + / – buttons to increment / decrement by `step` (default 1)
  */
 export const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(({
-  step = 1,
-  className = '',
   value,
   onChange,
+  onBlur,
   min,
   max,
+  step = 1,
+  placeholder,
+  className = '',
   ...rest
 }, ref) => {
   const currentVal = typeof value === 'number' ? value : parseFloat(String(value ?? ''))
@@ -27,30 +36,67 @@ export const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
     return val
   }
 
-  const emitChange = (val: number) => {
-    if (!onChange) return
-    const e = {
-      target: { value: String(val) },
-      currentTarget: { value: String(val) }
-    } as unknown as React.ChangeEvent<HTMLInputElement>
-    onChange(e)
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const inputValue = e.target.value
+    
+    // Allow empty string, numbers, decimals, and negative numbers
+    if (inputValue === '' || /^-?\d*\.?\d*$/.test(inputValue)) {
+      onChange(inputValue)
+    }
   }
 
-  const inc = () => emitChange(clamp((isNaN(currentVal) ? 0 : currentVal) + step))
-  const dec = () => emitChange(clamp((isNaN(currentVal) ? 0 : currentVal) - step))
+  const handleBlur = () => {
+    const numValue = parseFloat(value.toString())
+    
+    if (!isNaN(numValue)) {
+      // Apply min/max constraints
+      let constrainedValue = numValue
+      if (typeof min === 'number') constrainedValue = Math.max(constrainedValue, min)
+      if (typeof max === 'number') constrainedValue = Math.min(constrainedValue, max)
+      
+      // Format to appropriate decimal places based on step
+      const decimalPlaces = step.toString().includes('.') 
+        ? step.toString().split('.')[1].length 
+        : 0
+      
+      const formattedValue = constrainedValue.toFixed(decimalPlaces)
+      onChange(formattedValue)
+    } else {
+      // If not a valid number, clear the field
+      onChange('')
+    }
+    
+    onBlur?.()
+  }
+
+  const inc = () => {
+    const newValue = clamp((isNaN(currentVal) ? 0 : currentVal) + step)
+    const decimalPlaces = step.toString().includes('.') 
+      ? step.toString().split('.')[1].length 
+      : 0
+    onChange(newValue.toFixed(decimalPlaces))
+  }
+  
+  const dec = () => {
+    const newValue = clamp((isNaN(currentVal) ? 0 : currentVal) - step)
+    const decimalPlaces = step.toString().includes('.') 
+      ? step.toString().split('.')[1].length 
+      : 0
+    onChange(newValue.toFixed(decimalPlaces))
+  }
 
   return (
     <div className="relative w-full">
-      {/* Native input */}
+      {/* Text input for better decimal handling */}
       <input
         ref={ref}
-        type="number"
+        type="text"
+        inputMode="decimal"
         value={value}
-        onChange={onChange}
-        onWheel={e => (e.target as HTMLInputElement).blur()} // disable wheel increment
+        onChange={handleChange}
+        onBlur={handleBlur}
+        placeholder={placeholder}
         className={`${className} pr-10`} // leave space for buttons
-        min={min}
-        max={max}
         {...rest}
       />
       {/* Buttons */}

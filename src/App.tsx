@@ -21,6 +21,8 @@ import { QRGenerator } from './components/qr/QRGenerator' // New import
 import { PricingPage } from './components/pricing/PricingPage' // New import
 import { CheckoutPage } from './components/checkout/CheckoutPage' // New import
 import { ContactForm } from './components/contact/ContactForm' // New import
+import { BusinessForm } from './components/business/BusinessForm' // New import
+import { UserManagement } from './components/users/UserManagement' // New import
 
 function App() {
   return (
@@ -135,6 +137,28 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <UserSettings />
+                </Layout>
+              </ProtectedRoute>
+            } />
+
+            {/* Business management routes */}
+            <Route path="/business/new" element={
+              <ProtectedRoute>
+                <BusinessForm />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/business/edit/:id" element={
+              <ProtectedRoute>
+                <BusinessForm />
+              </ProtectedRoute>
+            } />
+
+            {/* User management routes */}
+            <Route path="/users" element={
+              <ProtectedRoute>
+                <Layout>
+                  <UserManagement />
                 </Layout>
               </ProtectedRoute>
             } />
