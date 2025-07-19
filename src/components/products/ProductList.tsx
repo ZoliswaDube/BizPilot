@@ -5,6 +5,7 @@ import { Plus, Search, Package, Edit, Trash2, Calculator, Tag, Truck } from 'luc
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../lib/supabase'
 import { formatCurrency, formatPercentage } from '../../utils/calculations'
+import { ImageDisplay } from '../ui/image-display'
 
 interface Product {
   id: string
@@ -280,15 +281,15 @@ export function ProductList() {
                 </div>
               </div>
 
-              {product.image_url && (
-                <motion.div 
-                  className="mb-3"
-                  whileHover={{ scale: 1.05 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                >
-                  <img src={product.image_url} alt={product.name} className="w-full h-32 object-cover rounded-md" />
-                </motion.div>
-              )}
+              <div className="mb-3">
+                <ImageDisplay
+                  src={product.image_url}
+                  alt={product.name}
+                  size="lg"
+                  showZoom={true}
+                  className="w-full h-32"
+                />
+              </div>
 
               <div className="space-y-2">
                 <div className="flex justify-between items-center">

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
 import { useUserSettings } from './useUserSettings'
 import { Database } from '../lib/supabase'
+import OpenAI from 'openai'
 
 type AIConversation = Database['public']['Tables']['ai_conversations']['Row']
 type AIMessage = Database['public']['Tables']['ai_messages']['Row']
@@ -219,15 +220,75 @@ export function useAIChat() {
   }
 
   const generateAIResponse = async (): Promise<string> => {
-    // TODO: Replace with actual OpenAI API integration
-    // This function should:
-    // 1. Send userMessage and context to OpenAI API
-    // 2. Include business context in the prompt for personalized responses
-    // 3. Handle API errors gracefully
-    // 4. Return AI-generated response based on user's real business data
-    
-    // Temporary placeholder response until AI integration is complete
-    return `I'm your AI business assistant and I'd be happy to help you with insights about your business. However, the AI integration is currently being set up. Please check back soon for personalized business insights based on your actual data.`
+    try {
+      // Initialize DeepSeek client
+      const client = new OpenAI({
+        baseURL: 'https://api.deepseek.com',
+        apiKey: import.meta.env.VITE_DEEPSEEK_API_KEY,
+        dangerouslyAllowBrowser: true
+      })
+
+      // Get business context for personalized responses
+      const businessContext = await getBusinessContext()
+      
+      // Get recent messages for context
+      const recentMessages = messages.slice(-5) // Last 5 messages for context
+      
+      // Build conversation history
+      const conversationHistory = recentMessages.map(msg => ({
+        role: msg.is_user ? 'user' as const : 'assistant' as const,
+        content: msg.content
+      }))
+
+      // Create system prompt with business context
+      const systemPrompt = `You are an AI business assistant for ${businessContext.businessName || 'this business'}. You have access to real business data and should provide personalized insights and recommendations.
+
+Business Context:
+- Total Products: ${businessContext.totalProducts}
+- Total Inventory Items: ${businessContext.totalInventoryItems}
+- Low Stock Items: ${businessContext.lowStockItems}
+- Average Profit Margin: ${(businessContext.avgMargin * 100).toFixed(1)}%
+- Hourly Rate: $${businessContext.hourlyRate}
+
+You should:
+1. Provide specific, actionable business advice based on this data
+2. Help with pricing strategies, cost analysis, and inventory management
+3. Give insights about profitability and business optimization
+4. Be concise but thorough in your responses
+5. Always relate advice back to the actual business metrics when relevant
+
+If asked about data you don't have access to, suggest what additional information would be helpful.`
+
+      // Make API call to DeepSeek
+      const completion = await client.chat.completions.create({
+        model: 'deepseek-chat',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...conversationHistory
+        ],
+        temperature: 0.7,
+        max_tokens: 1000,
+        stream: false
+      })
+
+      return completion.choices[0]?.message?.content || 'I apologize, but I encountered an issue generating a response. Please try again.'
+      
+    } catch (error) {
+      console.error('DeepSeek API Error:', error)
+      
+      // Provide helpful error messages
+      if (error instanceof Error) {
+        if (error.message.includes('API key')) {
+          return 'I\'m having trouble connecting to the AI service due to an API key issue. Please check the configuration and try again.'
+        } else if (error.message.includes('rate limit')) {
+          return 'I\'m currently experiencing high demand. Please wait a moment and try again.'
+        } else if (error.message.includes('network')) {
+          return 'I\'m having trouble connecting to the AI service. Please check your internet connection and try again.'
+        }
+      }
+      
+      return 'I encountered an unexpected error while processing your request. Please try again, and if the problem persists, the AI service may be temporarily unavailable.'
+    }
   }
 
   const deleteConversation = async (conversationId: string) => {

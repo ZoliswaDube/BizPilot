@@ -134,7 +134,9 @@ export function EmailAuthForm({ mode, onModeChange, onSuccess }: EmailAuthFormPr
     
     const message = error.message || error.toString()
     
-    if (message.includes('Invalid login credentials')) {
+    if (message.includes('AUTH_IN_PROGRESS')) {
+      setError('Authentication already in progress. Please wait a moment.')
+    } else if (message.includes('Invalid login credentials')) {
       setError('Invalid email or password. Please check your credentials and try again.')
     } else if (message.includes('Email rate limit exceeded')) {
       setError('Too many attempts. Please wait a few minutes before trying again.')
@@ -145,8 +147,9 @@ export function EmailAuthForm({ mode, onModeChange, onSuccess }: EmailAuthFormPr
           <button
             onClick={handleResendVerification}
             className="text-primary-400 hover:text-primary-300 text-sm underline"
+            disabled={loading}
           >
-            Resend verification email
+            {loading ? 'Sending...' : 'Resend verification email'}
           </button>
         </div>
       )

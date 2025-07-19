@@ -1,390 +1,563 @@
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-if (!supabaseUrl || !supabaseKey) {
+if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables')
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-// Auth configuration for OAuth providers
-export const getURL = () => {
-  let url =
-    import.meta.env.VITE_SITE_URL ?? // Set this to your site URL in production env.
-    import.meta.env.VITE_VERCEL_URL ?? // Automatically set by Vercel.
-    'https://profitpilotpro.net' // Production URL as fallback
-  
-  // Make sure to include `https://` when not localhost.
-  url = url.includes('http') ? url : `https://${url}`
-  
-  // Make sure to include trailing `/` only if it's not already there.
-  url = url.charAt(url.length - 1) === '/' ? url : `${url}/`
-  
-  console.log('🔗 getURL(): Generated URL:', url)
-  return url
-}
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
 
-// Database types
-export interface Database {
+export type Database = {
   public: {
     Tables: {
-      products: {
+      ai_conversations: {
         Row: {
-          id: string
-          user_id: string
-          name: string
-          total_cost: number
-          labor_minutes: number
-          selling_price: number
-          profit_margin: number
+          business_id: string | null
           created_at: string
-          sku: string | null
-          min_stock_level: number | null
-          reorder_point: number | null
-          location: string | null
-          supplier_id: string | null
-          image_url: string | null
-          barcode: string | null
-          category_id: string | null
+          id: string
+          title: string | null
+          updated_at: string
+          user_id: string
         }
         Insert: {
-          id?: string
-          user_id: string
-          name: string
-          total_cost?: number
-          labor_minutes?: number
-          selling_price?: number
-          profit_margin?: number
+          business_id?: string | null
           created_at?: string
-          sku?: string | null
-          min_stock_level?: number | null
-          reorder_point?: number | null
-          location?: string | null
-          supplier_id?: string | null
-          image_url?: string | null
-          barcode?: string | null
-          category_id?: string | null
+          id?: string
+          title?: string | null
+          updated_at?: string
+          user_id: string
         }
         Update: {
-          id?: string
-          user_id?: string
-          name?: string
-          total_cost?: number
-          labor_minutes?: number
-          selling_price?: number
-          profit_margin?: number
+          business_id?: string | null
           created_at?: string
-          sku?: string | null
-          min_stock_level?: number | null
-          reorder_point?: number | null
-          location?: string | null
-          supplier_id?: string | null
-          image_url?: string | null
-          barcode?: string | null
-          category_id?: string | null
+          id?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+      }
+      ai_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          is_user: boolean
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          is_user: boolean
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          is_user?: boolean
+        }
+      }
+      business_users: {
+        Row: {
+          accepted_at: string | null
+          business_id: string
+          created_at: string
+          id: string
+          invited_at: string | null
+          invited_by: string | null
+          is_active: boolean | null
+          role: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          business_id: string
+          created_at?: string
+          id?: string
+          invited_at?: string | null
+          invited_by?: string | null
+          is_active?: boolean | null
+          role?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          accepted_at?: string | null
+          business_id?: string
+          created_at?: string
+          id?: string
+          invited_at?: string | null
+          invited_by?: string | null
+          is_active?: boolean | null
+          role?: string
+          updated_at?: string
+          user_id?: string
+        }
+      }
+      businesses: {
+        Row: {
+          address: string | null
+          created_at: string
+          description: string | null
+          email: string | null
+          id: string
+          logo_url: string | null
+          name: string
+          phone: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          description?: string | null
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          name: string
+          phone?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          description?: string | null
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          phone?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+      }
+      categories: {
+        Row: {
+          attributes: Json | null
+          business_id: string | null
+          created_at: string | null
+          id: string
+          name: string
+          parent_id: string | null
+          user_id: string
+        }
+        Insert: {
+          attributes?: Json | null
+          business_id?: string | null
+          created_at?: string | null
+          id?: string
+          name: string
+          parent_id?: string | null
+          user_id: string
+        }
+        Update: {
+          attributes?: Json | null
+          business_id?: string | null
+          created_at?: string | null
+          id?: string
+          name?: string
+          parent_id?: string | null
+          user_id?: string
         }
       }
       ingredients: {
         Row: {
-          id: string
-          product_id: string
-          name: string
           cost: number
+          id: string
+          name: string
+          product_id: string | null
           quantity: number
           unit: string
         }
         Insert: {
+          cost?: number
           id?: string
-          product_id: string
           name: string
-          cost: number
-          quantity: number
-          unit: string
+          product_id?: string | null
+          quantity?: number
+          unit?: string
         }
         Update: {
-          id?: string
-          product_id?: string
-          name?: string
           cost?: number
+          id?: string
+          name?: string
+          product_id?: string | null
           quantity?: number
           unit?: string
         }
       }
       inventory: {
         Row: {
-          id: string
-          user_id: string
-          name: string
-          current_quantity: number
-          unit: string
-          low_stock_alert: number
-          cost_per_unit: number
-          updated_at: string
-          product_id: string | null
           batch_lot_number: string | null
-          expiration_date: string | null
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          name: string
-          current_quantity: number
-          unit: string
-          low_stock_alert?: number
+          business_id: string | null
           cost_per_unit: number
-          updated_at?: string
-          product_id?: string | null
-          batch_lot_number?: string | null
-          expiration_date?: string | null
+          current_quantity: number
+          expiration_date: string | null
+          id: string
+          low_stock_alert: number | null
+          name: string
+          product_id: string | null
+          unit: string
+          updated_at: string | null
+          user_id: string | null
         }
-        Update: {
-          id?: string
-          user_id?: string
-          name?: string
-          current_quantity?: number
-          unit?: string
-          low_stock_alert?: number
+        Insert: {
+          batch_lot_number?: string | null
+          business_id?: string | null
           cost_per_unit?: number
-          updated_at?: string
-          product_id?: string | null
-          batch_lot_number?: string | null
+          current_quantity?: number
           expiration_date?: string | null
-        }
-      }
-      user_settings: {
-        Row: {
-          id: string
-          user_id: string
-          business_name: string | null
-          hourly_rate: number
-          default_margin: number
-        }
-        Insert: {
           id?: string
-          user_id: string
-          business_name?: string | null
-          hourly_rate?: number
-          default_margin?: number
+          low_stock_alert?: number | null
+          name: string
+          product_id?: string | null
+          unit?: string
+          updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
+          batch_lot_number?: string | null
+          business_id?: string | null
+          cost_per_unit?: number
+          current_quantity?: number
+          expiration_date?: string | null
           id?: string
-          user_id?: string
-          business_name?: string | null
-          hourly_rate?: number
-          default_margin?: number
-        }
-      }
-      categories: {
-        Row: {
-          id: string
-          user_id: string
-          name: string
-          parent_id: string | null
-          attributes: Record<string, any> | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          name: string
-          parent_id?: string | null
-          attributes?: Record<string, any> | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
+          low_stock_alert?: number | null
           name?: string
-          parent_id?: string | null
-          attributes?: Record<string, any> | null
-          created_at?: string
-        }
-      }
-      suppliers: {
-        Row: {
-          id: string
-          user_id: string
-          name: string
-          contact_person: string | null
-          email: string | null
-          phone: string | null
-          address: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          name: string
-          contact_person?: string | null
-          email?: string | null
-          phone?: string | null
-          address?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          name?: string
-          contact_person?: string | null
-          email?: string | null
-          phone?: string | null
-          address?: string | null
-          created_at?: string
+          product_id?: string | null
+          unit?: string
+          updated_at?: string | null
+          user_id?: string | null
         }
       }
       inventory_transactions: {
         Row: {
+          business_id: string | null
           id: string
-          user_id: string
           inventory_id: string
-          type: string
-          quantity_change: number
           new_quantity: number
-          transaction_date: string
           notes: string | null
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          inventory_id: string
-          type: string
           quantity_change: number
+          transaction_date: string
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          business_id?: string | null
+          id?: string
+          inventory_id: string
           new_quantity: number
-          transaction_date?: string
           notes?: string | null
+          quantity_change: number
+          transaction_date?: string
+          type: string
+          user_id?: string | null
         }
         Update: {
+          business_id?: string | null
           id?: string
-          user_id?: string
           inventory_id?: string
-          type?: string
-          quantity_change?: number
           new_quantity?: number
-          transaction_date?: string
           notes?: string | null
+          quantity_change?: number
+          transaction_date?: string
+          type?: string
+          user_id?: string | null
         }
       }
-      user_profiles: {
+      products: {
         Row: {
+          barcode: string | null
+          business_id: string | null
+          category_id: string | null
+          created_at: string | null
           id: string
-          user_id: string
-          email: string
-          full_name: string | null
-          avatar_url: string | null
-          provider: string
-          email_verified: boolean
-          created_at: string
-          updated_at: string
+          image_url: string | null
+          labor_minutes: number | null
+          location: string | null
+          min_stock_level: number | null
+          name: string
+          profit_margin: number | null
+          reorder_point: number | null
+          selling_price: number | null
+          sku: string | null
+          supplier_id: string | null
+          total_cost: number | null
+          user_id: string | null
         }
         Insert: {
+          barcode?: string | null
+          business_id?: string | null
+          category_id?: string | null
+          created_at?: string | null
           id?: string
-          user_id: string
-          email: string
-          full_name?: string | null
-          avatar_url?: string | null
-          provider?: string
-          email_verified?: boolean
-          created_at?: string
-          updated_at?: string
+          image_url?: string | null
+          labor_minutes?: number | null
+          location?: string | null
+          min_stock_level?: number | null
+          name: string
+          profit_margin?: number | null
+          reorder_point?: number | null
+          selling_price?: number | null
+          sku?: string | null
+          supplier_id?: string | null
+          total_cost?: number | null
+          user_id?: string | null
         }
         Update: {
+          barcode?: string | null
+          business_id?: string | null
+          category_id?: string | null
+          created_at?: string | null
           id?: string
-          user_id?: string
-          email?: string
-          full_name?: string | null
-          avatar_url?: string | null
-          provider?: string
-          email_verified?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      ai_conversations: {
-        Row: {
-          id: string
-          user_id: string
-          title: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          title?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          title?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      ai_messages: {
-        Row: {
-          id: string
-          conversation_id: string
-          content: string
-          is_user: boolean
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          conversation_id: string
-          content: string
-          is_user: boolean
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          conversation_id?: string
-          content?: string
-          is_user?: boolean
-          created_at?: string
+          image_url?: string | null
+          labor_minutes?: number | null
+          location?: string | null
+          min_stock_level?: number | null
+          name?: string
+          profit_margin?: number | null
+          reorder_point?: number | null
+          selling_price?: number | null
+          sku?: string | null
+          supplier_id?: string | null
+          total_cost?: number | null
+          user_id?: string | null
         }
       }
       qr_codes: {
         Row: {
-          id: string
-          user_id: string
-          name: string
+          business_id: string | null
           business_name: string | null
-          tip_amounts: number[]
-          custom_message: string | null
-          qr_data_url: string | null
-          page_url: string | null
           created_at: string
+          custom_message: string | null
+          id: string
+          name: string
+          page_url: string | null
+          qr_data_url: string | null
+          tip_amounts: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          business_id?: string | null
+          business_name?: string | null
+          created_at?: string
+          custom_message?: string | null
+          id?: string
+          name: string
+          page_url?: string | null
+          qr_data_url?: string | null
+          tip_amounts: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          business_id?: string | null
+          business_name?: string | null
+          created_at?: string
+          custom_message?: string | null
+          id?: string
+          name?: string
+          page_url?: string | null
+          qr_data_url?: string | null
+          tip_amounts?: Json
+          updated_at?: string
+          user_id?: string
+        }
+      }
+      suppliers: {
+        Row: {
+          address: string | null
+          business_id: string | null
+          contact_person: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          name: string
+          phone: string | null
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          business_id?: string | null
+          contact_person?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          business_id?: string | null
+          contact_person?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          user_id?: string
+        }
+      }
+      user_permissions: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          resource: string
+          role_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          resource: string
+          role_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          resource?: string
+          role_id?: string
+        }
+      }
+      user_profiles: {
+        Row: {
+          avatar_url: string | null
+          business_id: string | null
+          created_at: string
+          email: string
+          email_verified: boolean
+          full_name: string | null
+          id: string
+          provider: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          business_id?: string | null
+          created_at?: string
+          email: string
+          email_verified?: boolean
+          full_name?: string | null
+          id?: string
+          provider?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          business_id?: string | null
+          created_at?: string
+          email?: string
+          email_verified?: boolean
+          full_name?: string | null
+          id?: string
+          provider?: string
+          updated_at?: string
+          user_id?: string
+        }
+      }
+      user_roles: {
+        Row: {
+          business_id: string
+          created_at: string
+          description: string | null
+          id: string
+          is_default: boolean | null
+          name: string
           updated_at: string
         }
         Insert: {
-          id?: string
-          user_id: string
-          name: string
-          business_name?: string | null
-          tip_amounts: number[]
-          custom_message?: string | null
-          qr_data_url?: string | null
-          page_url?: string | null
+          business_id: string
           created_at?: string
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          name: string
           updated_at?: string
         }
         Update: {
-          id?: string
-          user_id?: string
-          name?: string
-          business_name?: string | null
-          tip_amounts?: number[]
-          custom_message?: string | null
-          qr_data_url?: string | null
-          page_url?: string | null
+          business_id?: string
           created_at?: string
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          name?: string
           updated_at?: string
         }
       }
+      user_settings: {
+        Row: {
+          business_id: string | null
+          business_name: string | null
+          default_margin: number | null
+          hourly_rate: number | null
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          business_id?: string | null
+          business_name?: string | null
+          default_margin?: number | null
+          hourly_rate?: number | null
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          business_id?: string | null
+          business_name?: string | null
+          default_margin?: number | null
+          hourly_rate?: number | null
+          id?: string
+          user_id?: string | null
+        }
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      create_sample_data_for_user: {
+        Args: { user_uuid: string }
+        Returns: undefined
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
     }
   }
+}
+
+export function getURL() {
+  let url = import.meta.env.VITE_SITE_URL ?? 
+    import.meta.env.VITE_VERCEL_URL ?? 
+    'http://localhost:5173/'
+  
+  // Make sure to include `https://` when not localhost.
+  url = url.includes('http') ? url : `https://${url}`
+  // Make sure to include trailing (/) when not localhost.
+  url = url.charAt(url.length - 1) === '/' ? url : `${url}/`
+  
+  return url
 }

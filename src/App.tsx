@@ -4,6 +4,7 @@ import { AuthProvider } from './components/auth/AuthProvider'
 import { HomePage } from './components/home/HomePage'
 import { AuthForm } from './components/auth/AuthForm'
 import { AuthCallback } from './components/auth/AuthCallback'
+import { AuthErrorPage } from './components/auth/AuthErrorPage'
 import { ResetPasswordForm } from './components/auth/ResetPasswordForm'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
 import { Layout } from './components/layout/Layout'
@@ -20,6 +21,8 @@ import { QRGenerator } from './components/qr/QRGenerator' // New import
 import { PricingPage } from './components/pricing/PricingPage' // New import
 import { CheckoutPage } from './components/checkout/CheckoutPage' // New import
 import { ContactForm } from './components/contact/ContactForm' // New import
+import { BusinessForm } from './components/business/BusinessForm' // New import
+import { UserManagement } from './components/users/UserManagement' // New import
 
 function App() {
   return (
@@ -38,6 +41,7 @@ function App() {
             
             {/* Auth callback routes */}
             <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/auth/error" element={<AuthErrorPage />} />
             <Route path="/auth/reset-password" element={<ResetPasswordForm />} />
             
             {/* Protected routes */}
@@ -133,6 +137,28 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <UserSettings />
+                </Layout>
+              </ProtectedRoute>
+            } />
+
+            {/* Business management routes */}
+            <Route path="/business/new" element={
+              <ProtectedRoute>
+                <BusinessForm />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/business/edit/:id" element={
+              <ProtectedRoute>
+                <BusinessForm />
+              </ProtectedRoute>
+            } />
+
+            {/* User management routes */}
+            <Route path="/users" element={
+              <ProtectedRoute>
+                <Layout>
+                  <UserManagement />
                 </Layout>
               </ProtectedRoute>
             } />

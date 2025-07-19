@@ -164,7 +164,7 @@ export function AIChat() {
   }
 
   return (
-    <div className="h-[calc(100vh-200px)] flex">
+    <div className="h-full flex overflow-hidden">
       {/* Sidebar - Conversation List */}
       <div className="w-80 border-r border-dark-700 flex flex-col">
         <div className="p-4 border-b border-dark-700">
