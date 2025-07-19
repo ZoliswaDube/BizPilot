@@ -14,10 +14,13 @@ export const getURL = () => {
   let url =
     import.meta.env.VITE_SITE_URL ?? // Set this to your site URL in production env.
     import.meta.env.VITE_VERCEL_URL ?? // Automatically set by Vercel.
-    'https://profitpilotpro.net' // Production URL as fallback
+    import.meta.env.VITE_NETLIFY_URL ?? // Automatically set by Netlify.
+    (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173') // Fallback to current origin
   
   // Make sure to include `https://` when not localhost.
-  url = url.includes('http') ? url : `https://${url}`
+  if (!url.includes('http')) {
+    url = url.includes('localhost') ? `http://${url}` : `https://${url}`
+  }
   
   // Make sure to include trailing `/` only if it's not already there.
   url = url.charAt(url.length - 1) === '/' ? url : `${url}/`
@@ -266,37 +269,34 @@ export interface Database {
           notes?: string | null
         }
       }
-      user_profiles: {
+      profiles: {
         Row: {
           id: string
-          user_id: string
-          email: string
+          email: string | null
           full_name: string | null
+          role: string | null
+          phone: string | null
           avatar_url: string | null
-          provider: string
-          email_verified: boolean
           created_at: string
           updated_at: string
         }
         Insert: {
-          id?: string
-          user_id: string
-          email: string
+          id: string
+          email?: string | null
           full_name?: string | null
+          role?: string | null
+          phone?: string | null
           avatar_url?: string | null
-          provider?: string
-          email_verified?: boolean
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
-          user_id?: string
-          email?: string
+          email?: string | null
           full_name?: string | null
+          role?: string | null
+          phone?: string | null
           avatar_url?: string | null
-          provider?: string
-          email_verified?: boolean
           created_at?: string
           updated_at?: string
         }

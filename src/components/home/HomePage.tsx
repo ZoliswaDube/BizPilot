@@ -1,5 +1,7 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { useEffect } from 'react'
+import { useAuth } from '../../hooks/useAuth'
 import { Logo } from '../common/Logo'
 import { AuroraHero } from '../ui/futuristic-hero-section'
 import { 
@@ -15,6 +17,15 @@ import {
 } from 'lucide-react'
 
 export function HomePage() {
+  const { user } = useAuth()
+  const navigate = useNavigate()
+
+  // Redirect authenticated users to dashboard
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [user, navigate]);
   const features = [
     {
       icon: Package,

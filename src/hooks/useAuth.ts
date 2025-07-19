@@ -4,7 +4,7 @@ import * as Sentry from '@sentry/react'
 import { supabase, getURL } from '../lib/supabase'
 import type { Database } from '../lib/supabase'
 
-type UserProfile = Database['public']['Tables']['user_profiles']['Row']
+type UserProfile = Database['public']['Tables']['profiles']['Row']
 
 interface AuthContextType {
   user: User | null
@@ -102,9 +102,9 @@ export function useAuthProvider(): AuthContextType {
     try {
       console.log('🔐 useAuth: Starting profile fetch query...')
       const { data, error } = await supabase
-        .from('user_profiles')
+        .from('profiles')
         .select('*')
-        .eq('user_id', userId)
+        .eq('id', userId)
         .single()
 
       console.log('🔐 useAuth: fetchUserProfile result', { 
@@ -117,8 +117,8 @@ export function useAuthProvider(): AuthContextType {
           id: data.id,
           email: data.email?.substring(0, 3) + '***',
           full_name: data.full_name,
-          provider: data.provider,
-          email_verified: data.email_verified
+          role: data.role,
+          phone: data.phone
         } : null
       })
 
@@ -257,9 +257,9 @@ export function useAuthProvider(): AuthContextType {
     console.log('🔐 useAuth: updateProfile called', { userId: user.id, updates })
     try {
       const { error } = await supabase
-        .from('user_profiles')
+        .from('profiles')
         .update(updates)
-        .eq('user_id', user.id)
+        .eq('id', user.id)
 
       console.log('🔐 useAuth: updateProfile result', { error: error?.message })
 

@@ -71,12 +71,8 @@ export function Navigation() {
 
       {/* Sidebar */}
       <div
-        className="fixed inset-y-0 left-0 z-50 w-64 bg-dark-900/95 backdrop-blur-sm border-r border-dark-700 lg:relative lg:translate-x-0"
-        style={{ 
-          transform: `translateX(${mobileMenuOpen ? '0' : '-100%'})`,
-          transition: 'transform 0.3s ease-in-out',
-          display: mobileMenuOpen || window.innerWidth >= 1024 ? 'block' : 'none' 
-        }}
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-dark-900/95 backdrop-blur-sm border-r border-dark-700 transform transition-transform duration-300
+          ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 lg:transform-none`}
       >
         
         {/* Logo */}
