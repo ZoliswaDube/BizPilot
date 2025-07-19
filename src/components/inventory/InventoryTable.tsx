@@ -1,14 +1,10 @@
-import React, { useState, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Edit, 
   Trash2, 
-  Plus, 
-  Minus, 
   Search, 
   Filter, 
-  Download, 
-  Upload,
   CheckSquare,
   Square,
   AlertTriangle,
@@ -20,8 +16,10 @@ import {
 import { useInventory } from '../../hooks/useInventory'
 import { useBusiness } from '../../hooks/useBusiness'
 import { ManualNumberInput } from '../ui/manual-number-input'
+import { ImageDisplay } from '../ui/image-display'
 import { formatCurrency } from '../../utils/calculations'
 import { Database } from '../../lib/supabase'
+import { BulkEditModal } from './BulkEditModal'
 
 type InventoryItem = Database['public']['Tables']['inventory']['Row'] & {
   products?: { name: string } | null
@@ -31,13 +29,11 @@ type SortField = 'name' | 'current_quantity' | 'cost_per_unit' | 'expiration_dat
 type SortDirection = 'asc' | 'desc'
 
 interface InventoryTableProps {
-  onEdit: (item: InventoryItem) => void
   onDelete: (id: string, name: string) => void
-  onBulkEdit: (items: InventoryItem[]) => void
 }
 
-export function InventoryTable({ onEdit, onDelete, onBulkEdit }: InventoryTableProps) {
-  const { inventory, loading, error, adjustStock, updateInventoryItem } = useInventory()
+export function InventoryTable({ onDelete }: InventoryTableProps) {
+  const { inventory, loading, adjustStock, updateInventoryItem } = useInventory()
   const { userRole, hasPermission } = useBusiness()
   
   // State for table functionality
@@ -50,6 +46,7 @@ export function InventoryTable({ onEdit, onDelete, onBulkEdit }: InventoryTableP
   const [bulkAdjustQuantity, setBulkAdjustQuantity] = useState<number>(0)
   const [bulkAdjustNotes, setBulkAdjustNotes] = useState<string>('')
   const [showBulkActions, setShowBulkActions] = useState(false)
+  const [showBulkEditModal, setShowBulkEditModal] = useState(false)
   const [formError, setFormError] = useState('')
   const [submitLoading, setSubmitLoading] = useState(false)
 
@@ -231,15 +228,26 @@ export function InventoryTable({ onEdit, onDelete, onBulkEdit }: InventoryTableP
         
         <div className="flex gap-2">
           {canEdit && selectedItems.size > 0 && (
-            <motion.button
-              onClick={() => setShowBulkActions(!showBulkActions)}
-              className="btn-secondary flex items-center gap-2"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-            >
-              <Filter className="h-4 w-4" />
-              Bulk Actions ({selectedItems.size})
-            </motion.button>
+            <>
+              <motion.button
+                onClick={() => setShowBulkActions(!showBulkActions)}
+                className="btn-secondary flex items-center gap-2"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+              >
+                <Filter className="h-4 w-4" />
+                Bulk Actions ({selectedItems.size})
+              </motion.button>
+              <motion.button
+                onClick={() => setShowBulkEditModal(true)}
+                className="btn-primary flex items-center gap-2"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+              >
+                <Edit className="h-4 w-4" />
+                Bulk Edit ({selectedItems.size})
+              </motion.button>
+            </>
           )}
         </div>
       </div>
@@ -332,6 +340,7 @@ export function InventoryTable({ onEdit, onDelete, onBulkEdit }: InventoryTableP
                     )}
                   </button>
                 </th>
+                <th className="px-4 py-3 text-left">Image</th>
                 <th className="px-4 py-3 text-left">
                   <button
                     onClick={() => handleSort('name')}
@@ -393,6 +402,14 @@ export function InventoryTable({ onEdit, onDelete, onBulkEdit }: InventoryTableP
                         <Square className="h-4 w-4" />
                       )}
                     </button>
+                  </td>
+                  <td className="px-4 py-3">
+                    <ImageDisplay
+                      src={(item as any).image_url}
+                      alt={item.name}
+                      size="sm"
+                      showZoom={true}
+                    />
                   </td>
                   <td className="px-4 py-3">
                     {editingItem === item.id ? (
@@ -530,6 +547,17 @@ export function InventoryTable({ onEdit, onDelete, onBulkEdit }: InventoryTableP
           </p>
         </motion.div>
       )}
+
+      {/* Bulk Edit Modal */}
+      <BulkEditModal
+        isOpen={showBulkEditModal}
+        onClose={() => setShowBulkEditModal(false)}
+        items={filteredAndSortedInventory.filter(item => selectedItems.has(item.id))}
+        onSuccess={() => {
+          setSelectedItems(new Set())
+          setShowBulkEditModal(false)
+        }}
+      />
     </div>
   )
 } 

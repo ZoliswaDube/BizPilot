@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Users, Shield, Settings, Trash2, Edit, Eye } from 'lucide-react'
+import { Plus, Users, Shield, Trash2, Loader2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { UserForm } from './UserForm'
@@ -9,6 +9,7 @@ import { RoleForm } from './RoleForm'
 interface BusinessUser {
   id: string
   user_id: string
+  business_id: string
   role: string
   is_active: boolean
   invited_at: string
@@ -42,8 +43,7 @@ export function UserManagement() {
   const [loading, setLoading] = useState(true)
   const [showUserForm, setShowUserForm] = useState(false)
   const [showRoleForm, setShowRoleForm] = useState(false)
-  const [editingUser, setEditingUser] = useState<BusinessUser | null>(null)
-  const [editingRole, setEditingRole] = useState<UserRole | null>(null)
+
   const [activeTab, setActiveTab] = useState<'users' | 'roles'>('users')
 
   useEffect(() => {
@@ -99,7 +99,7 @@ export function UserManagement() {
     }
   }
 
-  const handleInviteUser = async (email: string, role: string, permissions: string[]) => {
+  const handleInviteUser = async (email: string, role: string, _permissions: string[]) => {
     try {
       // Create user invitation
       const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
@@ -127,22 +127,6 @@ export function UserManagement() {
       loadData()
     } catch (err) {
       console.error('Error inviting user:', err)
-    }
-  }
-
-  const handleUpdateUser = async (userId: string, role: string, isActive: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('business_users')
-        .update({ role, is_active: isActive })
-        .eq('user_id', userId)
-
-      if (error) throw error
-
-      setEditingUser(null)
-      loadData()
-    } catch (err) {
-      console.error('Error updating user:', err)
     }
   }
 
@@ -333,12 +317,6 @@ export function UserManagement() {
                         
                         <div className="flex space-x-2">
                           <button
-                            onClick={() => setEditingUser(businessUser)}
-                            className="text-blue-400 hover:text-blue-300 transition-colors"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button
                             onClick={() => handleDeleteUser(businessUser.user_id)}
                             className="text-red-400 hover:text-red-300 transition-colors"
                           >
@@ -398,12 +376,7 @@ export function UserManagement() {
                         </div>
                         
                         <div className="flex space-x-2">
-                          <button
-                            onClick={() => setEditingRole(role)}
-                            className="text-blue-400 hover:text-blue-300 transition-colors"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
+                          {/* Role editing functionality can be added later */}
                         </div>
                       </div>
                     </motion.div>

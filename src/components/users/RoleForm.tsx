@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Shield, Save } from 'lucide-react'
+import { X, Save } from 'lucide-react'
 
 interface RoleFormProps {
   onClose: () => void

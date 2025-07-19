@@ -28,7 +28,14 @@ export function BusinessSetup() {
     setError('')
 
     try {
-      await createBusiness(formData)
+      // Normalize URLs - add protocol if missing
+      const normalizedData = {
+        ...formData,
+        website: formData.website ? (formData.website.match(/^https?:\/\//) ? formData.website : `https://${formData.website}`) : '',
+        logo_url: formData.logo_url ? (formData.logo_url.match(/^https?:\/\//) ? formData.logo_url : `https://${formData.logo_url}`) : ''
+      }
+
+      await createBusiness(normalizedData)
       navigate('/dashboard')
     } catch (err) {
       console.error('Error creating business:', err)
@@ -88,10 +95,11 @@ export function BusinessSetup() {
         </div>
 
         <motion.div 
-          className="bg-dark-900 rounded-xl shadow-xl border border-dark-700 p-8"
+          className="bg-dark-900 rounded-xl shadow-xl border border-dark-700 p-8 hover:shadow-2xl hover:shadow-primary-500/10 transition-all duration-300 border-dark-600 hover:border-primary-600/30"
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.5 }}
+          whileHover={{ scale: 1.02, y: -4 }}
         >
           {error && (
             <motion.div 
@@ -112,13 +120,15 @@ export function BusinessSetup() {
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Business Name *
               </label>
-              <input
+              <motion.input
                 type="text"
                 value={formData.name}
                 onChange={(e) => handleInputChange('name', e.target.value)}
                 className="w-full px-4 py-3 bg-dark-800 border border-dark-600 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="Enter your business name"
                 required
+                whileFocus={{ scale: 1.02 }}
+                transition={{ type: "spring", stiffness: 400, damping: 17 }}
               />
             </motion.div>
 
@@ -130,12 +140,14 @@ export function BusinessSetup() {
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Description
               </label>
-              <textarea
+              <motion.textarea
                 value={formData.description}
                 onChange={(e) => handleInputChange('description', e.target.value)}
                 className="w-full px-4 py-3 bg-dark-800 border border-dark-600 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="Brief description of your business"
                 rows={3}
+                whileFocus={{ scale: 1.02 }}
+                transition={{ type: "spring", stiffness: 400, damping: 17 }}
               />
             </motion.div>
 
@@ -147,12 +159,14 @@ export function BusinessSetup() {
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Address
               </label>
-              <input
+              <motion.input
                 type="text"
                 value={formData.address}
                 onChange={(e) => handleInputChange('address', e.target.value)}
                 className="w-full px-4 py-3 bg-dark-800 border border-dark-600 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="Business address"
+                whileFocus={{ scale: 1.02 }}
+                transition={{ type: "spring", stiffness: 400, damping: 17 }}
               />
             </motion.div>
 
@@ -164,12 +178,14 @@ export function BusinessSetup() {
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Phone
               </label>
-              <input
+              <motion.input
                 type="tel"
                 value={formData.phone}
                 onChange={(e) => handleInputChange('phone', e.target.value)}
                 className="w-full px-4 py-3 bg-dark-800 border border-dark-600 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="Business phone number"
+                whileFocus={{ scale: 1.02 }}
+                transition={{ type: "spring", stiffness: 400, damping: 17 }}
               />
             </motion.div>
 
@@ -181,12 +197,14 @@ export function BusinessSetup() {
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Email
               </label>
-              <input
+              <motion.input
                 type="email"
                 value={formData.email}
                 onChange={(e) => handleInputChange('email', e.target.value)}
                 className="w-full px-4 py-3 bg-dark-800 border border-dark-600 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="Business email"
+                whileFocus={{ scale: 1.02 }}
+                transition={{ type: "spring", stiffness: 400, damping: 17 }}
               />
             </motion.div>
 
@@ -198,12 +216,14 @@ export function BusinessSetup() {
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Website
               </label>
-              <input
+              <motion.input
                 type="url"
                 value={formData.website}
                 onChange={(e) => handleInputChange('website', e.target.value)}
                 className="w-full px-4 py-3 bg-dark-800 border border-dark-600 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="Business website"
+                placeholder="Business website (e.g., gastrohub.online)"
+                whileFocus={{ scale: 1.02 }}
+                transition={{ type: "spring", stiffness: 400, damping: 17 }}
               />
             </motion.div>
 
@@ -215,12 +235,14 @@ export function BusinessSetup() {
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Logo URL
               </label>
-              <input
+              <motion.input
                 type="url"
                 value={formData.logo_url}
                 onChange={(e) => handleInputChange('logo_url', e.target.value)}
                 className="w-full px-4 py-3 bg-dark-800 border border-dark-600 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="Logo image URL"
+                placeholder="Logo image URL (e.g., gastrohub.online/logo.png)"
+                whileFocus={{ scale: 1.02 }}
+                transition={{ type: "spring", stiffness: 400, damping: 17 }}
               />
             </motion.div>
 

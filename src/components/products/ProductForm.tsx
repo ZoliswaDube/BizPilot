@@ -15,6 +15,7 @@ import {
 } from '../../utils/calculations'
 import { Database } from '../../lib/supabase'
 import { ManualNumberInput } from '../ui/manual-number-input'
+import { ImageInput } from '../ui/image-input'
 
 type ProductInsert = Database['public']['Tables']['products']['Insert']
 type ProductUpdate = Database['public']['Tables']['products']['Update']
@@ -506,15 +507,15 @@ export function ProductForm() {
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Image URL
+                    Product Image
                   </label>
-                  <input
-                    type="text"
-                    name="imageUrl"
+                  <ImageInput
                     value={formData.imageUrl}
-                    onChange={handleProductFieldChange}
-                    className="input-field"
-                    placeholder="https://example.com/product-image.jpg"
+                    onChange={(value) => setFormData(prev => ({ ...prev, imageUrl: value }))}
+                    onError={(error) => setError(error)}
+                    placeholder="Add product image..."
+                    maxSize={5}
+                    accept="image/*"
                   />
                 </div>
                 <div className="md:col-span-2">

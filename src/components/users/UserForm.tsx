@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, UserPlus, Shield, Check } from 'lucide-react'
+import { X, UserPlus } from 'lucide-react'
 
 interface UserRole {
   id: string
