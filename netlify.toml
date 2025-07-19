@@ -2,6 +2,11 @@
   command = "npm run build"
   publish = "dist"
 
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
 # If you prefer redirects in TOML instead of a _redirects file, uncomment below:
 # [[redirects]]
 #   from = "/*"
