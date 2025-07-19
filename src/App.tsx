@@ -4,6 +4,7 @@ import { AuthProvider } from './components/auth/AuthProvider'
 import { HomePage } from './components/home/HomePage'
 import { AuthForm } from './components/auth/AuthForm'
 import { AuthCallback } from './components/auth/AuthCallback'
+import { AuthErrorPage } from './components/auth/AuthErrorPage'
 import { ResetPasswordForm } from './components/auth/ResetPasswordForm'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
 import { Layout } from './components/layout/Layout'
@@ -38,6 +39,7 @@ function App() {
             
             {/* Auth callback routes */}
             <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/auth/error" element={<AuthErrorPage />} />
             <Route path="/auth/reset-password" element={<ResetPasswordForm />} />
             
             {/* Protected routes */}

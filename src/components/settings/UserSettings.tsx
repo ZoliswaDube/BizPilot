@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Save, Building, TrendingUp, User, Mail, Loader2, CheckCircle, Camera } from 'lucide-react'
-import { useUserSettings } from '../../hooks/useUserSettings'
+import { Save, User, Loader2, CheckCircle, Mail, Camera, Building, TrendingUp } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
+import { useUserSettings } from '../../hooks/useUserSettings'
+import { ManualNumberInput } from '../ui/manual-number-input'
 import { formatCurrency, formatPercentage } from '../../utils/calculations'
 
 export function UserSettings() {
@@ -301,15 +302,19 @@ export function UserSettings() {
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-3 text-gray-500">$</span>
-                    <input
-                      type="number"
+                    <ManualNumberInput
                       id="hourly_rate"
                       name="hourly_rate"
-                      min="0"
-                      step="0.50"
-                      value={businessFormData.hourly_rate}
-                      onChange={handleBusinessInputChange}
-                      className="input-field pl-8 number-input"
+                      min={0}
+                      step={0.50}
+                      value={businessFormData.hourly_rate.toString()}
+                      onChange={(value) => {
+                        const numValue = parseFloat(value) || 0
+                        setBusinessFormData(prev => ({ ...prev, hourly_rate: numValue }))
+                        setBusinessHasChanges(true)
+                        setBusinessSuccess(false)
+                      }}
+                      className="input-field pl-8"
                       placeholder="15.00"
                     />
                   </div>
@@ -323,16 +328,20 @@ export function UserSettings() {
                     Default Profit Margin
                   </label>
                   <div className="relative">
-                    <input
-                      type="number"
+                    <ManualNumberInput
                       id="default_margin"
                       name="default_margin"
-                      min="0"
-                      max="99"
-                      step="0.1"
-                      value={businessFormData.default_margin}
-                      onChange={handleBusinessInputChange}
-                      className="input-field pr-8 number-input"
+                      min={0}
+                      max={99}
+                      step={0.1}
+                      value={businessFormData.default_margin.toString()}
+                      onChange={(value) => {
+                        const numValue = parseFloat(value) || 0
+                        setBusinessFormData(prev => ({ ...prev, default_margin: numValue }))
+                        setBusinessHasChanges(true)
+                        setBusinessSuccess(false)
+                      }}
+                      className="input-field pr-8"
                       placeholder="40.0"
                     />
                     <span className="absolute right-3 top-3 text-gray-500">%</span>

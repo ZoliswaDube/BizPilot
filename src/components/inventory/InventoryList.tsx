@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Search, Edit, Trash2, Loader2, AlertTriangle } from 'lucide-react'
+import { Plus, Edit, Trash2, Loader2, Search, AlertTriangle } from 'lucide-react'
 import { useInventory } from '../../hooks/useInventory'
+import { ManualNumberInput } from '../ui/manual-number-input'
 import { formatCurrency } from '../../utils/calculations'
 import { Database } from '../../lib/supabase'
 
@@ -288,16 +289,13 @@ export function InventoryList() {
                   transition={{ duration: 0.3, ease: "easeInOut" }}
                 >
                   <div className="flex gap-2">
-                    <motion.input
-                      type="number"
-                      step="0.01"
+                    <ManualNumberInput
+                      step={0.01}
+                      value={adjustQuantity === 0 ? '' : adjustQuantity.toString()}
+                      onChange={(value) => setAdjustQuantity(parseFloat(value) || 0)}
                       placeholder="Quantity Change (+/-)"
-                      value={adjustQuantity === 0 ? '' : adjustQuantity}
-                      onChange={(e) => setAdjustQuantity(parseFloat(e.target.value) || 0)}
                       className="input-field flex-grow text-sm"
                       disabled={submitLoading}
-                      whileFocus={{ scale: 1.02 }}
-                      transition={{ type: "spring", stiffness: 400, damping: 17 }}
                     />
                     <motion.button
                       type="submit"

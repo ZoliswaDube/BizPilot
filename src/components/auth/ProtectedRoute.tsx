@@ -11,17 +11,17 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-dark-950">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary-400 mb-4" />
-          <p className="text-gray-400">Loading your account...</p>
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary-600" />
+          <p className="mt-2 text-gray-600">Loading...</p>
         </div>
       </div>
     )
   }
 
   if (!user) {
-    return <Navigate to="/auth" replace />
+    return <Navigate to="/" replace />
   }
 
   return <>{children}</>

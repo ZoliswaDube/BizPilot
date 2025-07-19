@@ -14,6 +14,7 @@ import {
   type Ingredient 
 } from '../../utils/calculations'
 import { Database } from '../../lib/supabase'
+import { ManualNumberInput } from '../ui/manual-number-input'
 
 type ProductInsert = Database['public']['Tables']['products']['Insert']
 type ProductUpdate = Database['public']['Tables']['products']['Update']
@@ -411,12 +412,15 @@ export function ProductForm() {
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Labor Time (minutes)
                   </label>
-                  <input
-                    type="number"
-                    min="0"
+                  <ManualNumberInput
+                    min={0}
+                    step={1}
                     name="laborMinutes"
-                    value={formData.laborMinutes}
-                    onChange={handleProductFieldChange}
+                    value={formData.laborMinutes.toString()}
+                    onChange={(value) => {
+                      const numValue = parseFloat(value) || 0
+                      setFormData(prev => ({ ...prev, laborMinutes: numValue }))
+                    }}
                     className="input-field"
                     placeholder="0"
                   />
@@ -470,13 +474,15 @@ export function ProductForm() {
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Minimum Stock Level
                   </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
+                  <ManualNumberInput
+                    min={0}
+                    step={0.01}
                     name="minStockLevel"
-                    value={formData.minStockLevel}
-                    onChange={handleProductFieldChange}
+                    value={formData.minStockLevel.toString()}
+                    onChange={(value) => {
+                      const numValue = parseFloat(value) || 0
+                      setFormData(prev => ({ ...prev, minStockLevel: numValue }))
+                    }}
                     className="input-field"
                     placeholder="0"
                   />
@@ -485,13 +491,15 @@ export function ProductForm() {
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Reorder Point
                   </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
+                  <ManualNumberInput
+                    min={0}
+                    step={0.01}
                     name="reorderPoint"
-                    value={formData.reorderPoint}
-                    onChange={handleProductFieldChange}
+                    value={formData.reorderPoint.toString()}
+                    onChange={(value) => {
+                      const numValue = parseFloat(value) || 0
+                      setFormData(prev => ({ ...prev, reorderPoint: numValue }))
+                    }}
                     className="input-field"
                     placeholder="0"
                   />
@@ -574,31 +582,31 @@ export function ProductForm() {
                         <label className="block text-xs font-medium text-gray-300 mb-1">
                           Cost
                         </label>
-                        <motion.input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={ingredient.cost}
-                          onChange={(e) => updateIngredient(index, 'cost', parseFloat(e.target.value) || 0)}
-                          className="input-field text-sm number-input"
-                          placeholder="0.00"
-                          whileFocus={{ scale: 1.02 }}
-                        />
+                        <motion.div whileFocus={{ scale: 1.02 }}>
+                          <ManualNumberInput
+                            min={0}
+                            step={0.01}
+                            value={ingredient.cost.toString()}
+                            onChange={(value) => updateIngredient(index, 'cost', parseFloat(value) || 0)}
+                            className="input-field text-sm"
+                            placeholder="0.00"
+                          />
+                        </motion.div>
                       </div>
                       <div className="col-span-2">
                         <label className="block text-xs font-medium text-gray-300 mb-1">
                           Quantity
                         </label>
-                        <motion.input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={ingredient.quantity}
-                          onChange={(e) => updateIngredient(index, 'quantity', parseFloat(e.target.value) || 0)}
-                          className="input-field text-sm number-input"
-                          placeholder="0"
-                          whileFocus={{ scale: 1.02 }}
-                        />
+                        <motion.div whileFocus={{ scale: 1.02 }}>
+                          <ManualNumberInput
+                            min={0}
+                            step={0.01}
+                            value={ingredient.quantity.toString()}
+                            onChange={(value) => updateIngredient(index, 'quantity', parseFloat(value) || 0)}
+                            className="input-field text-sm"
+                            placeholder="0"
+                          />
+                        </motion.div>
                       </div>
                       <div className="col-span-3">
                         <label className="block text-xs font-medium text-gray-300 mb-1">
@@ -648,14 +656,16 @@ export function ProductForm() {
                 <label className="block text-sm font-medium text-gray-300 mb-1">
                   Target Profit Margin (%)
                 </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="99"
-                  step="0.1"
+                <ManualNumberInput
+                  min={0}
+                  max={99}
+                  step={0.1}
                   name="targetMargin"
-                  value={formData.targetMargin}
-                  onChange={handleProductFieldChange}
+                  value={formData.targetMargin.toString()}
+                  onChange={(value) => {
+                    const numValue = parseFloat(value) || 0
+                    setFormData(prev => ({ ...prev, targetMargin: numValue }))
+                  }}
                   className="input-field max-w-xs"
                   placeholder="40"
                 />

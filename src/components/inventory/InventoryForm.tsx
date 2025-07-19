@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Save, ArrowLeft, Loader2 } from 'lucide-react'
-import { useInventory } from '../../hooks/useInventory'
+import { Loader2, Save, ArrowLeft } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
+import { useInventory } from '../../hooks/useInventory'
 import { supabase } from '../../lib/supabase'
 import { Database } from '../../lib/supabase'
+import { ManualNumberInput } from '../ui/manual-number-input'
 
 type InventoryItemInsert = Database['public']['Tables']['inventory']['Insert']
 type InventoryItemUpdate = Database['public']['Tables']['inventory']['Update']
@@ -232,15 +233,17 @@ export function InventoryForm() {
               <label htmlFor="current_quantity" className="block text-sm font-medium text-gray-300 mb-1">
                 Current Quantity *
               </label>
-              <input
-                type="number"
+              <ManualNumberInput
                 id="current_quantity"
                 name="current_quantity"
-                step="0.01"
-                min="0"
+                step={0.01}
+                min={0}
                 className="input-field"
-                value={formData.current_quantity || 0}
-                onChange={handleInputChange}
+                value={(formData.current_quantity || 0).toString()}
+                onChange={(value) => {
+                  const numValue = parseFloat(value) || 0
+                  setFormData(prev => ({ ...prev, current_quantity: numValue }))
+                }}
                 disabled={loading}
                 required
               />
@@ -281,15 +284,17 @@ export function InventoryForm() {
               <label htmlFor="cost_per_unit" className="block text-sm font-medium text-gray-300 mb-1">
                 Cost Per Unit *
               </label>
-              <input
-                type="number"
+              <ManualNumberInput
                 id="cost_per_unit"
                 name="cost_per_unit"
-                step="0.01"
-                min="0"
+                step={0.01}
+                min={0}
                 className="input-field"
-                value={formData.cost_per_unit || 0}
-                onChange={handleInputChange}
+                value={(formData.cost_per_unit || 0).toString()}
+                onChange={(value) => {
+                  const numValue = parseFloat(value) || 0
+                  setFormData(prev => ({ ...prev, cost_per_unit: numValue }))
+                }}
                 disabled={loading}
                 required
               />
@@ -298,15 +303,17 @@ export function InventoryForm() {
               <label htmlFor="low_stock_alert" className="block text-sm font-medium text-gray-300 mb-1">
                 Low Stock Alert Threshold
               </label>
-              <input
-                type="number"
+              <ManualNumberInput
                 id="low_stock_alert"
                 name="low_stock_alert"
-                step="0.01"
-                min="0"
+                step={0.01}
+                min={0}
                 className="input-field"
-                value={formData.low_stock_alert || 0}
-                onChange={handleInputChange}
+                value={(formData.low_stock_alert || 0).toString()}
+                onChange={(value) => {
+                  const numValue = parseFloat(value) || 0
+                  setFormData(prev => ({ ...prev, low_stock_alert: numValue }))
+                }}
                 disabled={loading}
               />
             </div>

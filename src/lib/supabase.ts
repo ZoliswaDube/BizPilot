@@ -11,21 +11,36 @@ export const supabase = createClient(supabaseUrl, supabaseKey)
 
 // Auth configuration for OAuth providers
 export const getURL = () => {
-  let url =
-    import.meta.env.VITE_SITE_URL ?? // Set this to your site URL in production env.
-    import.meta.env.VITE_VERCEL_URL ?? // Automatically set by Vercel.
-    import.meta.env.VITE_NETLIFY_URL ?? // Automatically set by Netlify.
-    (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173') // Fallback to current origin
+  // Check if we're in development mode
+  const isDevelopment = import.meta.env.DEV || 
+    window.location.hostname === 'localhost' || 
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname.includes('localhost')
   
-  // Make sure to include `https://` when not localhost.
-  if (!url.includes('http')) {
-    url = url.includes('localhost') ? `http://${url}` : `https://${url}`
+  let url = ''
+  
+  if (isDevelopment) {
+    // Use the current URL for development to handle different ports
+    const protocol = window.location.protocol
+    const hostname = window.location.hostname
+    const port = window.location.port
+    url = `${protocol}//${hostname}${port ? `:${port}` : ''}`
+    console.log('🔗 getURL(): Development mode detected, using current URL:', url)
+  } else {
+    // Use environment variables or production URL for production
+    url =
+      import.meta.env.VITE_SITE_URL ?? // Set this to your site URL in production env.
+      import.meta.env.VITE_VERCEL_URL ?? // Automatically set by Vercel.
+      'https://profitpilotpro.net' // Production URL as fallback
+    
+    // Make sure to include `https://` when not localhost.
+    url = url.includes('http') ? url : `https://${url}`
   }
   
   // Make sure to include trailing `/` only if it's not already there.
   url = url.charAt(url.length - 1) === '/' ? url : `${url}/`
   
-  console.log('🔗 getURL(): Generated URL:', url)
+  console.log('🔗 getURL(): Final generated URL:', url)
   return url
 }
 
@@ -269,34 +284,37 @@ export interface Database {
           notes?: string | null
         }
       }
-      profiles: {
+      user_profiles: {
         Row: {
           id: string
-          email: string | null
+          user_id: string
+          email: string
           full_name: string | null
-          role: string | null
-          phone: string | null
           avatar_url: string | null
+          provider: string
+          email_verified: boolean
           created_at: string
           updated_at: string
         }
         Insert: {
-          id: string
-          email?: string | null
+          id?: string
+          user_id: string
+          email: string
           full_name?: string | null
-          role?: string | null
-          phone?: string | null
           avatar_url?: string | null
+          provider?: string
+          email_verified?: boolean
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
-          email?: string | null
+          user_id?: string
+          email?: string
           full_name?: string | null
-          role?: string | null
-          phone?: string | null
           avatar_url?: string | null
+          provider?: string
+          email_verified?: boolean
           created_at?: string
           updated_at?: string
         }

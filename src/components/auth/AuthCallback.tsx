@@ -1,75 +1,132 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Loader2, CheckCircle, XCircle } from 'lucide-react'
+import { Loader2, CheckCircle, XCircle, RefreshCw, AlertCircle } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { Logo } from '../common/Logo'
 
 export function AuthCallback() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
+  const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'timeout'>('loading')
   const [message, setMessage] = useState('')
+  const [retryCount, setRetryCount] = useState(0)
+  const [showRetry, setShowRetry] = useState(false)
+  const timeoutRef = useRef<NodeJS.Timeout>()
+  const retryTimeoutRef = useRef<NodeJS.Timeout>()
 
+  // Clear timeouts on unmount
   useEffect(() => {
-    const handleAuthCallback = async () => {
-      console.log('🔐 AuthCallback: handleAuthCallback started')
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+      if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current)
+    }
+  }, [])
+
+  const handleTimeout = () => {
+    console.log('🔐 AuthCallback: Timeout reached, showing retry option')
+    setStatus('timeout')
+    setMessage('Authentication is taking longer than expected.')
+    setShowRetry(true)
+  }
+
+  const handleRetry = () => {
+    console.log('🔐 AuthCallback: Retrying authentication')
+    setStatus('loading')
+    setMessage('')
+    setShowRetry(false)
+    setRetryCount(prev => prev + 1)
+    
+    // Clear any existing timeouts
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current)
+    
+    // Start the auth process again
+    handleAuthCallback()
+  }
+
+  const handleAuthCallback = async () => {
+    console.log('🔐 AuthCallback: handleAuthCallback started')
+    
+    // Set a timeout for the entire auth process
+    timeoutRef.current = setTimeout(handleTimeout, 15000) // 15 second timeout
+    
+    try {
+      // First, check if we have URL fragments (for implicit flow OAuth)
+      const hash = window.location.hash
+      const hashParams = new URLSearchParams(hash.replace('#', ''))
+      const accessToken = hashParams.get('access_token')
+      const refreshToken = hashParams.get('refresh_token')
+      const error = hashParams.get('error')
+      const errorDescription = hashParams.get('error_description')
       
-      try {
-        // First, check if we have URL fragments (for implicit flow OAuth)
-        const hash = window.location.hash
-        const hashParams = new URLSearchParams(hash.replace('#', ''))
-        const accessToken = hashParams.get('access_token')
-        const refreshToken = hashParams.get('refresh_token')
-        const error = hashParams.get('error')
-        const errorDescription = hashParams.get('error_description')
-        
-        // Also check URL search params (for PKCE flow)
-        const code = searchParams.get('code')
-        const searchError = searchParams.get('error')
-        const searchErrorDescription = searchParams.get('error_description')
-        
-        console.log('🔐 AuthCallback: All params', { 
-          hashParams: Object.fromEntries(hashParams.entries()),
-          searchParams: Object.fromEntries(searchParams.entries()),
-          hasAccessToken: !!accessToken,
-          hasCode: !!code,
-          hasError: !!(error || searchError)
+      // Also check URL search params (for PKCE flow)
+      const code = searchParams.get('code')
+      const searchError = searchParams.get('error')
+      const searchErrorDescription = searchParams.get('error_description')
+      
+      console.log('🔐 AuthCallback: All params', { 
+        hashParams: Object.fromEntries(hashParams.entries()),
+        searchParams: Object.fromEntries(searchParams.entries()),
+        hasAccessToken: !!accessToken,
+        hasCode: !!code,
+        hasError: !!(error || searchError),
+        retryCount
+      })
+
+      // Check for errors first
+      if (error || searchError) {
+        console.log('🔐 AuthCallback: Error in params', { 
+          error: error || searchError, 
+          errorDescription: errorDescription || searchErrorDescription 
         })
+        clearTimeout(timeoutRef.current!)
+        
+        // Redirect to error page with error details
+        const errorParams = new URLSearchParams({
+          error: error || searchError || 'Authentication failed',
+          error_description: errorDescription || searchErrorDescription || 'An unexpected error occurred during authentication.',
+          error_code: 'OAUTH_ERROR'
+        })
+        navigate(`/auth/error?${errorParams.toString()}`)
+        return
+      }
 
-        // Check for errors first
-        if (error || searchError) {
-          console.log('🔐 AuthCallback: Error in params', { 
-            error: error || searchError, 
-            errorDescription: errorDescription || searchErrorDescription 
-          })
-          setStatus('error')
-          setMessage(errorDescription || searchErrorDescription || error || searchError || 'Authentication failed')
-          return
-        }
-
-        // Handle OAuth implicit flow (access_token in URL fragment)
-        if (accessToken && refreshToken) {
-          console.log('🔐 AuthCallback: Handling OAuth implicit flow with access token')
-          
-          // The session should already be set by Supabase, but let's verify
-          const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-          
-          console.log('🔐 AuthCallback: Session check result', { 
-            hasSession: !!session, 
-            sessionError: sessionError?.message,
-            userId: session?.user?.id
+      // Handle OAuth implicit flow (access_token in URL fragment)
+      if (accessToken && refreshToken) {
+        console.log('🔐 AuthCallback: Handling OAuth implicit flow with access token')
+        
+        try {
+          // Manually set the session using the access token
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
           })
           
-          if (sessionError) {
-            console.error('🔐 AuthCallback: Session error', sessionError)
-            setStatus('error')
-            setMessage('Failed to establish session')
+          console.log('🔐 AuthCallback: setSession result', { 
+            hasSession: !!data.session, 
+            hasUser: !!data.user,
+            error: error?.message,
+            userId: data.session?.user?.id
+          })
+          
+          if (error) {
+            console.error('🔐 AuthCallback: Error setting session', error)
+            clearTimeout(timeoutRef.current!)
+            
+            // Redirect to error page
+            const errorParams = new URLSearchParams({
+              error: 'Failed to establish session',
+              error_description: error.message || 'The authentication session could not be established.',
+              error_code: 'SESSION_ERROR'
+            })
+            navigate(`/auth/error?${errorParams.toString()}`)
             return
           }
 
-          if (session) {
-            console.log('🔐 AuthCallback: Session confirmed, redirecting to dashboard')
+          if (data.session) {
+            console.log('🔐 AuthCallback: Session set successfully, redirecting to dashboard')
+            clearTimeout(timeoutRef.current!)
             setStatus('success')
             setMessage('Authentication successful! Redirecting...')
             
@@ -80,19 +137,34 @@ export function AuthCallback() {
               navigate('/dashboard')
             }, 1500)
           } else {
-            console.log('🔐 AuthCallback: No session found, redirecting to login')
+            console.log('🔐 AuthCallback: No session after setSession, redirecting to login')
+            clearTimeout(timeoutRef.current!)
             setStatus('error')
             setMessage('No session found. Please try logging in again.')
             setTimeout(() => {
               navigate('/auth')
             }, 2000)
           }
-          return
+        } catch (err) {
+          console.error('🔐 AuthCallback: Error in OAuth flow', err)
+          clearTimeout(timeoutRef.current!)
+          
+          // Redirect to error page
+          const errorParams = new URLSearchParams({
+            error: 'OAuth authentication failed',
+            error_description: 'Failed to complete the OAuth authentication process.',
+            error_code: 'OAUTH_FLOW_ERROR'
+          })
+          navigate(`/auth/error?${errorParams.toString()}`)
         }
+        return
+      }
 
-        // Handle PKCE flow (authorization code)
-        if (code) {
-          console.log('🔐 AuthCallback: Handling PKCE flow with authorization code')
+      // Handle PKCE flow (authorization code)
+      if (code) {
+        console.log('🔐 AuthCallback: Handling PKCE flow with authorization code')
+        
+        try {
           const { data, error } = await supabase.auth.exchangeCodeForSession(code)
           
           console.log('🔐 AuthCallback: exchangeCodeForSession result', { 
@@ -110,29 +182,58 @@ export function AuthCallback() {
           
           if (error) {
             console.error('🔐 AuthCallback: Error exchanging code for session', error)
-            setStatus('error')
-            setMessage(error.message)
+            clearTimeout(timeoutRef.current!)
+            
+            // Redirect to error page
+            const errorParams = new URLSearchParams({
+              error: 'Authentication failed',
+              error_description: error.message || 'Failed to complete the authentication process.',
+              error_code: 'CODE_EXCHANGE_ERROR'
+            })
+            navigate(`/auth/error?${errorParams.toString()}`)
             return
           }
 
           if (data.session) {
             console.log('🔐 AuthCallback: Session received from code exchange, redirecting to dashboard')
+            clearTimeout(timeoutRef.current!)
             setStatus('success')
             setMessage('Authentication successful! Redirecting...')
             setTimeout(() => {
               navigate('/dashboard')
             }, 1500)
+          } else {
+            console.log('🔐 AuthCallback: No session after code exchange')
+            clearTimeout(timeoutRef.current!)
+            setStatus('error')
+            setMessage('Failed to establish session. Please try again.')
+            retryTimeoutRef.current = setTimeout(() => {
+              navigate('/auth')
+            }, 3000)
           }
-          return
+        } catch (err) {
+          console.error('🔐 AuthCallback: Error in PKCE flow', err)
+          clearTimeout(timeoutRef.current!)
+          
+          // Redirect to error page
+          const errorParams = new URLSearchParams({
+            error: 'Authentication failed',
+            error_description: 'Failed to complete the authentication process.',
+            error_code: 'PKCE_FLOW_ERROR'
+          })
+          navigate(`/auth/error?${errorParams.toString()}`)
         }
+        return
+      }
 
-        // Handle email verification or password reset
-        const type = searchParams.get('type')
-        const tokenHash = searchParams.get('token_hash')
-        
-        console.log('🔐 AuthCallback: Handling email verification/password reset', { type, hasTokenHash: !!tokenHash })
-        
-        if (type && tokenHash) {
+      // Handle email verification or password reset
+      const type = searchParams.get('type')
+      const tokenHash = searchParams.get('token_hash')
+      
+      console.log('🔐 AuthCallback: Handling email verification/password reset', { type, hasTokenHash: !!tokenHash })
+      
+      if (type && tokenHash) {
+        try {
           // Handle email verification with token hash
           const { error: verifyError } = await supabase.auth.verifyOtp({
             token_hash: tokenHash,
@@ -141,13 +242,21 @@ export function AuthCallback() {
 
           if (verifyError) {
             console.error('🔐 AuthCallback: Error verifying token hash', verifyError)
-            setStatus('error')
-            setMessage('Failed to verify email. Please try again.')
+            clearTimeout(timeoutRef.current!)
+            
+            // Redirect to error page
+            const errorParams = new URLSearchParams({
+              error: 'Failed to verify email',
+              error_description: verifyError.message || 'The email verification process failed.',
+              error_code: 'VERIFICATION_ERROR'
+            })
+            navigate(`/auth/error?${errorParams.toString()}`)
             return
           }
 
           if (type === 'email_change' || type === 'signup') {
             console.log('🔐 AuthCallback: Email verification successful')
+            clearTimeout(timeoutRef.current!)
             setStatus('success')
             setMessage('Email verified successfully! You can now sign in.')
             setTimeout(() => {
@@ -155,6 +264,7 @@ export function AuthCallback() {
             }, 3000)
           } else if (type === 'recovery') {
             console.log('🔐 AuthCallback: Password recovery verification successful')
+            clearTimeout(timeoutRef.current!)
             setStatus('success')
             setMessage('Password reset verified! You can now set a new password.')
             setTimeout(() => {
@@ -162,14 +272,44 @@ export function AuthCallback() {
             }, 2000)
           }
           return
+        } catch (err) {
+          console.error('🔐 AuthCallback: Error in email verification', err)
+          clearTimeout(timeoutRef.current!)
+          
+          // Redirect to error page
+          const errorParams = new URLSearchParams({
+            error: 'Email verification failed',
+            error_description: 'Failed to verify your email address.',
+            error_code: 'EMAIL_VERIFICATION_ERROR'
+          })
+          navigate(`/auth/error?${errorParams.toString()}`)
+          return
         }
+      }
 
-        // If we get here, something unexpected happened
-        console.log('🔐 AuthCallback: No valid params found, checking session')
-        const { data: { session } } = await supabase.auth.getSession()
+      // If we get here, something unexpected happened
+      console.log('🔐 AuthCallback: No valid params found, checking session')
+      
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        
+        if (sessionError) {
+          console.error('🔐 AuthCallback: Error getting session:', sessionError)
+          clearTimeout(timeoutRef.current!)
+          
+          // Redirect to error page
+          const errorParams = new URLSearchParams({
+            error: 'Failed to verify authentication',
+            error_description: sessionError.message || 'Unable to verify your authentication status.',
+            error_code: 'SESSION_CHECK_ERROR'
+          })
+          navigate(`/auth/error?${errorParams.toString()}`)
+          return
+        }
         
         if (session) {
           console.log('🔐 AuthCallback: Existing session found, redirecting to dashboard')
+          clearTimeout(timeoutRef.current!)
           setStatus('success')
           setMessage('Welcome back! Redirecting...')
           setTimeout(() => {
@@ -177,24 +317,47 @@ export function AuthCallback() {
           }, 1000)
         } else {
           console.log('🔐 AuthCallback: No session found, redirecting to auth')
+          clearTimeout(timeoutRef.current!)
           setStatus('error')
           setMessage('Authentication failed. Please try again.')
-          setTimeout(() => {
+          retryTimeoutRef.current = setTimeout(() => {
             navigate('/auth')
-          }, 2000)
+          }, 3000)
         }
       } catch (err) {
-        console.error('🔐 AuthCallback: Unexpected error in handleAuthCallback', err)
-        setStatus('error')
-        setMessage('An unexpected error occurred during authentication.')
-        setTimeout(() => {
-          navigate('/auth')
-        }, 3000)
+        console.error('🔐 AuthCallback: Error checking session', err)
+        clearTimeout(timeoutRef.current!)
+        
+        // Redirect to error page
+        const errorParams = new URLSearchParams({
+          error: 'Session verification failed',
+          error_description: 'Failed to verify your authentication session.',
+          error_code: 'SESSION_CHECK_ERROR'
+        })
+        navigate(`/auth/error?${errorParams.toString()}`)
       }
+    } catch (err) {
+      console.error('🔐 AuthCallback: Unexpected error in handleAuthCallback', err)
+      clearTimeout(timeoutRef.current!)
+      
+      // Redirect to error page
+      const errorParams = new URLSearchParams({
+        error: 'Unexpected error',
+        error_description: 'An unexpected error occurred during authentication.',
+        error_code: 'UNEXPECTED_ERROR'
+      })
+      navigate(`/auth/error?${errorParams.toString()}`)
     }
+  }
 
+  useEffect(() => {
     handleAuthCallback()
-  }, [navigate, searchParams])
+  }, [navigate, searchParams, retryCount])
+
+  const handleManualRetry = () => {
+    console.log('🔐 AuthCallback: Manual retry requested')
+    navigate('/auth')
+  }
 
   return (
     <motion.div 
@@ -247,6 +410,16 @@ export function AuthCallback() {
               >
                 Please wait while we complete your authentication...
               </motion.p>
+              {retryCount > 0 && (
+                <motion.p 
+                  className="text-sm text-gray-500 mt-2"
+                  initial={{ y: 10, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 1.2 }}
+                >
+                  Retry attempt {retryCount}
+                </motion.p>
+              )}
             </motion.div>
           )}
 
@@ -327,6 +500,69 @@ export function AuthCallback() {
               >
                 <p>Please try signing in again or contact support if the problem persists.</p>
               </motion.div>
+            </motion.div>
+          )}
+
+          {status === 'timeout' && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 400, damping: 17, delay: 0.2 }}
+              >
+                <AlertCircle className="h-8 w-8 mx-auto text-yellow-400 mb-4" />
+              </motion.div>
+              <motion.h2 
+                className="text-xl font-semibold text-gray-100 mb-2"
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.4 }}
+              >
+                Taking Longer Than Expected
+              </motion.h2>
+              <motion.p 
+                className="text-gray-400 text-sm"
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.6 }}
+              >
+                {message}
+              </motion.p>
+              <motion.div 
+                className="mt-4 p-3 bg-yellow-900/20 border border-yellow-500/30 rounded text-sm text-yellow-200"
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.8 }}
+              >
+                <p>This might be due to network issues or high server load.</p>
+              </motion.div>
+              
+              {showRetry && (
+                <motion.div 
+                  className="mt-6 space-y-3"
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 1 }}
+                >
+                  <button
+                    onClick={handleRetry}
+                    className="w-full bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    <span>Try Again</span>
+                  </button>
+                  <button
+                    onClick={handleManualRetry}
+                    className="w-full bg-dark-700 hover:bg-dark-600 text-gray-300 font-medium py-2 px-4 rounded-lg transition-colors"
+                  >
+                    Go Back to Login
+                  </button>
+                </motion.div>
+              )}
             </motion.div>
           )}
         </div>

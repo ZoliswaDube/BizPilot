@@ -4,7 +4,7 @@ import * as Sentry from '@sentry/react'
 import { supabase, getURL } from '../lib/supabase'
 import type { Database } from '../lib/supabase'
 
-type UserProfile = Database['public']['Tables']['profiles']['Row']
+type UserProfile = Database['public']['Tables']['user_profiles']['Row']
 
 interface AuthContextType {
   user: User | null
@@ -99,12 +99,16 @@ export function useAuthProvider(): AuthContextType {
 
   const fetchUserProfile = async (userId: string) => {
     console.log('🔐 useAuth: fetchUserProfile called', { userId })
+    
+    // Store the current user to check for race conditions
+    const currentUser = user
+    
     try {
       console.log('🔐 useAuth: Starting profile fetch query...')
       const { data, error } = await supabase
-        .from('profiles')
+        .from('user_profiles')
         .select('*')
-        .eq('id', userId)
+        .eq('user_id', userId)
         .single()
 
       console.log('🔐 useAuth: fetchUserProfile result', { 
@@ -117,10 +121,16 @@ export function useAuthProvider(): AuthContextType {
           id: data.id,
           email: data.email?.substring(0, 3) + '***',
           full_name: data.full_name,
-          role: data.role,
-          phone: data.phone
+          provider: data.provider,
+          email_verified: data.email_verified
         } : null
       })
+
+      // Check for race condition - user might have logged out while we were fetching
+      if (currentUser !== user) {
+        console.log('🔐 useAuth: User changed during profile fetch, aborting')
+        return
+      }
 
       if (error && error.code !== 'PGRST116') {
         console.error('🔐 useAuth: Error fetching user profile:', error)
@@ -145,66 +155,151 @@ export function useAuthProvider(): AuthContextType {
 
   const signUp = async (email: string, password: string, metadata?: { full_name?: string }) => {
     console.log('🔐 useAuth: signUp called', { email: email.substring(0, 3) + '***', hasMetadata: !!metadata })
+    
+    // Prevent multiple simultaneous sign-up attempts
+    if (loading) {
+      console.log('🔐 useAuth: Sign-up already in progress, ignoring request')
+      return { error: { message: 'Sign-up already in progress', code: 'AUTH_IN_PROGRESS' } as AuthError }
+    }
+    
     setLoading(true)
-    const result = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${getURL()}auth/callback`,
-        data: metadata || {}
-      }
-    })
-    console.log('🔐 useAuth: signUp result', { 
-      hasUser: !!result.data?.user,
-      hasSession: !!result.data?.session,
-      error: result.error?.message,
-      errorCode: result.error?.code,
-      userId: result.data?.user?.id
-    })
-    setLoading(false)
-    return { error: result.error }
+    try {
+      const result = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${getURL()}auth/callback`,
+          data: metadata || {}
+        }
+      })
+      console.log('🔐 useAuth: signUp result', { 
+        hasUser: !!result.data?.user,
+        hasSession: !!result.data?.session,
+        error: result.error?.message,
+        errorCode: result.error?.code,
+        userId: result.data?.user?.id
+      })
+      return { error: result.error }
+    } finally {
+      setLoading(false)
+    }
   }
 
   const signIn = async (email: string, password: string) => {
     console.log('🔐 useAuth: signIn called', { email: email.substring(0, 3) + '***' })
+    
+    // Prevent multiple simultaneous sign-in attempts
+    if (loading) {
+      console.log('🔐 useAuth: Sign-in already in progress, ignoring request')
+      return { error: { message: 'Sign-in already in progress', code: 'AUTH_IN_PROGRESS' } as AuthError }
+    }
+    
     setLoading(true)
-    const result = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-    console.log('🔐 useAuth: signIn result', { 
-      hasUser: !!result.data?.user,
-      hasSession: !!result.data?.session,
-      error: result.error?.message,
-      errorCode: result.error?.code,
-      userId: result.data?.user?.id
-    })
-    setLoading(false)
-    return { error: result.error }
+    try {
+      const result = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+      console.log('🔐 useAuth: signIn result', { 
+        hasUser: !!result.data?.user,
+        hasSession: !!result.data?.session,
+        error: result.error?.message,
+        errorCode: result.error?.code,
+        userId: result.data?.user?.id
+      })
+      return { error: result.error }
+    } finally {
+      setLoading(false)
+    }
   }
 
   const signInWithProvider = async (provider: Provider) => {
-    console.log('🔐 useAuth: signInWithProvider called', { provider, redirectTo: `${getURL()}auth/callback` })
+    const redirectUrl = `${getURL()}auth/callback`
+    console.log('🔐 useAuth: signInWithProvider called', { 
+      provider, 
+      redirectUrl,
+      currentUser: user?.id,
+      hasSession: !!session,
+      currentLocation: window.location.href,
+      isDevelopment: import.meta.env.DEV
+    })
+    
+    // Prevent multiple simultaneous OAuth attempts
+    if (loading) {
+      console.log('🔐 useAuth: OAuth already in progress, ignoring request')
+      return { error: { message: 'OAuth already in progress', code: 'AUTH_IN_PROGRESS' } as AuthError }
+    }
+    
     setLoading(true)
-    const result = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${getURL()}auth/callback`,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
+    try {
+      console.log('🔐 useAuth: Initiating OAuth flow', { provider, redirectUrl })
+      
+      const result = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
-      },
-    })
-    console.log('🔐 useAuth: signInWithProvider result', { 
-      provider,
-      hasData: !!result.data,
-      error: result.error?.message,
-      errorCode: result.error?.code,
-      url: result.data?.url ? 'present' : 'missing'
-    })
-    setLoading(false)
-    return { error: result.error }
+      })
+      
+      console.log('🔐 useAuth: signInWithProvider result', { 
+        provider,
+        hasData: !!result.data,
+        hasUrl: !!result.data?.url,
+        error: result.error?.message,
+        errorCode: result.error?.code,
+        url: result.data?.url ? 'present' : 'missing',
+        redirectUrl: redirectUrl
+      })
+      
+      if (result.error) {
+        console.error('🔐 useAuth: OAuth error', { 
+          provider, 
+          error: result.error,
+          message: result.error.message,
+          code: result.error.code 
+        })
+        return { error: result.error }
+      }
+      
+      if (!result.data?.url) {
+        console.error('🔐 useAuth: No OAuth URL returned', { provider })
+        return { 
+          error: { 
+            message: 'Failed to initiate OAuth flow. Please try again.', 
+            code: 'OAUTH_NO_URL' 
+          } as AuthError 
+        }
+      }
+      
+      console.log('🔐 useAuth: OAuth flow initiated successfully', { 
+        provider, 
+        hasUrl: !!result.data.url,
+        urlLength: result.data.url?.length,
+        redirectUrl: redirectUrl
+      })
+      
+      // For OAuth, we don't set loading to false here as the user will be redirected
+      // The loading state will be cleared when the auth state changes
+      return { error: null }
+    } catch (err) {
+      console.error('🔐 useAuth: Unexpected error in signInWithProvider', { 
+        provider, 
+        error: err,
+        errorMessage: err instanceof Error ? err.message : 'Unknown error',
+        errorStack: err instanceof Error ? err.stack : undefined
+      })
+      setLoading(false)
+      return { 
+        error: { 
+          message: `Failed to sign in with ${provider}. Please try again.`, 
+          code: 'OAUTH_UNEXPECTED_ERROR' 
+        } as AuthError 
+      }
+    }
   }
 
   const signOut = async () => {
@@ -257,9 +352,9 @@ export function useAuthProvider(): AuthContextType {
     console.log('🔐 useAuth: updateProfile called', { userId: user.id, updates })
     try {
       const { error } = await supabase
-        .from('profiles')
+        .from('user_profiles')
         .update(updates)
-        .eq('id', user.id)
+        .eq('user_id', user.id)
 
       console.log('🔐 useAuth: updateProfile result', { error: error?.message })
 
