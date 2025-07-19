@@ -1,9 +1,8 @@
-import React, { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Upload, 
   X, 
-  Image as ImageIcon, 
   Link, 
   FileImage, 
   AlertCircle,
@@ -27,7 +26,6 @@ export function ImageInput({
   value,
   onChange,
   onError,
-  placeholder = "Add image...",
   className = "",
   disabled = false,
   accept = "image/*",

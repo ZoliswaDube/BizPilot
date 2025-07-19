@@ -1,24 +1,19 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, Package, Hash, AlertTriangle, Calendar, Save, Trash2, Loader2 } from 'lucide-react'
+import { ArrowLeft, Package, Hash, Save, Trash2, Loader2 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { useBusiness } from '../../hooks/useBusiness'
 import { ManualNumberInput } from '../ui/manual-number-input'
 import { ImageInput } from '../ui/image-input'
-import { formatCurrency } from '../../utils/calculations'
-import { Database } from '../../lib/supabase'
-import { useInventory } from '../../hooks/useInventory'
 
-type InventoryItem = Database['public']['Tables']['inventory']['Row']
-type InsertInventoryItem = Database['public']['Tables']['inventory']['Insert']
-type UpdateInventoryItem = Database['public']['Tables']['inventory']['Update']
+import { useInventory } from '../../hooks/useInventory'
 
 export function InventoryForm() {
   const navigate = useNavigate()
   const { id } = useParams()
   const { user } = useAuth()
-  const { business } = useBusiness()
+  const { business, hasPermission, userRole } = useBusiness()
   const { addInventoryItem, updateInventoryItem, deleteInventoryItem } = useInventory()
 
   const isEditing = !!id
@@ -158,8 +153,8 @@ export function InventoryForm() {
   }
 
   // Check permissions
-  const canEdit = user && (business?.userRole === 'admin' || business?.userRole === 'manager')
-  const canDelete = user && business?.userRole === 'admin'
+  const canEdit = user && (hasPermission('inventory', 'update') || userRole === 'admin' || userRole === 'manager')
+  const canDelete = user && (hasPermission('inventory', 'delete') || userRole === 'admin')
 
   if (loading) {
     return (

@@ -7,14 +7,12 @@ import { useBusiness } from '../../hooks/useBusiness'
 import { InventoryTable } from './InventoryTable'
 import { ManualNumberInput } from '../ui/manual-number-input'
 import { formatCurrency } from '../../utils/calculations'
-import { Database } from '../../lib/supabase'
 
-type InventoryItem = Database['public']['Tables']['inventory']['Row'] & {
-  products?: { name: string } | null
-}
+
+
 
 export function InventoryList() {
-  const { inventory, loading, error, deleteInventoryItem } = useInventory()
+  const { deleteInventoryItem } = useInventory()
   const { hasPermission } = useBusiness()
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table')
   const [formError, setFormError] = useState('')
@@ -31,31 +29,7 @@ export function InventoryList() {
     }
   }
 
-  const handleBulkEdit = (items: InventoryItem[]) => {
-    // TODO: Implement bulk edit modal
-    console.log('Bulk edit items:', items)
-  }
 
-  if (loading) {
-    return (
-      <motion.div 
-        className="flex items-center justify-center py-12"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3 }}
-      >
-        <div className="text-center">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          >
-            <Loader2 className="h-8 w-8 mx-auto text-primary-600" />
-          </motion.div>
-          <p className="mt-2 text-gray-400">Loading inventory...</p>
-        </div>
-      </motion.div>
-    )
-  }
 
   return (
     <motion.div 
@@ -157,11 +131,7 @@ export function InventoryList() {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -10 }}
       >
-        {error && (
-          <div className="bg-red-900/20 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg text-sm">
-            {error}
-          </div>
-        )}
+
         {formError && (
           <div className="bg-red-900/20 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg text-sm">
             {formError}
@@ -172,12 +142,7 @@ export function InventoryList() {
       {/* Content */}
       {viewMode === 'table' ? (
         <InventoryTable
-          onEdit={(item) => {
-            // Navigate to edit page
-            window.location.href = `/inventory/edit/${item.id}`
-          }}
           onDelete={handleDeleteItem}
-          onBulkEdit={handleBulkEdit}
         />
       ) : (
         <InventoryCards
@@ -196,7 +161,7 @@ function InventoryCards({ onEdit, onDelete }: {
   onEdit: (item: any) => void
   onDelete: (id: string, name: string) => void 
 }) {
-  const { inventory, loading, error, adjustStock } = useInventory()
+  const { inventory, adjustStock } = useInventory()
   const [searchTerm, setSearchTerm] = useState('')
   const [adjustingItemId, setAdjustingItemId] = useState<string | null>(null)
   const [adjustQuantity, setAdjustQuantity] = useState<number>(0)

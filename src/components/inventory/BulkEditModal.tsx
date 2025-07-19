@@ -1,10 +1,9 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Save, AlertTriangle, Package, DollarSign, Hash } from 'lucide-react'
+import { X, Save, AlertTriangle, Package, Hash } from 'lucide-react'
 import { useInventory } from '../../hooks/useInventory'
 import { useBusiness } from '../../hooks/useBusiness'
 import { ManualNumberInput } from '../ui/manual-number-input'
-import { formatCurrency } from '../../utils/calculations'
 import { Database } from '../../lib/supabase'
 
 type InventoryItem = Database['public']['Tables']['inventory']['Row'] & {
