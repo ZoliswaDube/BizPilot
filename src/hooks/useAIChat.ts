@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { useAuthStore } from "../store/auth";
+import { useAuthStore } from '../store/auth'
 import { useUserSettings } from './useUserSettings'
+import { sendToDeepSeek, generateConversationTitle } from '../services/deepseekApi'
 import { Database } from '../lib/supabase'
-import OpenAI from 'openai'
 
 type AIConversation = Database['public']['Tables']['ai_conversations']['Row']
 type AIMessage = Database['public']['Tables']['ai_messages']['Row']
@@ -203,91 +203,54 @@ export function useAIChat() {
     setLoading(true)
     
     try {
-      // Add user message
+      // Add user message to UI immediately
       await addMessage(currentConversation.id, content, true)
       
-      // Simulate AI response (replace with real OpenAI API call)
-      const aiResponse = await generateAIResponse()
+      // Get latest business context
+      const context = await getBusinessContext()
       
-      // Add AI response
+      // Call DeepSeek API
+      const aiResponse = await sendToDeepSeek(content, context)
+      
+      // Add AI response to conversation
       await addMessage(currentConversation.id, aiResponse, false)
       
+      // Update conversation title if first message
+      if (messages.length === 0) {
+        const title = await generateConversationTitle(content)
+        await updateConversationTitle(currentConversation.id, title)
+      }
+      
     } catch (err) {
+      console.error('Error sending message:', err)
+      await addMessage(currentConversation.id, "Sorry, I encountered an error processing your request. Please try again.", false)
       setError(err instanceof Error ? err.message : 'Failed to send message')
     } finally {
       setLoading(false)
     }
   }
 
-  const generateAIResponse = async (): Promise<string> => {
+  const updateConversationTitle = async (conversationId: string, title: string) => {
     try {
-      // Initialize DeepSeek client
-      const client = new OpenAI({
-        baseURL: 'https://api.deepseek.com',
-        apiKey: import.meta.env.VITE_DEEPSEEK_API_KEY,
-        dangerouslyAllowBrowser: true
-      })
+      const { error } = await supabase
+        .from('ai_conversations')
+        .update({ title })
+        .eq('id', conversationId)
 
-      // Get business context for personalized responses
-      const businessContext = await getBusinessContext()
+      if (error) throw error
       
-      // Get recent messages for context
-      const recentMessages = messages.slice(-5) // Last 5 messages for context
+      // Update local state
+      setConversations(prev => 
+        prev.map(conv => 
+          conv.id === conversationId ? { ...conv, title } : conv
+        )
+      )
       
-      // Build conversation history
-      const conversationHistory = recentMessages.map(msg => ({
-        role: msg.is_user ? 'user' as const : 'assistant' as const,
-        content: msg.content
-      }))
-
-      // Create system prompt with business context
-      const systemPrompt = `You are an AI business assistant for ${businessContext.businessName || 'this business'}. You have access to real business data and should provide personalized insights and recommendations.
-
-Business Context:
-- Total Products: ${businessContext.totalProducts}
-- Total Inventory Items: ${businessContext.totalInventoryItems}
-- Low Stock Items: ${businessContext.lowStockItems}
-- Average Profit Margin: ${(businessContext.avgMargin * 100).toFixed(1)}%
-- Hourly Rate: $${businessContext.hourlyRate}
-
-You should:
-1. Provide specific, actionable business advice based on this data
-2. Help with pricing strategies, cost analysis, and inventory management
-3. Give insights about profitability and business optimization
-4. Be concise but thorough in your responses
-5. Always relate advice back to the actual business metrics when relevant
-
-If asked about data you don't have access to, suggest what additional information would be helpful.`
-
-      // Make API call to DeepSeek
-      const completion = await client.chat.completions.create({
-        model: 'deepseek-chat',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...conversationHistory
-        ],
-        temperature: 0.7,
-        max_tokens: 1000,
-        stream: false
-      })
-
-      return completion.choices[0]?.message?.content || 'I apologize, but I encountered an issue generating a response. Please try again.'
-      
-    } catch (error) {
-      console.error('DeepSeek API Error:', error)
-      
-      // Provide helpful error messages
-      if (error instanceof Error) {
-        if (error.message.includes('API key')) {
-          return 'I\'m having trouble connecting to the AI service due to an API key issue. Please check the configuration and try again.'
-        } else if (error.message.includes('rate limit')) {
-          return 'I\'m currently experiencing high demand. Please wait a moment and try again.'
-        } else if (error.message.includes('network')) {
-          return 'I\'m having trouble connecting to the AI service. Please check your internet connection and try again.'
-        }
+      if (currentConversation?.id === conversationId) {
+        setCurrentConversation(prev => prev ? { ...prev, title } : null)
       }
-      
-      return 'I encountered an unexpected error while processing your request. Please try again, and if the problem persists, the AI service may be temporarily unavailable.'
+    } catch (err) {
+      console.error('Error updating conversation title:', err)
     }
   }
 

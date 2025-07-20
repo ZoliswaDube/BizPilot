@@ -40,12 +40,8 @@ export const ManualNumberInput = React.forwardRef<HTMLInputElement, ManualNumber
       if (typeof min === 'number') constrainedValue = Math.max(constrainedValue, min)
       if (typeof max === 'number') constrainedValue = Math.min(constrainedValue, max)
       
-      // Format to appropriate decimal places based on step
-      const decimalPlaces = step.toString().includes('.') 
-        ? step.toString().split('.')[1].length 
-        : 0
-      
-      const formattedValue = constrainedValue.toFixed(decimalPlaces)
+      // Preserve user-entered decimal precision
+      const formattedValue = constrainedValue.toString()
       onChange(formattedValue)
     } else {
       // If not a valid number, clear the field

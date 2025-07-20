@@ -4,8 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Minus, Calculator, Save, ArrowLeft, Loader2 } from 'lucide-react'
 import { useAuthStore } from '../../store/auth'
 import { useUserSettings } from '../../hooks/useUserSettings'
-import { useCategories } from '../../hooks/useCategories'
-import { useSuppliers } from '../../hooks/useSuppliers'
+
 import { supabase } from '../../lib/supabase'
 import { 
   calculateProduct, 
@@ -15,7 +14,7 @@ import {
 } from '../../utils/calculations'
 import { Database } from '../../lib/supabase'
 import { ManualNumberInput } from '../ui/manual-number-input'
-import { ImageInput } from '../ui/image-input'
+import { UnitSelect } from '../ui/unit-select'
 
 type ProductInsert = Database['public']['Tables']['products']['Insert']
 type ProductUpdate = Database['public']['Tables']['products']['Update']
@@ -41,8 +40,8 @@ export function ProductForm() {
   const { id } = useParams()
   const { user } = useAuthStore()
   const { settings, loading: settingsLoading } = useUserSettings()
-  const { categories, loading: categoriesLoading } = useCategories()
-  const { suppliers, loading: suppliersLoading } = useSuppliers()
+  // const { categories, loading: categoriesLoading } = useCategories()
+  // const { suppliers, loading: suppliersLoading } = useSuppliers()
 
   const isEditMode = !!id
 
@@ -64,6 +63,39 @@ export function ProductForm() {
   const [loading, setLoading] = useState(false)
   const [loadingProduct, setLoadingProduct] = useState(isEditMode)
   const [error, setError] = useState('')
+
+  // Auto-generate SKU for new product based on business prefix
+  useEffect(() => {
+    const generateSku = async () => {
+      if (isEditMode || formData.sku || !user) return
+      try {
+        // Fetch business name for current user
+        const { data: businessUser, error } = await supabase
+          .from('business_users')
+          .select('business:businesses(name)')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .single()
+        if (error) throw error
+        const businessName: string | undefined = (businessUser?.business as any)?.name
+        if (!businessName) return
+        const prefix = businessName.substring(0, 3).toUpperCase()
+
+        // Count existing SKUs with this prefix
+        const { count, error: countError } = await supabase
+          .from('products')
+          .select('id', { count: 'exact', head: true })
+          .ilike('sku', `${prefix}%`)
+        if (countError) throw countError
+        const nextNumber = (count ?? 0) + 1
+        const newSku = `${prefix}${nextNumber.toString().padStart(3, '0')}`
+        setFormData(prev => ({ ...prev, sku: newSku }))
+      } catch (err) {
+        console.error('Failed to auto-generate SKU:', err)
+      }
+    }
+    generateSku()
+  }, [isEditMode, formData.sku, user])
 
   // Load existing product data if editing
   useEffect(() => {
@@ -293,13 +325,13 @@ export function ProductForm() {
     }
   }
 
-  if (settingsLoading || loadingProduct || categoriesLoading || suppliersLoading) {
+  if (settingsLoading || loadingProduct) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary-600" />
           <p className="mt-2 text-gray-400">
-            {loadingProduct ? 'Loading product...' : categoriesLoading ? 'Loading categories...' : suppliersLoading ? 'Loading suppliers...' : 'Loading settings...'}
+            {loadingProduct ? 'Loading product...' : 'Loading settings...'}
           </p>
         </div>
       </div>
@@ -396,144 +428,9 @@ export function ProductForm() {
                     transition={{ type: "spring", stiffness: 400, damping: 17 }}
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
-                    SKU (Stock Keeping Unit)
-                  </label>
-                  <input
-                    type="text"
-                    name="sku"
-                    value={formData.sku}
-                    onChange={handleProductFieldChange}
-                    className="input-field"
-                    placeholder="e.g., PROD-001"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Labor Time (minutes)
-                  </label>
-                  <ManualNumberInput
-                    min={0}
-                    step={1}
-                    name="laborMinutes"
-                    value={formData.laborMinutes.toString()}
-                    onChange={(value) => {
-                      const numValue = parseFloat(value) || 0
-                      setFormData(prev => ({ ...prev, laborMinutes: numValue }))
-                    }}
-                    className="input-field"
-                    placeholder="0"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Category
-                  </label>
-                  <select
-                    name="categoryId"
-                    value={formData.categoryId || ''}
-                    onChange={handleProductFieldChange}
-                    className="input-field"
-                  >
-                    <option value="">-- Select Category --</option>
-                    {categories.map(cat => (
-                      <option key={cat.id} value={cat.id}>{cat.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Supplier
-                  </label>
-                  <select
-                    name="supplierId"
-                    value={formData.supplierId || ''}
-                    onChange={handleProductFieldChange}
-                    className="input-field"
-                  >
-                    <option value="">-- Select Supplier --</option>
-                    {suppliers.map(sup => (
-                      <option key={sup.id} value={sup.id}>{sup.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Location/Bin
-                  </label>
-                  <input
-                    type="text"
-                    name="location"
-                    value={formData.location}
-                    onChange={handleProductFieldChange}
-                    className="input-field"
-                    placeholder="e.g., Warehouse A, Shelf 3"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Minimum Stock Level
-                  </label>
-                  <ManualNumberInput
-                    min={0}
-                    step={0.01}
-                    name="minStockLevel"
-                    value={formData.minStockLevel.toString()}
-                    onChange={(value) => {
-                      const numValue = parseFloat(value) || 0
-                      setFormData(prev => ({ ...prev, minStockLevel: numValue }))
-                    }}
-                    className="input-field"
-                    placeholder="0"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Reorder Point
-                  </label>
-                  <ManualNumberInput
-                    min={0}
-                    step={0.01}
-                    name="reorderPoint"
-                    value={formData.reorderPoint.toString()}
-                    onChange={(value) => {
-                      const numValue = parseFloat(value) || 0
-                      setFormData(prev => ({ ...prev, reorderPoint: numValue }))
-                    }}
-                    className="input-field"
-                    placeholder="0"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Product Image
-                  </label>
-                  <ImageInput
-                    value={formData.imageUrl}
-                    onChange={(value) => setFormData(prev => ({ ...prev, imageUrl: value }))}
-                    onError={(error) => setError(error)}
-                    placeholder="Add product image..."
-                    maxSize={5}
-                    accept="image/*"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Barcode
-                  </label>
-                  <input
-                    type="text"
-                    name="barcode"
-                    value={formData.barcode}
-                    onChange={handleProductFieldChange}
-                    className="input-field"
-                    placeholder="e.g., 123456789012"
-                  />
-                </div>
               </motion.div>
             </motion.div>
-
+                
             {/* Ingredients */}
             <motion.div 
               className="card"
@@ -541,117 +438,110 @@ export function ProductForm() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
             >
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-100">Ingredients</h2>
-                <motion.button
-                  type="button"
-                  onClick={addIngredient}
-                  className="flex items-center text-sm text-primary-400 hover:text-primary-300"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Ingredient
-                </motion.button>
-              </div>
-
-              <div className="space-y-3">
-                <AnimatePresence>
-                  {formData.ingredients.map((ingredient, index) => (
-                    <motion.div 
-                      key={index} 
-                      className="grid grid-cols-12 gap-3 items-end"
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -20 }}
-                      transition={{ duration: 0.3 }}
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold text-gray-100">Ingredients</h2>
+                    <motion.button
+                      type="button"
+                      onClick={addIngredient}
+                      className="flex items-center text-sm text-primary-400 hover:text-primary-300"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                     >
-                      <div className="col-span-4">
-                        <label className="block text-xs font-medium text-gray-300 mb-1">
-                          Name
-                        </label>
-                        <motion.input
-                          type="text"
-                          value={ingredient.name}
-                          onChange={(e) => updateIngredient(index, 'name', e.target.value)}
-                          className="input-field text-sm"
-                          placeholder="Ingredient name"
-                          whileFocus={{ scale: 1.02 }}
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <label className="block text-xs font-medium text-gray-300 mb-1">
-                          Cost
-                        </label>
-                        <motion.div whileFocus={{ scale: 1.02 }}>
-                          <ManualNumberInput
-                            min={0}
-                            step={0.01}
-                            value={ingredient.cost.toString()}
-                            onChange={(value) => updateIngredient(index, 'cost', parseFloat(value) || 0)}
-                            className="input-field text-sm"
-                            placeholder="0.00"
-                          />
-                        </motion.div>
-                      </div>
-                      <div className="col-span-2">
-                        <label className="block text-xs font-medium text-gray-300 mb-1">
-                          Quantity
-                        </label>
-                        <motion.div whileFocus={{ scale: 1.02 }}>
-                          <ManualNumberInput
-                            min={0}
-                            step={0.01}
-                            value={ingredient.quantity.toString()}
-                            onChange={(value) => updateIngredient(index, 'quantity', parseFloat(value) || 0)}
-                            className="input-field text-sm"
-                            placeholder="0"
-                          />
-                        </motion.div>
-                      </div>
-                      <div className="col-span-3">
-                        <label className="block text-xs font-medium text-gray-300 mb-1">
-                          Unit
-                        </label>
-                        <motion.select
-                          value={ingredient.unit}
-                          onChange={(e) => updateIngredient(index, 'unit', e.target.value)}
-                          className="input-field text-sm"
-                          whileFocus={{ scale: 1.02 }}
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Ingredient
+                    </motion.button>
+                  </div>
+
+                  <div className="space-y-3">
+                    <AnimatePresence>
+                      {formData.ingredients.map((ingredient, index) => (
+                        <motion.div 
+                          key={index} 
+                          className="grid grid-cols-12 gap-3 items-end"
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -20 }}
+                          transition={{ duration: 0.3 }}
                         >
-                          <option value="unit">unit</option>
-                          <option value="lb">lb</option>
-                          <option value="oz">oz</option>
-                          <option value="g">g</option>
-                          <option value="kg">kg</option>
-                          <option value="cup">cup</option>
-                          <option value="tsp">tsp</option>
-                          <option value="tbsp">tbsp</option>
-                          <option value="ml">ml</option>
-                          <option value="l">l</option>
-                        </motion.select>
-                      </div>
-                      <div className="col-span-1">
-                        {formData.ingredients.length > 1 && (
-                          <motion.button
-                            type="button"
-                            onClick={() => removeIngredient(index)}
-                            className="p-2 text-red-400 hover:text-red-300"
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                          >
-                            <Minus className="h-4 w-4" />
-                          </motion.button>
-                        )}
-                      </div>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </div>
-            </motion.div>
+                          <div className="col-span-4">
+                            <label className="block text-xs font-medium text-gray-300 mb-1">
+                              Name
+                            </label>
+                            <motion.input
+                              type="text"
+                              value={ingredient.name}
+                              onChange={(e) => updateIngredient(index, 'name', e.target.value)}
+                              className="input-field text-sm"
+                              placeholder="Ingredient name"
+                              whileFocus={{ scale: 1.02 }}
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <label className="block text-xs font-medium text-gray-300 mb-1">
+                              Cost
+                            </label>
+                            <motion.div whileFocus={{ scale: 1.02 }}>
+                              <ManualNumberInput
+                                min={0}
+                                step={0.01}
+                                value={ingredient.cost.toString()}
+                                onChange={(value) => updateIngredient(index, 'cost', parseFloat(value) || 0)}
+                                className="input-field text-sm"
+                                placeholder="0.00"
+                              />
+                            </motion.div>
+                          </div>
+                          <div className="col-span-2">
+                            <label className="block text-xs font-medium text-gray-300 mb-1">
+                              Quantity
+                            </label>
+                            <motion.div whileFocus={{ scale: 1.02 }}>
+                              <ManualNumberInput
+                                min={0}
+                                step={0.01}
+                                value={ingredient.quantity.toString()}
+                                onChange={(value) => updateIngredient(index, 'quantity', parseFloat(value) || 0)}
+                                className="input-field text-sm"
+                                placeholder="0"
+                              />
+                            </motion.div>
+                          </div>
+                          <div className="col-span-3">
+                            <label className="block text-xs font-medium text-gray-300 mb-1">
+                              Unit
+                            </label>
+                            <UnitSelect
+                               value={ingredient.unit}
+                               onChange={(val: string) => updateIngredient(index, 'unit', val)}
+                               className="input-field text-sm"
+                             />
+                          </div>
+                          <div className="col-span-1">
+                            {formData.ingredients.length > 1 && (
+                              <motion.button
+                                type="button"
+                                onClick={() => removeIngredient(index)}
+                                className="p-2 text-red-400 hover:text-red-300"
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                              >
+                                <Minus className="h-4 w-4" />
+                              </motion.button>
+                            )}
+                          </div>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                </motion.div>
 
             {/* Pricing */}
-            <div className="card">
+            <motion.div 
+              className="card"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+            >
               <h2 className="text-lg font-semibold text-gray-100 mb-4">Pricing</h2>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">
@@ -674,7 +564,7 @@ export function ProductForm() {
                   Default margin from your settings: {settings?.default_margin || 40}%
                 </p>
               </div>
-            </div>
+            </motion.div>
 
             {/* Submit */}
             <motion.div 

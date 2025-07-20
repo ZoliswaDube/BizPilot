@@ -5,6 +5,7 @@ import { ArrowLeft, Package, Hash, Save, Trash2, Loader2 } from 'lucide-react'
 import { useAuthStore } from '../../store/auth'
 import { useBusiness } from '../../hooks/useBusiness'
 import { ManualNumberInput } from '../ui/manual-number-input'
+import { UnitSelect } from '../ui/unit-select'
 import { ImageInput } from '../ui/image-input'
 
 import { useInventory } from '../../hooks/useInventory'
@@ -352,17 +353,12 @@ export function InventoryForm() {
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Unit *
                     </label>
-                    <motion.input
-                      type="text"
-                      value={formData.unit}
-                      onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                      className="input-field"
-                      placeholder="e.g., pieces, kg, liters"
-                      required
-                      disabled={!canEdit}
-                      whileFocus={{ scale: 1.02 }}
-                      transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                    />
+                    <UnitSelect
+                       value={formData.unit}
+                       onChange={(val: string) => setFormData({ ...formData, unit: val })}
+                       disabled={!canEdit}
+                       required
+                     />
                   </div>
                 </div>
 
