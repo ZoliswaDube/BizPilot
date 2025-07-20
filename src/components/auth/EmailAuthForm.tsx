@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Eye, EyeOff, Mail, Lock, User, Loader2, AlertCircle, CheckCircle } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useAuth } from '../../hooks/useAuth'
+import { useAuthStore } from '../../store/auth'
 
 type AuthMode = 'signin' | 'signup' | 'reset'
 
@@ -22,7 +22,7 @@ export function EmailAuthForm({ mode, onModeChange, onSuccess }: EmailAuthFormPr
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
   
-  const { signUp, signIn, resetPassword, resendVerification } = useAuth()
+  const { signUp, signIn, resetPassword, resendVerification } = useAuthStore()
 
   const validateForm = () => {
     setError('')
@@ -84,7 +84,11 @@ export function EmailAuthForm({ mode, onModeChange, onSuccess }: EmailAuthFormPr
           result = await signUp(email, password, { full_name: fullName.trim() })
           console.log('🔐 EmailAuthForm: Signup result', { error: result.error?.message, hasError: !!result.error })
           if (!result.error) {
-            setSuccess('Please check your email and click the verification link to complete your registration.')
+            setSuccess('Account created successfully! Please check your email and click the verification link, then you will be redirected to set up your business.')
+            // After successful signup, redirect to business onboarding
+            setTimeout(() => {
+              window.location.href = '/business/new'
+            }, 3000) // Give user time to read the success message
           }
           break
           
@@ -134,7 +138,9 @@ export function EmailAuthForm({ mode, onModeChange, onSuccess }: EmailAuthFormPr
     
     const message = error.message || error.toString()
     
-    if (message.includes('Invalid login credentials')) {
+    if (message.includes('AUTH_IN_PROGRESS')) {
+      setError('Authentication already in progress. Please wait a moment.')
+    } else if (message.includes('Invalid login credentials')) {
       setError('Invalid email or password. Please check your credentials and try again.')
     } else if (message.includes('Email rate limit exceeded')) {
       setError('Too many attempts. Please wait a few minutes before trying again.')
@@ -145,8 +151,9 @@ export function EmailAuthForm({ mode, onModeChange, onSuccess }: EmailAuthFormPr
           <button
             onClick={handleResendVerification}
             className="text-primary-400 hover:text-primary-300 text-sm underline"
+            disabled={loading}
           >
-            Resend verification email
+            {loading ? 'Sending...' : 'Resend verification email'}
           </button>
         </div>
       )

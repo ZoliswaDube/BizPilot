@@ -1,5 +1,7 @@
-import { Link } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { Link, useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
+import { useEffect, useState } from 'react'
+import { useAuthStore } from '../../store/auth'
 import { Logo } from '../common/Logo'
 import { AuroraHero } from '../ui/futuristic-hero-section'
 import { 
@@ -11,10 +13,22 @@ import {
   ArrowRight,
   CheckCircle,
   Shield,
-  TrendingUp
+  TrendingUp,
+  Menu,
+  X
 } from 'lucide-react'
 
 export function HomePage() {
+  const { user } = useAuthStore()
+  const navigate = useNavigate()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  // Redirect authenticated users to dashboard
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [user, navigate]);
   const features = [
     {
       icon: Package,
@@ -66,7 +80,9 @@ export function HomePage() {
               <Logo width={32} height={32} className="shadow-lg" />
               <span className="ml-2 text-xl font-bold text-gray-100">BizPilot</span>
             </div>
-            <div className="flex space-x-4">
+            
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex space-x-4">
               <Link 
                 to="/auth" 
                 className="btn-secondary text-sm"
@@ -86,7 +102,54 @@ export function HomePage() {
                 Get Started
               </Link>
             </div>
+
+            {/* Mobile menu button */}
+            <div className="md:hidden">
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="p-2 rounded-md text-gray-400 hover:text-gray-300"
+              >
+                {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              </button>
+            </div>
           </div>
+
+          {/* Mobile Navigation Menu */}
+          <AnimatePresence>
+            {mobileMenuOpen && (
+              <motion.div 
+                className="md:hidden border-t border-dark-700 bg-dark-900/95 backdrop-blur-sm"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="px-2 pt-2 pb-3 space-y-1">
+                  <Link 
+                    to="/auth" 
+                    className="block px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-gray-100 hover:bg-dark-800"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Sign In
+                  </Link>
+                  <Link 
+                    to="/pricing" 
+                    className="block px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-gray-100 hover:bg-dark-800"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Pricing
+                  </Link>
+                  <Link 
+                    to="/auth" 
+                    className="block px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-gray-100 hover:bg-dark-800"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Get Started
+                  </Link>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </nav>
 

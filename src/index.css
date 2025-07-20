@@ -39,6 +39,12 @@
     -webkit-appearance: none;
     margin: 0;
   }
+  
+  /* Manual number input styling */
+  input[type="text"][inputMode="decimal"] {
+    -webkit-appearance: none;
+    -moz-appearance: textfield;
+  }
 }
 
 @layer utilities {

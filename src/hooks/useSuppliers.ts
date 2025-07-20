@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { useAuth } from './useAuth'
+import { useAuthStore } from '../store/auth'
 import { Database } from '../lib/supabase'
 
 type Supplier = Database['public']['Tables']['suppliers']['Row']
@@ -8,7 +8,7 @@ type InsertSupplier = Database['public']['Tables']['suppliers']['Insert']
 type UpdateSupplier = Database['public']['Tables']['suppliers']['Update']
 
 export function useSuppliers() {
-  const { user } = useAuth()
+  const { user } = useAuthStore()
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

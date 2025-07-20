@@ -1,369 +1,603 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Save, ArrowLeft, Loader2 } from 'lucide-react'
-import { useInventory } from '../../hooks/useInventory'
-import { useAuth } from '../../hooks/useAuth'
-import { supabase } from '../../lib/supabase'
-import { Database } from '../../lib/supabase'
+import { motion, AnimatePresence } from 'framer-motion'
+import { ArrowLeft, Package, Hash, Save, Trash2, Loader2 } from 'lucide-react'
+import { useAuthStore } from '../../store/auth'
+import { useBusiness } from '../../hooks/useBusiness'
+import { ManualNumberInput } from '../ui/manual-number-input'
+import { ImageInput } from '../ui/image-input'
 
-type InventoryItemInsert = Database['public']['Tables']['inventory']['Insert']
-type InventoryItemUpdate = Database['public']['Tables']['inventory']['Update']
-type Product = Pick<Database['public']['Tables']['products']['Row'], 'id' | 'name'>
+import { useInventory } from '../../hooks/useInventory'
 
 export function InventoryForm() {
   const navigate = useNavigate()
   const { id } = useParams()
-  const { user } = useAuth()
-  const { addInventoryItem, updateInventoryItem } = useInventory()
+  const { user } = useAuthStore()
+  const { business, hasPermission, userRole } = useBusiness()
+  const { addInventoryItem, updateInventoryItem, deleteInventoryItem } = useInventory()
 
-  const isEditMode = !!id
+  const isEditing = !!id
+  const [loading, setLoading] = useState(isEditing)
+  const [submitLoading, setSubmitLoading] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [formError, setFormError] = useState('')
 
-  const [formData, setFormData] = useState<Partial<InventoryItemInsert>>({
+  // Form state
+  const [formData, setFormData] = useState({
     name: '',
-    product_id: null,
     current_quantity: 0,
-    unit: 'unit',
-    low_stock_alert: 5,
     cost_per_unit: 0,
+    low_stock_alert: 0,
+    unit: '',
     batch_lot_number: '',
-    expiration_date: ''
+    expiration_date: '',
+    description: '',
+    supplier: '',
+    location: '',
+    min_order_quantity: 0,
+    reorder_point: 0,
+    image_url: ''
   })
-  const [products, setProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(false)
-  const [loadingItem, setLoadingItem] = useState(isEditMode)
-  const [error, setError] = useState('')
 
+  // Load existing item data if editing
   useEffect(() => {
-    if (user) {
-      fetchProducts()
-      if (isEditMode && id) {
-        loadInventoryItem(id)
-      }
+    if (isEditing && id && user) {
+      loadInventoryItem(id)
     }
-  }, [user, isEditMode, id])
-
-  const fetchProducts = async () => {
-    if (!user) return
-    try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('id, name')
-        .eq('user_id', user.id)
-        .order('name', { ascending: true })
-      if (error) throw error
-      setProducts(data || [])
-    } catch (err) {
-      console.error('Error fetching products:', err)
-      setError('Failed to load products for selection.')
-    }
-  }
+  }, [isEditing, id, user])
 
   const loadInventoryItem = async (itemId: string) => {
     if (!user) return
 
     try {
-      setLoadingItem(true)
-      setError('')
-      const { data, error } = await supabase
-        .from('inventory')
-        .select('*')
-        .eq('id', itemId)
-        .eq('user_id', user.id)
-        .single()
+      setLoading(true)
+      setFormError('')
 
-      if (error) throw error
-      if (!data) throw new Error('Inventory item not found')
+      const { data: item, error } = await fetch(`/api/inventory/${itemId}`).then(res => res.json())
 
-      setFormData({
-        name: data.name,
-        product_id: data.product_id,
-        current_quantity: data.current_quantity,
-        unit: data.unit,
-        low_stock_alert: data.low_stock_alert,
-        cost_per_unit: data.cost_per_unit,
-        batch_lot_number: data.batch_lot_number || '',
-        expiration_date: data.expiration_date || ''
-      })
+      if (error) throw new Error(error)
+      if (item) {
+        setFormData({
+          name: item.name || '',
+          current_quantity: item.current_quantity || 0,
+          cost_per_unit: item.cost_per_unit || 0,
+          low_stock_alert: item.low_stock_alert || 0,
+          unit: item.unit || '',
+          batch_lot_number: item.batch_lot_number || '',
+          expiration_date: item.expiration_date ? item.expiration_date.split('T')[0] : '',
+          description: '',
+          supplier: '',
+          location: '',
+          min_order_quantity: 0,
+          reorder_point: 0,
+          image_url: ''
+        })
+      }
     } catch (err) {
       console.error('Error loading inventory item:', err)
-      setError(err instanceof Error ? err.message : 'Failed to load inventory item')
+      setFormError('Failed to load inventory item')
     } finally {
-      setLoadingItem(false)
+      setLoading(false)
     }
   }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'number' ? parseFloat(value) || 0 : value
-    }))
+  const validateForm = () => {
+    const errors: string[] = []
+    
+    // Required field validation
+    if (!formData.name.trim()) {
+      errors.push('Item name is required')
+    }
+    
+    if (!formData.unit.trim()) {
+      errors.push('Unit is required')
+    }
+    
+    if (formData.current_quantity < 0) {
+      errors.push('Current quantity cannot be negative')
+    }
+    
+    if (formData.cost_per_unit < 0) {
+      errors.push('Cost per unit cannot be negative')
+    }
+    
+    if (formData.low_stock_alert < 0) {
+      errors.push('Low stock alert cannot be negative')
+    }
+    
+    return errors
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
-    setError('')
-
-    if (!formData.name?.trim() && !formData.product_id) {
-      setError('Either a name or a linked product is required.')
-      setLoading(false)
+    
+    if (!user || !business) {
+      setFormError('User not authenticated or no business found')
       return
     }
-    if (formData.current_quantity === undefined || formData.current_quantity < 0) {
-      setError('Current quantity must be a non-negative number.')
-      setLoading(false)
+    
+    // Validate form
+    const validationErrors = validateForm()
+    if (validationErrors.length > 0) {
+      setFormError(validationErrors.join(', '))
       return
     }
-    if (formData.cost_per_unit === undefined || formData.cost_per_unit < 0) {
-      setError('Cost per unit must be a non-negative number.')
-      setLoading(false)
-      return
-    }
+    
+    setSubmitLoading(true)
+    setFormError('')
 
     try {
-      let resultError: string | null = null
-      if (isEditMode && id) {
-        const { error } = await updateInventoryItem(id, formData as InventoryItemUpdate)
-        resultError = error
-      } else {
-        const { error } = await addInventoryItem(formData as Omit<InventoryItemInsert, 'user_id'>)
-        resultError = error
+      const itemData = {
+        name: formData.name.trim(),
+        current_quantity: formData.current_quantity,
+        cost_per_unit: formData.cost_per_unit,
+        low_stock_alert: formData.low_stock_alert,
+        unit: formData.unit.trim(),
+        batch_lot_number: formData.batch_lot_number.trim() || null,
+        expiration_date: formData.expiration_date || null,
+        description: formData.description.trim() || null,
+        supplier: formData.supplier.trim() || null,
+        location: formData.location.trim() || null,
+        min_order_quantity: formData.min_order_quantity,
+        reorder_point: formData.reorder_point,
+        image_url: formData.image_url.trim() || null
       }
 
-      if (resultError) {
-        setError(resultError)
+      if (isEditing) {
+        const { error } = await updateInventoryItem(id, itemData)
+        if (error) {
+          setFormError(error)
+        } else {
+          navigate('/inventory')
+        }
+      } else {
+        const { error } = await addInventoryItem(itemData)
+        if (error) {
+          setFormError(error)
+        } else {
+          navigate('/inventory')
+        }
+      }
+    } catch (err) {
+      setFormError('Failed to save inventory item')
+    }
+
+    setSubmitLoading(false)
+  }
+
+  const handleDelete = async () => {
+    if (!isEditing) return
+
+    if (!window.confirm('Are you sure you want to delete this inventory item? This action cannot be undone.')) {
+      return
+    }
+
+    setDeleteLoading(true)
+    setFormError('')
+
+    try {
+      const { error } = await deleteInventoryItem(id)
+      if (error) {
+        setFormError(error)
       } else {
         navigate('/inventory')
       }
     } catch (err) {
-      console.error('Error saving inventory item:', err)
-      setError(err instanceof Error ? err.message : 'Failed to save inventory item')
-    } finally {
-      setLoading(false)
+      setFormError('Failed to delete inventory item')
     }
+
+    setDeleteLoading(false)
   }
 
-  if (loadingItem) {
+  // Check permissions - strict role-based access control
+  console.log('🔍 InventoryForm permissions:', { 
+    user: !!user, 
+    business: !!business, 
+    userRole, 
+    hasUpdatePermission: hasPermission('inventory', 'update'),
+    hasDeletePermission: hasPermission('inventory', 'delete')
+  })
+  
+  // Only admin and managers can edit inventory
+  const canEdit = user && business && (hasPermission('inventory', 'update') || userRole === 'admin' || userRole === 'manager')
+  const canDelete = user && business && (hasPermission('inventory', 'delete') || userRole === 'admin')
+
+  // Debug form state changes
+  useEffect(() => {
+    console.log('🔍 InventoryForm state:', { formData, canEdit, loading, submitLoading })
+  }, [formData, canEdit, loading, submitLoading])
+
+  if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary-600" />
-          <p className="mt-2 text-gray-400">Loading inventory item...</p>
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          >
+            <Loader2 className="h-8 w-8 mx-auto text-primary-600" />
+          </motion.div>
+          <p className="mt-2 text-gray-400">Loading...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <motion.div 
+      className="space-y-6"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      {/* Header */}
+      <motion.div 
+        className="flex items-center justify-between"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+      >
         <div className="flex items-center space-x-4">
-          <button
+          <motion.button
             onClick={() => navigate('/inventory')}
             className="p-2 text-gray-400 hover:text-gray-300 rounded-lg"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
           >
             <ArrowLeft className="h-5 w-5" />
-          </button>
+          </motion.button>
           <div>
             <h1 className="text-2xl font-bold text-gray-100">
-              {isEditMode ? 'Edit Inventory Item' : 'Add New Inventory Item'}
+              {isEditing ? 'Edit Inventory Item' : 'Add New Inventory Item'}
             </h1>
             <p className="text-gray-400">
-              {isEditMode
-                ? 'Update details for this inventory item'
-                : 'Add a new item to your inventory stock'
-              }
+              {isEditing ? 'Update inventory item details' : 'Add a new item to your inventory'}
             </p>
           </div>
         </div>
-      </div>
-
-      <div className="card">
-        {error && (
-          <div className="bg-red-900/20 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg text-sm mb-4">
-            {error}
-          </div>
+        
+        {isEditing && canDelete && (
+          <motion.button
+            onClick={handleDelete}
+            disabled={deleteLoading}
+            className="btn-danger flex items-center gap-2"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            {deleteLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
+            Delete Item
+          </motion.button>
         )}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-1">
-              Item Name (e.g., "Flour", "Sugar")
-            </label>
-            <input
-              type="text"
-              id="name"
-              name="name"
-              className="input-field"
-              value={formData.name || ''}
-              onChange={handleInputChange}
-              disabled={loading}
-              placeholder="e.g., Raw Material A"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Use this for raw materials or generic items not linked to a specific product.
-            </p>
-          </div>
+      </motion.div>
 
-          <div>
-            <label htmlFor="product_id" className="block text-sm font-medium text-gray-300 mb-1">
-              Link to Product (Optional)
-            </label>
-            <select
-              id="product_id"
-              name="product_id"
-              className="input-field"
-              value={formData.product_id || ''}
-              onChange={handleInputChange}
-              disabled={loading}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Form */}
+        <motion.div 
+          className="lg:col-span-2"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <AnimatePresence>
+              {formError && (
+                <motion.div 
+                  className="bg-red-900/20 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg text-sm"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {formError}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Basic Information */}
+            <motion.div 
+              className="card"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
             >
-              <option value="">-- Select a Product --</option>
-              {products.map(product => (
-                <option key={product.id} value={product.id}>{product.name}</option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-500 mt-1">
-              Link this inventory item to a finished product if it represents stock of that product.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="current_quantity" className="block text-sm font-medium text-gray-300 mb-1">
-                Current Quantity *
-              </label>
-              <input
-                type="number"
-                id="current_quantity"
-                name="current_quantity"
-                step="0.01"
-                min="0"
-                className="input-field"
-                value={formData.current_quantity || 0}
-                onChange={handleInputChange}
-                disabled={loading}
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="unit" className="block text-sm font-medium text-gray-300 mb-1">
-                Unit *
-              </label>
-              <select
-                id="unit"
-                name="unit"
-                className="input-field"
-                value={formData.unit || 'unit'}
-                onChange={handleInputChange}
-                disabled={loading}
-                required
+              <h2 className="text-lg font-semibold text-gray-100 mb-4 flex items-center gap-2">
+                <Package className="h-5 w-5 text-primary-400" />
+                Basic Information
+              </h2>
+              <motion.div 
+                className="space-y-4"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.4 }}
               >
-                <option value="unit">unit</option>
-                <option value="pcs">pcs</option>
-                <option value="kg">kg</option>
-                <option value="g">g</option>
-                <option value="lb">lb</option>
-                <option value="oz">oz</option>
-                <option value="L">L</option>
-                <option value="ml">ml</option>
-                <option value="gal">gal</option>
-                <option value="cup">cup</option>
-                <option value="tsp">tsp</option>
-                <option value="tbsp">tbsp</option>
-                <option value="box">box</option>
-                <option value="pack">pack</option>
-              </select>
-            </div>
-          </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Item Name *
+                  </label>
+                  <motion.input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="input-field"
+                    placeholder="Enter item name"
+                    required
+                    disabled={!canEdit}
+                    whileFocus={{ scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                  />
+                </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="cost_per_unit" className="block text-sm font-medium text-gray-300 mb-1">
-                Cost Per Unit *
-              </label>
-              <input
-                type="number"
-                id="cost_per_unit"
-                name="cost_per_unit"
-                step="0.01"
-                min="0"
-                className="input-field"
-                value={formData.cost_per_unit || 0}
-                onChange={handleInputChange}
-                disabled={loading}
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="low_stock_alert" className="block text-sm font-medium text-gray-300 mb-1">
-                Low Stock Alert Threshold
-              </label>
-              <input
-                type="number"
-                id="low_stock_alert"
-                name="low_stock_alert"
-                step="0.01"
-                min="0"
-                className="input-field"
-                value={formData.low_stock_alert || 0}
-                onChange={handleInputChange}
-                disabled={loading}
-              />
-            </div>
-          </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Current Quantity *
+                    </label>
+                    <motion.div whileFocus={{ scale: 1.02 }}>
+                      <ManualNumberInput
+                        step={0.01}
+                        value={formData.current_quantity.toString()}
+                        onChange={(value) => setFormData({ ...formData, current_quantity: parseFloat(value) || 0 })}
+                        className="input-field"
+                        placeholder="0"
+                        required
+                        disabled={!canEdit}
+                      />
+                    </motion.div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Unit *
+                    </label>
+                    <motion.input
+                      type="text"
+                      value={formData.unit}
+                      onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                      className="input-field"
+                      placeholder="e.g., pieces, kg, liters"
+                      required
+                      disabled={!canEdit}
+                      whileFocus={{ scale: 1.02 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                    />
+                  </div>
+                </div>
 
-          <div>
-            <label htmlFor="batch_lot_number" className="block text-sm font-medium text-gray-300 mb-1">
-              Batch/Lot Number (Optional)
-            </label>
-            <input
-              type="text"
-              id="batch_lot_number"
-              name="batch_lot_number"
-              className="input-field"
-              value={formData.batch_lot_number || ''}
-              onChange={handleInputChange}
-              disabled={loading}
-              placeholder="e.g., BATCH-20231026-001"
-            />
-          </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Description
+                  </label>
+                  <motion.textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    className="input-field"
+                    rows={3}
+                    placeholder="Optional description"
+                    disabled={!canEdit}
+                    whileFocus={{ scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                  />
+                </div>
+              </motion.div>
+            </motion.div>
 
-          <div>
-            <label htmlFor="expiration_date" className="block text-sm font-medium text-gray-300 mb-1">
-              Expiration Date (Optional)
-            </label>
-            <input
-              type="date"
-              id="expiration_date"
-              name="expiration_date"
-              className="input-field"
-              value={formData.expiration_date || ''}
-              onChange={handleInputChange}
-              disabled={loading}
-            />
-          </div>
-
-          <div className="flex justify-end space-x-3">
-            <button
-              type="button"
-              onClick={() => navigate('/inventory')}
-              className="btn-secondary"
-              disabled={loading}
+            {/* Pricing Information */}
+            <motion.div 
+              className="card"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
             >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary group flex items-center"
+              <h2 className="text-lg font-semibold text-gray-100 mb-4 flex items-center gap-2">
+                <Hash className="h-5 w-5 text-primary-400" />
+                Pricing Information
+              </h2>
+              <motion.div 
+                className="space-y-4"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.6 }}
+              >
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Cost per Unit
+                  </label>
+                  <motion.div whileFocus={{ scale: 1.02 }}>
+                    <ManualNumberInput
+                      step={0.01}
+                      value={formData.cost_per_unit.toString()}
+                      onChange={(value) => setFormData({ ...formData, cost_per_unit: parseFloat(value) || 0 })}
+                      className="input-field"
+                      placeholder="0.00"
+                      disabled={!canEdit}
+                    />
+                  </motion.div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Low Stock Alert
+                    </label>
+                    <motion.div whileFocus={{ scale: 1.02 }}>
+                      <ManualNumberInput
+                        step={0.01}
+                        value={formData.low_stock_alert.toString()}
+                        onChange={(value) => setFormData({ ...formData, low_stock_alert: parseFloat(value) || 0 })}
+                        className="input-field"
+                        placeholder="0"
+                        disabled={!canEdit}
+                      />
+                    </motion.div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Reorder Point
+                    </label>
+                    <motion.div whileFocus={{ scale: 1.02 }}>
+                      <ManualNumberInput
+                        step={0.01}
+                        value={formData.reorder_point.toString()}
+                        onChange={(value) => setFormData({ ...formData, reorder_point: parseFloat(value) || 0 })}
+                        className="input-field"
+                        placeholder="0"
+                        disabled={!canEdit}
+                      />
+                    </motion.div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Minimum Order Quantity
+                  </label>
+                  <motion.div whileFocus={{ scale: 1.02 }}>
+                    <ManualNumberInput
+                      step={0.01}
+                      value={formData.min_order_quantity.toString()}
+                      onChange={(value) => setFormData({ ...formData, min_order_quantity: parseFloat(value) || 0 })}
+                      className="input-field"
+                      placeholder="0"
+                      disabled={!canEdit}
+                    />
+                  </motion.div>
+                </div>
+              </motion.div>
+            </motion.div>
+
+            {/* Additional Information */}
+            <motion.div 
+              className="card"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.7 }}
             >
-              {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              <Save className="h-4 w-4 mr-2" />
-              {isEditMode ? 'Update Item' : 'Add Item'}
-            </button>
-          </div>
-        </form>
+              <h2 className="text-lg font-semibold text-gray-100 mb-4 flex items-center gap-2">
+                <Hash className="h-5 w-5 text-primary-400" />
+                Additional Information
+              </h2>
+              <motion.div 
+                className="space-y-4"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.8 }}
+              >
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Batch/Lot Number
+                  </label>
+                  <motion.input
+                    type="text"
+                    value={formData.batch_lot_number}
+                    onChange={(e) => setFormData({ ...formData, batch_lot_number: e.target.value })}
+                    className="input-field"
+                    placeholder="Optional batch number"
+                    disabled={!canEdit}
+                    whileFocus={{ scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Expiration Date
+                  </label>
+                  <motion.input
+                    type="date"
+                    value={formData.expiration_date}
+                    onChange={(e) => setFormData({ ...formData, expiration_date: e.target.value })}
+                    className="input-field"
+                    disabled={!canEdit}
+                    whileFocus={{ scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Supplier
+                  </label>
+                  <motion.input
+                    type="text"
+                    value={formData.supplier}
+                    onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
+                    className="input-field"
+                    placeholder="Supplier name"
+                    disabled={!canEdit}
+                    whileFocus={{ scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Location
+                  </label>
+                  <motion.input
+                    type="text"
+                    value={formData.location}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    className="input-field"
+                    placeholder="Storage location"
+                    disabled={!canEdit}
+                    whileFocus={{ scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Item Image
+                  </label>
+                  <ImageInput
+                    value={formData.image_url}
+                    onChange={(value) => setFormData(prev => ({ ...prev, image_url: value }))}
+                    onError={(error) => setFormError(error)}
+                    placeholder="Add item image..."
+                    maxSize={5}
+                    accept="image/*"
+                  />
+                </div>
+              </motion.div>
+            </motion.div>
+
+            {/* Submit Button */}
+            <motion.div 
+              className="flex items-center justify-end gap-4 pt-6 border-t border-dark-700"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.9 }}
+            >
+              <motion.button
+                type="button"
+                onClick={() => navigate('/inventory')}
+                className="btn-secondary"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Cancel
+              </motion.button>
+              <motion.button
+                type="submit"
+                disabled={submitLoading || !canEdit}
+                className="btn-primary flex items-center gap-2"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                {submitLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                {isEditing ? 'Update Item' : 'Add Item'}
+              </motion.button>
+            </motion.div>
+          </form>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   )
 }

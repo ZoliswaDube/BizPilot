@@ -1,9 +1,10 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
-import { AuthProvider } from './components/auth/AuthProvider'
+import { AuthInitializer } from './components/AuthInitializer'
 import { HomePage } from './components/home/HomePage'
 import { AuthForm } from './components/auth/AuthForm'
 import { AuthCallback } from './components/auth/AuthCallback'
+import { AuthErrorPage } from './components/auth/AuthErrorPage'
 import { ResetPasswordForm } from './components/auth/ResetPasswordForm'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
 import { Layout } from './components/layout/Layout'
@@ -20,10 +21,14 @@ import { QRGenerator } from './components/qr/QRGenerator' // New import
 import { PricingPage } from './components/pricing/PricingPage' // New import
 import { CheckoutPage } from './components/checkout/CheckoutPage' // New import
 import { ContactForm } from './components/contact/ContactForm' // New import
+import { BusinessForm } from './components/business/BusinessForm' // New import
+import { BusinessOnboarding } from './components/business/BusinessOnboarding' // New import
+import { UserManagement } from './components/users/UserManagement' // New import
 
 function App() {
   return (
-    <AuthProvider>
+    <>
+      <AuthInitializer />
       <Router>
         <AnimatePresence mode="wait">
           <Routes>
@@ -38,6 +43,7 @@ function App() {
             
             {/* Auth callback routes */}
             <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/auth/error" element={<AuthErrorPage />} />
             <Route path="/auth/reset-password" element={<ResetPasswordForm />} />
             
             {/* Protected routes */}
@@ -137,6 +143,28 @@ function App() {
               </ProtectedRoute>
             } />
 
+            {/* Business management routes */}
+            <Route path="/business/new" element={
+              <ProtectedRoute>
+                <BusinessOnboarding />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/business/edit/:id" element={
+              <ProtectedRoute>
+                <BusinessForm />
+              </ProtectedRoute>
+            } />
+
+            {/* User management routes */}
+            <Route path="/users" element={
+              <ProtectedRoute>
+                <Layout>
+                  <UserManagement />
+                </Layout>
+              </ProtectedRoute>
+            } />
+
             {/* New routes for pricing page actions */}
             <Route path="/checkout" element={
               <ProtectedRoute>
@@ -156,7 +184,7 @@ function App() {
           </Routes>
         </AnimatePresence>
       </Router>
-    </AuthProvider>
+    </>
   )
 }
 

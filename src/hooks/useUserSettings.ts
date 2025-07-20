@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { useAuth } from './useAuth'
+import { useAuthStore } from '../store/auth'
 
 interface UserSettings {
   id?: string
@@ -11,7 +11,7 @@ interface UserSettings {
 }
 
 export function useUserSettings() {
-  const { user } = useAuth()
+  const { user } = useAuthStore()
   const [settings, setSettings] = useState<UserSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

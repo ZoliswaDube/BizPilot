@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { useAuth } from './useAuth'
+import { useAuthStore } from '../store/auth'
+import { useBusiness } from './useBusiness'
 import { Database } from '../lib/supabase'
 
 type InventoryItem = Database['public']['Tables']['inventory']['Row']
@@ -9,19 +10,39 @@ type UpdateInventoryItem = Database['public']['Tables']['inventory']['Update']
 type InsertInventoryTransaction = Database['public']['Tables']['inventory_transactions']['Insert']
 
 export function useInventory() {
-  const { user } = useAuth()
+  const { user } = useAuthStore()
+  const { business, loading: businessLoading } = useBusiness()
   const [inventory, setInventory] = useState<InventoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (user) {
-      fetchInventory()
+    if (!user) {
+      setLoading(false)
+      setInventory([])
+      setError(null)
+      return
     }
-  }, [user])
+
+    if (businessLoading) {
+      // Still loading business data, keep loading state
+      return
+    }
+
+    if (!business) {
+      // User has no business, set empty state
+      setLoading(false)
+      setInventory([])
+      setError(null)
+      return
+    }
+
+    // User has business, fetch inventory
+    fetchInventory()
+  }, [user, business, businessLoading])
 
   const fetchInventory = async () => {
-    if (!user) return
+    if (!user || !business) return
 
     try {
       setLoading(true)
@@ -29,7 +50,7 @@ export function useInventory() {
       const { data, error } = await supabase
         .from('inventory')
         .select(`*, products(name)`) // Fetch product name if linked
-        .eq('user_id', user.id)
+        .eq('business_id', business.id)
         .order('name', { ascending: true })
 
       if (error) throw error
@@ -41,13 +62,13 @@ export function useInventory() {
     }
   }
 
-  const addInventoryItem = async (newItem: Omit<InsertInventoryItem, 'user_id'>) => {
-    if (!user) return { data: null, error: 'User not authenticated' }
+  const addInventoryItem = async (newItem: Omit<InsertInventoryItem, 'business_id'>) => {
+    if (!user || !business) return { data: null, error: 'User not authenticated or no business' }
     try {
       setError(null)
       const { data, error } = await supabase
         .from('inventory')
-        .insert({ ...newItem, user_id: user.id })
+        .insert({ ...newItem, business_id: business.id })
         .select()
         .single()
 
@@ -72,14 +93,14 @@ export function useInventory() {
   }
 
   const updateInventoryItem = async (id: string, updates: UpdateInventoryItem) => {
-    if (!user) return { data: null, error: 'User not authenticated' }
+    if (!user || !business) return { data: null, error: 'User not authenticated or no business' }
     try {
       setError(null)
       const { data, error } = await supabase
         .from('inventory')
         .update(updates)
         .eq('id', id)
-        .eq('user_id', user.id)
+        .eq('business_id', business.id)
         .select()
         .single()
 
@@ -94,14 +115,14 @@ export function useInventory() {
   }
 
   const deleteInventoryItem = async (id: string) => {
-    if (!user) return { error: 'User not authenticated' }
+    if (!user || !business) return { error: 'User not authenticated or no business' }
     try {
       setError(null)
       const { error } = await supabase
         .from('inventory')
         .delete()
         .eq('id', id)
-        .eq('user_id', user.id)
+        .eq('business_id', business.id)
 
       if (error) throw error
       setInventory(prev => prev.filter(item => item.id !== id))
@@ -113,13 +134,13 @@ export function useInventory() {
     }
   }
 
-  const addInventoryTransaction = async (newTransaction: Omit<InsertInventoryTransaction, 'user_id'>) => {
-    if (!user) return { data: null, error: 'User not authenticated' }
+  const addInventoryTransaction = async (newTransaction: Omit<InsertInventoryTransaction, 'business_id' | 'user_id'>) => {
+    if (!user || !business) return { data: null, error: 'User not authenticated or no business' }
     try {
       setError(null)
       const { data, error } = await supabase
         .from('inventory_transactions')
-        .insert({ ...newTransaction, user_id: user.id })
+        .insert({ ...newTransaction, business_id: business.id })
         .select()
         .single()
 
@@ -134,7 +155,7 @@ export function useInventory() {
 
   // Function to adjust stock and record transaction
   const adjustStock = async (inventoryId: string, change: number, notes: string = '') => {
-    if (!user) return { error: 'User not authenticated' }
+    if (!user || !business) return { error: 'User not authenticated or no business' }
     try {
       setError(null)
       const currentItem = inventory.find(item => item.id === inventoryId)
@@ -146,7 +167,7 @@ export function useInventory() {
         .from('inventory')
         .update({ current_quantity: newQuantity })
         .eq('id', inventoryId)
-        .eq('user_id', user.id)
+        .eq('business_id', business.id)
         .select()
         .single()
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Eye, EyeOff, Lock, Loader2, CheckCircle, XCircle } from 'lucide-react'
-import { useAuth } from '../../hooks/useAuth'
+import { useAuthStore } from '../../store/auth'
 import { Logo } from '../common/Logo'
 
 export function ResetPasswordForm() {
@@ -15,7 +15,7 @@ export function ResetPasswordForm() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   
-  const { updatePassword } = useAuth()
+  const { updatePassword } = useAuthStore()
 
   useEffect(() => {
     // Check if we have the necessary tokens in the URL
