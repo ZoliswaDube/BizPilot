@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Users, Shield, Trash2, Loader2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { useAuth } from '../../hooks/useAuth'
+import { useAuthStore } from '../../store/auth'
 import { UserForm } from './UserForm'
 import { RoleForm } from './RoleForm'
 
@@ -37,7 +37,7 @@ interface UserPermission {
 }
 
 export function UserManagement() {
-  const { user } = useAuth()
+  const { user } = useAuthStore()
   const [businessUsers, setBusinessUsers] = useState<BusinessUser[]>([])
   const [userRoles, setUserRoles] = useState<UserRole[]>([])
   const [loading, setLoading] = useState(true)

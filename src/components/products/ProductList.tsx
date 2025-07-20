@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Plus, Search, Package, Edit, Trash2, Calculator, Tag, Truck } from 'lucide-react'
-import { useAuth } from '../../hooks/useAuth'
+import { useAuthStore } from '../../store/auth'
 import { supabase } from '../../lib/supabase'
 import { formatCurrency, formatPercentage } from '../../utils/calculations'
 import { ImageDisplay } from '../ui/image-display'
@@ -28,7 +28,7 @@ interface Product {
 
 export function ProductList() {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user } = useAuthStore()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')

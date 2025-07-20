@@ -5,13 +5,13 @@ import { Logo } from '../common/Logo'
 import { AuthTabs } from './AuthTabs'
 import { EmailAuthForm } from './EmailAuthForm'
 import { OAuthButtons } from './OAuthButtons'
-import { useAuth } from '../../hooks/useAuth'
+import { useAuthStore } from '../../store/auth'
 
 type AuthMode = 'signin' | 'signup' | 'reset'
 
 export function AuthForm() {
   const navigate = useNavigate()
-  const { user, loading } = useAuth()
+  const { user, loading } = useAuthStore()
   const [mode, setMode] = useState<AuthMode>('signin')
 
   // Redirect to dashboard if user is already authenticated

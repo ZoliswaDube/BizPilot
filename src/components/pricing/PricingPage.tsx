@@ -1,10 +1,10 @@
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { useAuth } from '../../hooks/useAuth'
+import { useAuthStore } from '../../store/auth'
 import { PricingCard } from "../ui/pricing-card"
 
 function PricingPage() {
-  const { user } = useAuth()
+  const { user } = useAuthStore()
   const navigate = useNavigate()
 
   const handleCTAClick = (tier: string) => {

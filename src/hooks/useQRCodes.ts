@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { useAuth } from './useAuth'
+import { useAuthStore } from '../store/auth'
 import { Database } from '../lib/supabase'
 import QRCodeLib from 'qrcode'
 
@@ -16,7 +16,7 @@ export interface QRCodeConfig {
 }
 
 export function useQRCodes() {
-  const { user } = useAuth()
+  const { user } = useAuthStore()
   const [qrCodes, setQrCodes] = useState<QRCode[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

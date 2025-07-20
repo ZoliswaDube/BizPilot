@@ -1,14 +1,14 @@
 import { ReactNode, useEffect, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
-import { useAuth } from '../../hooks/useAuth'
+import { useAuthStore } from '../../store/auth'
 
 interface ProtectedRouteProps {
   children: ReactNode
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { user, loading, signOut } = useAuth()
+  const { user, loading, signOut } = useAuthStore()
   const navigate = useNavigate()
   const [loadingTimeout, setLoadingTimeout] = useState(false)
 

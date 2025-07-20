@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, Package, Hash, Save, Trash2, Loader2 } from 'lucide-react'
-import { useAuth } from '../../hooks/useAuth'
+import { useAuthStore } from '../../store/auth'
 import { useBusiness } from '../../hooks/useBusiness'
 import { ManualNumberInput } from '../ui/manual-number-input'
 import { ImageInput } from '../ui/image-input'
@@ -12,7 +12,7 @@ import { useInventory } from '../../hooks/useInventory'
 export function InventoryForm() {
   const navigate = useNavigate()
   const { id } = useParams()
-  const { user } = useAuth()
+  const { user } = useAuthStore()
   const { business, hasPermission, userRole } = useBusiness()
   const { addInventoryItem, updateInventoryItem, deleteInventoryItem } = useInventory()
 
@@ -81,10 +81,47 @@ export function InventoryForm() {
     }
   }
 
+  const validateForm = () => {
+    const errors: string[] = []
+    
+    // Required field validation
+    if (!formData.name.trim()) {
+      errors.push('Item name is required')
+    }
+    
+    if (!formData.unit.trim()) {
+      errors.push('Unit is required')
+    }
+    
+    if (formData.current_quantity < 0) {
+      errors.push('Current quantity cannot be negative')
+    }
+    
+    if (formData.cost_per_unit < 0) {
+      errors.push('Cost per unit cannot be negative')
+    }
+    
+    if (formData.low_stock_alert < 0) {
+      errors.push('Low stock alert cannot be negative')
+    }
+    
+    return errors
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!user || !business) return
+    if (!user || !business) {
+      setFormError('User not authenticated or no business found')
+      return
+    }
+    
+    // Validate form
+    const validationErrors = validateForm()
+    if (validationErrors.length > 0) {
+      setFormError(validationErrors.join(', '))
+      return
+    }
     
     setSubmitLoading(true)
     setFormError('')
@@ -152,9 +189,23 @@ export function InventoryForm() {
     setDeleteLoading(false)
   }
 
-  // Check permissions
-  const canEdit = user && (hasPermission('inventory', 'update') || userRole === 'admin' || userRole === 'manager')
-  const canDelete = user && (hasPermission('inventory', 'delete') || userRole === 'admin')
+  // Check permissions - strict role-based access control
+  console.log('🔍 InventoryForm permissions:', { 
+    user: !!user, 
+    business: !!business, 
+    userRole, 
+    hasUpdatePermission: hasPermission('inventory', 'update'),
+    hasDeletePermission: hasPermission('inventory', 'delete')
+  })
+  
+  // Only admin and managers can edit inventory
+  const canEdit = user && business && (hasPermission('inventory', 'update') || userRole === 'admin' || userRole === 'manager')
+  const canDelete = user && business && (hasPermission('inventory', 'delete') || userRole === 'admin')
+
+  // Debug form state changes
+  useEffect(() => {
+    console.log('🔍 InventoryForm state:', { formData, canEdit, loading, submitLoading })
+  }, [formData, canEdit, loading, submitLoading])
 
   if (loading) {
     return (

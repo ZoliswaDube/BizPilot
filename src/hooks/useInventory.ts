@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { useAuth } from './useAuth'
+import { useAuthStore } from '../store/auth'
 import { useBusiness } from './useBusiness'
 import { Database } from '../lib/supabase'
 
@@ -10,17 +10,36 @@ type UpdateInventoryItem = Database['public']['Tables']['inventory']['Update']
 type InsertInventoryTransaction = Database['public']['Tables']['inventory_transactions']['Insert']
 
 export function useInventory() {
-  const { user } = useAuth()
-  const { business } = useBusiness()
+  const { user } = useAuthStore()
+  const { business, loading: businessLoading } = useBusiness()
   const [inventory, setInventory] = useState<InventoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (user && business) {
-      fetchInventory()
+    if (!user) {
+      setLoading(false)
+      setInventory([])
+      setError(null)
+      return
     }
-  }, [user, business])
+
+    if (businessLoading) {
+      // Still loading business data, keep loading state
+      return
+    }
+
+    if (!business) {
+      // User has no business, set empty state
+      setLoading(false)
+      setInventory([])
+      setError(null)
+      return
+    }
+
+    // User has business, fetch inventory
+    fetchInventory()
+  }, [user, business, businessLoading])
 
   const fetchInventory = async () => {
     if (!user || !business) return

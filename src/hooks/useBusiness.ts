@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { useAuth } from './useAuth'
+import { useAuthStore } from '../store/auth'
 
 interface Business {
   id: string
@@ -48,7 +48,7 @@ interface UserPermission {
 }
 
 export function useBusiness() {
-  const { user } = useAuth()
+  const { user } = useAuthStore()
   const [business, setBusiness] = useState<Business | null>(null)
   const [businessUsers, setBusinessUsers] = useState<BusinessUser[]>([])
   const [userRoles, setUserRoles] = useState<UserRole[]>([])
@@ -74,9 +74,26 @@ export function useBusiness() {
           `)
           .eq('user_id', user.id)
           .eq('is_active', true)
-          .single()
+          .maybeSingle()
 
         if (businessUserError) {
+          console.error('Error fetching business user:', businessUserError)
+          
+          // Handle RLS policy errors (406) - user likely has no business association
+          if (businessUserError.code === 'PGRST301' || businessUserError.message?.includes('406')) {
+            console.log('RLS policy blocked access - user has no business association')
+            setBusiness(null)
+            setUserRole('')
+            return
+          }
+          
+          // For other errors, set to null and continue
+          setBusiness(null)
+          setUserRole('')
+          return
+        }
+
+        if (!businessUser) {
           // User doesn't have a business yet
           setBusiness(null)
           setUserRole('')

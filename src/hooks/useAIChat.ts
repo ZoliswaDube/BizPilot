@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { useAuth } from './useAuth'
+import { useAuthStore } from "../store/auth";
 import { useUserSettings } from './useUserSettings'
 import { Database } from '../lib/supabase'
 import OpenAI from 'openai'
@@ -18,7 +18,7 @@ interface BusinessContext {
 }
 
 export function useAIChat() {
-  const { user } = useAuth()
+  const { user } = useAuthStore()
   const { settings } = useUserSettings()
   const [conversations, setConversations] = useState<AIConversation[]>([])
   const [currentConversation, setCurrentConversation] = useState<AIConversation | null>(null)

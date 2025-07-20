@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
-import { AuthProvider } from './components/auth/AuthProvider'
+import { AuthInitializer } from './components/AuthInitializer'
 import { HomePage } from './components/home/HomePage'
 import { AuthForm } from './components/auth/AuthForm'
 import { AuthCallback } from './components/auth/AuthCallback'
@@ -22,11 +22,13 @@ import { PricingPage } from './components/pricing/PricingPage' // New import
 import { CheckoutPage } from './components/checkout/CheckoutPage' // New import
 import { ContactForm } from './components/contact/ContactForm' // New import
 import { BusinessForm } from './components/business/BusinessForm' // New import
+import { BusinessOnboarding } from './components/business/BusinessOnboarding' // New import
 import { UserManagement } from './components/users/UserManagement' // New import
 
 function App() {
   return (
-    <AuthProvider>
+    <>
+      <AuthInitializer />
       <Router>
         <AnimatePresence mode="wait">
           <Routes>
@@ -144,7 +146,7 @@ function App() {
             {/* Business management routes */}
             <Route path="/business/new" element={
               <ProtectedRoute>
-                <BusinessForm />
+                <BusinessOnboarding />
               </ProtectedRoute>
             } />
             
@@ -182,7 +184,7 @@ function App() {
           </Routes>
         </AnimatePresence>
       </Router>
-    </AuthProvider>
+    </>
   )
 }
 

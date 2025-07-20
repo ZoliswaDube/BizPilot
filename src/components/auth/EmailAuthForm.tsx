@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Eye, EyeOff, Mail, Lock, User, Loader2, AlertCircle, CheckCircle } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useAuth } from '../../hooks/useAuth'
+import { useAuthStore } from '../../store/auth'
 
 type AuthMode = 'signin' | 'signup' | 'reset'
 
@@ -22,7 +22,7 @@ export function EmailAuthForm({ mode, onModeChange, onSuccess }: EmailAuthFormPr
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
   
-  const { signUp, signIn, resetPassword, resendVerification } = useAuth()
+  const { signUp, signIn, resetPassword, resendVerification } = useAuthStore()
 
   const validateForm = () => {
     setError('')
@@ -84,7 +84,11 @@ export function EmailAuthForm({ mode, onModeChange, onSuccess }: EmailAuthFormPr
           result = await signUp(email, password, { full_name: fullName.trim() })
           console.log('🔐 EmailAuthForm: Signup result', { error: result.error?.message, hasError: !!result.error })
           if (!result.error) {
-            setSuccess('Please check your email and click the verification link to complete your registration.')
+            setSuccess('Account created successfully! Please check your email and click the verification link, then you will be redirected to set up your business.')
+            // After successful signup, redirect to business onboarding
+            setTimeout(() => {
+              window.location.href = '/business/new'
+            }, 3000) // Give user time to read the success message
           }
           break
           

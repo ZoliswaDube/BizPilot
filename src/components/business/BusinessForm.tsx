@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Loader2, Save, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { useAuth } from '../../hooks/useAuth'
+import { useAuthStore } from '../../store/auth'
 
 interface BusinessFormData {
   name: string
@@ -18,7 +18,7 @@ interface BusinessFormData {
 export function BusinessForm() {
   const navigate = useNavigate()
   const { id } = useParams()
-  const { user } = useAuth()
+  const { user } = useAuthStore()
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -75,6 +75,30 @@ export function BusinessForm() {
     e.preventDefault()
     if (!user) return
 
+    // Client-side validation
+    if (!formData.name.trim()) {
+      setError('Business name is required')
+      return
+    }
+
+    // Validate email format if provided
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      setError('Please enter a valid email address')
+      return
+    }
+
+    // Validate website URL format if provided
+    if (formData.website && !/^https?:\/\/.+/.test(formData.website)) {
+      setError('Please enter a valid website URL (including http:// or https://)')
+      return
+    }
+
+    // Validate logo URL format if provided
+    if (formData.logo_url && !/^https?:\/\/.+/.test(formData.logo_url)) {
+      setError('Please enter a valid logo URL (including http:// or https://)')
+      return
+    }
+
     setSaving(true)
     setError('')
 
@@ -87,6 +111,9 @@ export function BusinessForm() {
           .eq('id', id)
 
         if (error) throw error
+        
+        // Navigate to dashboard after successful update
+        navigate('/dashboard')
       } else {
         // Create new business
         const { data, error } = await supabase
@@ -109,13 +136,42 @@ export function BusinessForm() {
             }])
 
           if (userError) throw userError
-        }
-      }
 
-      navigate('/businesses')
+          // Update user_profiles with new business_id
+          const { error: profileError } = await supabase
+            .from('user_profiles')
+            .update({ business_id: data.id })
+            .eq('user_id', user.id)
+          if (profileError) console.error('Failed to update user_profiles:', profileError)
+
+          // Update user_settings with new business_id
+          const { error: settingsError } = await supabase
+            .from('user_settings')
+            .update({ business_id: data.id })
+            .eq('user_id', user.id)
+          if (settingsError) console.error('Failed to update user_settings:', settingsError)
+        }
+
+        // Navigate to dashboard after successful creation
+        navigate('/dashboard')
+      }
     } catch (err) {
       console.error('Error saving business:', err)
-      setError('Failed to save business')
+      
+      // Provide more specific error messages
+      if (err instanceof Error) {
+        if (err.message.includes('duplicate')) {
+          setError('A business with this name already exists')
+        } else if (err.message.includes('network')) {
+          setError('Network error. Please check your connection and try again')
+        } else if (err.message.includes('permission')) {
+          setError('You do not have permission to perform this action')
+        } else {
+          setError(`Failed to save business: ${err.message}`)
+        }
+      } else {
+        setError('An unexpected error occurred. Please try again')
+      }
     } finally {
       setSaving(false)
     }
@@ -170,7 +226,7 @@ export function BusinessForm() {
             </motion.h1>
             
             <motion.button
-              onClick={() => navigate('/businesses')}
+              onClick={() => navigate('/dashboard')}
               className="text-gray-400 hover:text-gray-200 transition-colors"
               initial={{ y: -20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
@@ -290,7 +346,7 @@ export function BusinessForm() {
                 value={formData.website}
                 onChange={(e) => handleInputChange('website', e.target.value)}
                 className="w-full px-4 py-3 bg-dark-800 border border-dark-600 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="Enter website URL"
+                placeholder="https://yourbusiness.com"
               />
             </motion.div>
 
@@ -307,7 +363,7 @@ export function BusinessForm() {
                 value={formData.logo_url}
                 onChange={(e) => handleInputChange('logo_url', e.target.value)}
                 className="w-full px-4 py-3 bg-dark-800 border border-dark-600 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="Enter logo URL"
+                placeholder="https://example.com/logo.png"
               />
             </motion.div>
 
@@ -337,7 +393,7 @@ export function BusinessForm() {
               
               <button
                 type="button"
-                onClick={() => navigate('/businesses')}
+                onClick={() => navigate('/dashboard')}
                 className="flex-1 bg-dark-700 hover:bg-dark-600 text-gray-300 font-medium py-3 px-6 rounded-lg transition-colors"
               >
                 Cancel

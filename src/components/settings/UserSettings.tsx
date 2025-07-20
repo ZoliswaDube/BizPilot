@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react'
 import { Save, User, Loader2, CheckCircle, Mail, Camera, Building, TrendingUp } from 'lucide-react'
-import { useAuth } from '../../hooks/useAuth'
+import { useAuthStore } from '../../store/auth'
 import { useUserSettings } from '../../hooks/useUserSettings'
 import { ManualNumberInput } from '../ui/manual-number-input'
 import { formatCurrency, formatPercentage } from '../../utils/calculations'
 
 export function UserSettings() {
   const { settings, loading: settingsLoading, error: settingsError, updateSettings } = useUserSettings()
-  const { userProfile, updateProfile } = useAuth()
+  const { userProfile, updateProfile } = useAuthStore()
   
   const [businessFormData, setBusinessFormData] = useState({
     business_name: '',

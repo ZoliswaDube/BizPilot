@@ -15,7 +15,7 @@ import {
   Truck, // New icon for Suppliers
   Users // New icon for User Management
 } from 'lucide-react'
-import { useAuth } from '../../hooks/useAuth'
+import { useAuthStore } from '../../store/auth'
 import { Logo } from '../common/Logo'
 import { supabase } from '../../lib/supabase'
 
@@ -37,7 +37,7 @@ const adminNavItems = [
 
 export function Navigation() {
   const location = useLocation()
-  const { signOut, user } = useAuth()
+  const { signOut, user } = useAuthStore()
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false)
   const [isAdmin, setIsAdmin] = React.useState(false)
 

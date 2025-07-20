@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useAuth } from '../../hooks/useAuth'
+import { useAuthStore } from '../../store/auth'
 import { supabase } from '../../lib/supabase'
 import { ProfitMarginChart } from '../charts/ProfitMarginChart'
 import { CostBreakdownChart } from '../charts/CostBreakdownChart'
@@ -31,7 +31,7 @@ interface Ingredient {
 }
 
 export function DashboardCharts() {
-  const { user } = useAuth()
+  const { user } = useAuthStore()
   const [products, setProducts] = useState<Product[]>([])
   const [inventory, setInventory] = useState<InventoryItem[]>([])
   const [ingredients, setIngredients] = useState<Ingredient[]>([])

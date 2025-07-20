@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { useAuth } from './useAuth'
+import { useAuthStore } from '../store/auth'
 import { Database } from '../lib/supabase'
 
 type Category = Database['public']['Tables']['categories']['Row']
@@ -8,7 +8,7 @@ type InsertCategory = Database['public']['Tables']['categories']['Insert']
 type UpdateCategory = Database['public']['Tables']['categories']['Update']
 
 export function useCategories() {
-  const { user } = useAuth()
+  const { user } = useAuthStore()
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

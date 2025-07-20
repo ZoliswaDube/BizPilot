@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { Loader2, AlertCircle } from 'lucide-react'
-import { useAuth } from '../../hooks/useAuth'
+import { useAuthStore } from '../../store/auth'
 
 interface OAuthButtonsProps {
   onSuccess: () => void
@@ -10,7 +10,7 @@ export function OAuthButtons({ }: OAuthButtonsProps) {
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [timeoutError, setTimeoutError] = useState(false)
-  const { signInWithProvider } = useAuth()
+  const { signInWithProvider } = useAuthStore()
   const timeoutRef = useRef<NodeJS.Timeout>()
 
   const clearTimeouts = () => {

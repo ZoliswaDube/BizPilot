@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useEffect, useState } from 'react'
-import { useAuth } from '../../hooks/useAuth'
+import { useAuthStore } from '../../store/auth'
 import { Logo } from '../common/Logo'
 import { AuroraHero } from '../ui/futuristic-hero-section'
 import { 
@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 
 export function HomePage() {
-  const { user } = useAuth()
+  const { user } = useAuthStore()
   const navigate = useNavigate()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
