@@ -65,6 +65,39 @@ export function ProductForm() {
   const [loadingProduct, setLoadingProduct] = useState(isEditMode)
   const [error, setError] = useState('')
 
+  // Auto-generate SKU for new product based on business prefix
+  useEffect(() => {
+    const generateSku = async () => {
+      if (isEditMode || formData.sku || !user) return
+      try {
+        // Fetch business name for current user
+        const { data: businessUser, error } = await supabase
+          .from('business_users')
+          .select('business:businesses(name)')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .single()
+        if (error) throw error
+        const businessName: string | undefined = businessUser?.business?.name
+        if (!businessName) return
+        const prefix = businessName.substring(0, 3).toUpperCase()
+
+        // Count existing SKUs with this prefix
+        const { count, error: countError } = await supabase
+          .from('products')
+          .select('id', { count: 'exact', head: true })
+          .ilike('sku', `${prefix}%`)
+        if (countError) throw countError
+        const nextNumber = (count ?? 0) + 1
+        const newSku = `${prefix}${nextNumber.toString().padStart(3, '0')}`
+        setFormData(prev => ({ ...prev, sku: newSku }))
+      } catch (err) {
+        console.error('Failed to auto-generate SKU:', err)
+      }
+    }
+    generateSku()
+  }, [isEditMode, formData.sku, user])
+
   // Load existing product data if editing
   useEffect(() => {
     if (isEditMode && id && user) {

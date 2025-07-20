@@ -94,7 +94,7 @@ export function Navigation() {
       <AnimatePresence>
         {mobileMenuOpen && (
           <motion.div 
-            className="lg:hidden fixed inset-0 z-40 bg-black bg-opacity-50" 
+            className="lg:hidden fixed inset-0 z-20 bg-black bg-opacity-50" 
             onClick={() => setMobileMenuOpen(false)}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

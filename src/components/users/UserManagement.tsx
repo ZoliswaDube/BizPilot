@@ -73,7 +73,7 @@ export function UserManagement() {
         .from('business_users')
         .select(`
           *,
-          user:user_profiles(email, full_name)
+          profile:user_profiles(email, full_name)
         `)
         .eq('business_id', businessUser.business_id)
 

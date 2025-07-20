@@ -68,7 +68,7 @@ export function useInventory() {
       setError(null)
       const { data, error } = await supabase
         .from('inventory')
-        .insert({ ...newItem, business_id: business.id })
+        .insert({ ...newItem, business_id: business.id, user_id: user.id })
         .select()
         .single()
 

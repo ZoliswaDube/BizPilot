@@ -109,7 +109,7 @@ export function useBusiness() {
             .from('business_users')
             .select(`
               *,
-              user:user_profiles(email, full_name)
+              profile:user_profiles(email, full_name)
             `)
             .eq('business_id', businessUser.business_id)
 
@@ -209,7 +209,7 @@ export function useBusiness() {
         .from('business_users')
         .select(`
           *,
-          user:user_profiles(email, full_name)
+          profile:user_profiles(email, full_name)
         `)
         .eq('business_id', business.id)
 
@@ -242,7 +242,7 @@ export function useBusiness() {
         .from('business_users')
         .select(`
           *,
-          user:user_profiles(email, full_name)
+          profile:user_profiles(email, full_name)
         `)
         .eq('business_id', business.id)
 
@@ -273,7 +273,7 @@ export function useBusiness() {
         .from('business_users')
         .select(`
           *,
-          user:user_profiles(email, full_name)
+          profile:user_profiles(email, full_name)
         `)
         .eq('business_id', business.id)
 
