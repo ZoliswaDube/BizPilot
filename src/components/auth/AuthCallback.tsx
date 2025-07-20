@@ -49,17 +49,55 @@ export function AuthCallback() {
     console.log('🔐 AuthCallback: handleAuthCallback started')
     
     // Set a timeout for the entire auth process
-    timeoutRef.current = setTimeout(handleTimeout, 10000) // Reduced to 10 second timeout
+    timeoutRef.current = setTimeout(handleTimeout, 15000) // Increased to 15 second timeout
     
     try {
-      // First, check if we already have a session (user might be already authenticated)
+      // Wait a brief moment for OAuth state to settle
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      // Check if we already have a session (user might be already authenticated)
       const { data: { session: existingSession } } = await supabase.auth.getSession()
       if (existingSession) {
         console.log('🔐 AuthCallback: User already has a session, redirecting to dashboard')
         clearTimeout(timeoutRef.current!)
         setStatus('success')
         setMessage('Welcome back! Redirecting...')
-        navigate('/dashboard')
+        // Clean up URL and redirect
+        window.history.replaceState({}, document.title, window.location.pathname)
+        setTimeout(() => navigate('/dashboard'), 500)
+        return
+      }
+      
+      // If no tokens or code found, wait a bit and check session again
+      console.log('🔐 AuthCallback: No OAuth tokens or code found, waiting and checking session...')
+      
+      // Wait for potential async auth state changes (increased wait time)
+      await new Promise(resolve => setTimeout(resolve, 3000))
+      
+      const { data: { session: finalSession } } = await supabase.auth.getSession()
+      if (finalSession) {
+        console.log('🔐 AuthCallback: Found session after waiting, redirecting to dashboard')
+        clearTimeout(timeoutRef.current!)
+        setStatus('success')
+        setMessage('Authentication successful! Redirecting...')
+        // Clean up URL and redirect with delay
+        window.history.replaceState({}, document.title, window.location.pathname)
+        setTimeout(() => navigate('/dashboard'), 500)
+        return
+      }
+      
+      // Final fallback: wait longer and check one more time
+      console.log('🔐 AuthCallback: Final fallback - waiting longer for session')
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      const { data: { session: lastSession } } = await supabase.auth.getSession()
+      if (lastSession) {
+        console.log('🔐 AuthCallback: Found session in final fallback, redirecting to dashboard')
+        clearTimeout(timeoutRef.current!)
+        setStatus('success')
+        setMessage('Authentication successful! Redirecting...')
+        window.history.replaceState({}, document.title, window.location.pathname)
+        setTimeout(() => navigate('/dashboard'), 500)
         return
       }
       
@@ -367,7 +405,40 @@ export function AuthCallback() {
       port: window.location.port
     })
     
-    handleAuthCallback()
+    // Simple, direct approach: just check for session and redirect
+    const checkSessionAndRedirect = async () => {
+      console.log('🔐 AuthCallback: Starting simple session check')
+      
+      try {
+        // Wait a moment for OAuth to complete
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        
+        // Check for session
+        const { data: { session } } = await supabase.auth.getSession()
+        
+        if (session) {
+          console.log('🔐 AuthCallback: Session found, redirecting to dashboard')
+          setStatus('success')
+          setMessage('Authentication successful! Redirecting...')
+          
+          // Clean up URL
+          window.history.replaceState({}, document.title, '/auth/callback')
+          
+          // Redirect to dashboard
+          setTimeout(() => {
+            navigate('/dashboard', { replace: true })
+          }, 1000)
+        } else {
+          console.log('🔐 AuthCallback: No session found, falling back to complex handling')
+          handleAuthCallback()
+        }
+      } catch (error) {
+        console.error('🔐 AuthCallback: Error in simple session check', error)
+        handleAuthCallback()
+      }
+    }
+    
+    checkSessionAndRedirect()
   }, [navigate, searchParams, retryCount])
 
   const handleManualRetry = () => {

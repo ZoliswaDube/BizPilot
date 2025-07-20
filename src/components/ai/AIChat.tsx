@@ -164,9 +164,9 @@ export function AIChat() {
   }
 
   return (
-    <div className="h-full flex overflow-hidden">
+    <div className="h-full flex flex-col lg:flex-row overflow-hidden">
       {/* Sidebar - Conversation List */}
-      <div className="w-80 border-r border-dark-700 flex flex-col">
+      <div className="w-full lg:w-80 border-b lg:border-b-0 lg:border-r border-dark-700 flex flex-col">
         <div className="p-4 border-b border-dark-700">
           <button
             onClick={handleNewConversation}
@@ -211,7 +211,7 @@ export function AIChat() {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-h-0">
         <div className="p-4 border-b border-dark-700">
           <h1 className="text-xl font-bold text-gray-100">AI Business Assistant</h1>
           <p className="text-sm text-gray-400">
@@ -219,7 +219,7 @@ export function AIChat() {
           </p>
           
           {businessContext && (
-            <div className="mt-3 flex items-center space-x-4 text-xs text-gray-500">
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-500">
               <span>{businessContext.totalProducts} products</span>
               <span>{businessContext.totalInventoryItems} inventory items</span>
               <span>{formatPercentage(businessContext.avgMargin)} avg margin</span>
@@ -233,7 +233,7 @@ export function AIChat() {
         {/* Quick Questions */}
         <div className="p-4 border-b border-dark-700">
           <h3 className="text-sm font-medium text-gray-300 mb-3">Quick Questions</h3>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {quickQuestions.map((question) => (
               <button
                 key={question.id}
@@ -290,7 +290,7 @@ export function AIChat() {
 
         {/* Input */}
         <div className="p-4 border-t border-dark-700">
-          <div className="flex space-x-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <div className="flex-1 relative">
               <input
                 ref={inputRef}
@@ -320,7 +320,7 @@ export function AIChat() {
             <button
               onClick={handleSendMessage}
               disabled={!inputValue.trim() || loading}
-              className="btn-primary flex items-center"
+              className="btn-primary flex items-center justify-center sm:w-auto"
             >
               <Send className="h-4 w-4" />
             </button>

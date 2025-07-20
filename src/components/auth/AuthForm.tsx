@@ -1,15 +1,26 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Loader2 } from 'lucide-react'
 import { Logo } from '../common/Logo'
 import { AuthTabs } from './AuthTabs'
 import { EmailAuthForm } from './EmailAuthForm'
 import { OAuthButtons } from './OAuthButtons'
+import { useAuth } from '../../hooks/useAuth'
 
 type AuthMode = 'signin' | 'signup' | 'reset'
 
 export function AuthForm() {
   const navigate = useNavigate()
+  const { user, loading } = useAuth()
   const [mode, setMode] = useState<AuthMode>('signin')
+
+  // Redirect to dashboard if user is already authenticated
+  useEffect(() => {
+    if (!loading && user) {
+      console.log('🔐 AuthForm: User already authenticated, redirecting to dashboard', { userId: user.id })
+      navigate('/dashboard', { replace: true })
+    }
+  }, [user, loading, navigate])
 
   const handleAuthSuccess = () => {
     console.log('🔐 AuthForm: handleAuthSuccess called, navigating to dashboard')
@@ -36,6 +47,18 @@ export function AuthForm() {
       default:
         return 'Welcome back to BizPilot'
     }
+  }
+
+  // Show loading while checking authentication status
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-dark-950">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary-600" />
+          <p className="mt-2 text-gray-400">Checking authentication...</p>
+        </div>
+      </div>
+    )
   }
 
   return (

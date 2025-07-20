@@ -39,9 +39,25 @@ export function useAuthProvider(): AuthContextType {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Clear any stuck OAuth states on initialization
+    const oauthLoadingTime = window.localStorage.getItem('oauth_loading_time')
+    if (oauthLoadingTime) {
+      const timeDiff = Date.now() - parseInt(oauthLoadingTime)
+      if (timeDiff > 30000) { // 30 seconds
+        console.log('🔐 useAuth: Clearing stuck OAuth state on initialization')
+        window.localStorage.removeItem('oauth_loading_time')
+      }
+    }
+    
+    // Set a timeout to ensure loading never gets stuck indefinitely
+    const loadingTimeout = setTimeout(() => {
+      console.log('🔐 useAuth: Loading timeout reached, forcing loading to false')
+      setLoading(false)
+    }, 10000) // 10 second timeout
+    
     // Get initial session
     console.log('🔐 useAuth: Getting initial session')
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       console.log('🔐 useAuth: Initial session result', { 
         hasSession: !!session, 
         hasUser: !!session?.user,
@@ -50,10 +66,26 @@ export function useAuthProvider(): AuthContextType {
       })
       setSession(session)
       setUser(session?.user ?? null)
-      if (session?.user) {
-        fetchUserProfile(session.user.id)
-      }
+      
+      // Clear the loading timeout since we got a response
+      clearTimeout(loadingTimeout)
+      
+      // Always set loading to false first to prevent infinite loading
       setLoading(false)
+      
+      // Then fetch profile in background if user exists
+      if (session?.user) {
+        try {
+          await fetchUserProfile(session.user.id)
+        } catch (error) {
+          console.error('🔐 useAuth: Error fetching profile during initial session', error)
+          // Don't let profile fetch failure block the auth flow
+        }
+      }
+    }).catch(error => {
+      console.error('🔐 useAuth: Error getting initial session', error)
+      clearTimeout(loadingTimeout)
+      setLoading(false) // Ensure loading is always set to false
     })
 
     // Listen for auth changes
@@ -94,7 +126,10 @@ export function useAuthProvider(): AuthContextType {
       console.log('🔐 useAuth: Auth state change processed, database triggers handle profile/settings creation')
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      subscription.unsubscribe()
+      clearTimeout(loadingTimeout)
+    }
   }, [])
 
   const fetchUserProfile = async (userId: string) => {
@@ -224,6 +259,15 @@ export function useAuthProvider(): AuthContextType {
       isDevelopment: import.meta.env.DEV
     })
     
+    // Reset loading state if it's been stuck for too long (more than 30 seconds)
+    const now = Date.now()
+    const lastLoadingTime = window.localStorage.getItem('oauth_loading_time')
+    if (loading && lastLoadingTime && (now - parseInt(lastLoadingTime)) > 30000) {
+      console.log('🔐 useAuth: Resetting stuck loading state')
+      setLoading(false)
+      window.localStorage.removeItem('oauth_loading_time')
+    }
+    
     // Prevent multiple simultaneous OAuth attempts
     if (loading) {
       console.log('🔐 useAuth: OAuth already in progress, ignoring request')
@@ -231,6 +275,8 @@ export function useAuthProvider(): AuthContextType {
     }
     
     setLoading(true)
+    window.localStorage.setItem('oauth_loading_time', now.toString())
+    
     try {
       console.log('🔐 useAuth: Initiating OAuth flow', { provider, redirectUrl })
       
@@ -262,11 +308,15 @@ export function useAuthProvider(): AuthContextType {
           message: result.error.message,
           code: result.error.code 
         })
+        setLoading(false)
+        window.localStorage.removeItem('oauth_loading_time')
         return { error: result.error }
       }
       
       if (!result.data?.url) {
         console.error('🔐 useAuth: No OAuth URL returned', { provider })
+        setLoading(false)
+        window.localStorage.removeItem('oauth_loading_time')
         return { 
           error: { 
             message: 'Failed to initiate OAuth flow. Please try again.', 
@@ -283,7 +333,7 @@ export function useAuthProvider(): AuthContextType {
       })
       
       // For OAuth, we don't set loading to false here as the user will be redirected
-      // The loading state will be cleared when the auth state changes
+      // The loading state will be cleared when the auth state changes or by the timeout mechanism
       return { error: null }
     } catch (err) {
       console.error('🔐 useAuth: Unexpected error in signInWithProvider', { 
@@ -293,6 +343,7 @@ export function useAuthProvider(): AuthContextType {
         errorStack: err instanceof Error ? err.stack : undefined
       })
       setLoading(false)
+      window.localStorage.removeItem('oauth_loading_time')
       return { 
         error: { 
           message: `Failed to sign in with ${provider}. Please try again.`, 

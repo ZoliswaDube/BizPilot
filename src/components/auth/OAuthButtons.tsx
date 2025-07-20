@@ -51,7 +51,13 @@ export function OAuthButtons({ }: OAuthButtonsProps) {
       
       if (error) {
         console.error('🔐 OAuthButtons: OAuth error', { provider, error })
-        setError(error.message || `Failed to sign in with ${provider}`)
+        
+        // Handle specific error cases
+        if (error.code === 'AUTH_IN_PROGRESS') {
+          setError('Authentication is already in progress. Please wait or refresh the page to try again.')
+        } else {
+          setError(error.message || `Failed to sign in with ${provider}`)
+        }
         setLoading(null)
       } else {
         console.log('🔐 OAuthButtons: OAuth initiated successfully', { provider })
@@ -73,6 +79,19 @@ export function OAuthButtons({ }: OAuthButtonsProps) {
     handleOAuthSignIn(provider)
   }
 
+  const handleClearAndRetry = (provider: 'google' | 'github') => {
+    console.log('🔐 OAuthButtons: Clearing stuck state and retrying', { provider })
+    // Clear any stuck OAuth state
+    window.localStorage.removeItem('oauth_loading_time')
+    setLoading(null)
+    setError('')
+    setTimeoutError(false)
+    // Small delay to ensure state is cleared
+    setTimeout(() => {
+      handleOAuthSignIn(provider)
+    }, 100)
+  }
+
   return (
     <div className="space-y-3">
       {error && (
@@ -86,6 +105,14 @@ export function OAuthButtons({ }: OAuthButtonsProps) {
                 <p className="text-red-300 text-xs mt-2">
                   This might be due to network issues or high server load.
                 </p>
+              )}
+              {error.includes('already in progress') && (
+                <button
+                  onClick={() => handleClearAndRetry('google')}
+                  className="mt-2 text-xs text-primary-400 hover:text-primary-300 underline"
+                >
+                  Clear and try again
+                </button>
               )}
             </div>
           </div>
