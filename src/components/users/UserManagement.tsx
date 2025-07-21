@@ -40,6 +40,7 @@ export function UserManagement() {
   const { user } = useAuthStore()
   const [businessUsers, setBusinessUsers] = useState<BusinessUser[]>([])
   const [userRoles, setUserRoles] = useState<UserRole[]>([])
+  const [businessId, setBusinessId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [showUserForm, setShowUserForm] = useState(false)
   const [showRoleForm, setShowRoleForm] = useState(false)
@@ -67,6 +68,8 @@ export function UserManagement() {
         console.error('User is not an admin')
         return
       }
+
+      setBusinessId(businessUser.business_id)
 
       // Load business users
       const { data: users, error: usersError } = await supabase
@@ -99,14 +102,21 @@ export function UserManagement() {
     }
   }
 
-  const handleInviteUser = async (email: string, role: string, _permissions: string[]) => {
+  const handleCreateUser = async (email: string, password: string, fullName: string, role: string, _permissions: string[]) => {
+    if (!businessId) {
+      console.error('No business ID available')
+      return
+    }
+
     try {
-      // Create user invitation
-      const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
-        data: {
-          role,
-          business_id: businessUsers[0]?.business_id
-        }
+      // Create user directly with email and password
+      const { data, error } = await supabase.auth.admin.createUser({
+        email,
+        password,
+        user_metadata: {
+          full_name: fullName
+        },
+        email_confirm: true // Auto-confirm email
       })
 
       if (error) throw error
@@ -115,18 +125,33 @@ export function UserManagement() {
       const { error: businessUserError } = await supabase
         .from('business_users')
         .insert([{
-          business_id: businessUsers[0]?.business_id,
+          business_id: businessId,
           user_id: data.user?.id,
           role,
-          invited_by: user?.id
+          created_by: user?.id,
+          is_active: true
         }])
 
       if (businessUserError) throw businessUserError
 
+      // Create user profile
+      const { error: profileError } = await supabase
+        .from('user_profiles')
+        .insert([{
+          id: data.user?.id,
+          email,
+          full_name: fullName,
+          role
+        }])
+
+      if (profileError) {
+        console.warn('Profile creation failed:', profileError)
+      }
+
       setShowUserForm(false)
       loadData()
     } catch (err) {
-      console.error('Error inviting user:', err)
+      console.error('Error creating user:', err)
     }
   }
 
@@ -148,17 +173,20 @@ export function UserManagement() {
   }
 
   const handleCreateRole = async (name: string, description: string, permissions: string[]) => {
+    if (!businessId) {
+      console.error('No business ID available')
+      return
+    }
+
     try {
-      // Create role
+      // Create role using RPC function to bypass RLS
       const { data: role, error: roleError } = await supabase
-        .from('user_roles')
-        .insert([{
-          business_id: businessUsers[0]?.business_id,
-          name,
-          description
-        }])
-        .select()
-        .single()
+        .rpc('create_user_role', {
+          p_business_id: businessId,
+          p_name: name,
+          p_description: description,
+          p_created_by: user?.id
+        })
 
       if (roleError) throw roleError
 
@@ -393,7 +421,7 @@ export function UserManagement() {
         {showUserForm && (
           <UserForm
             onClose={() => setShowUserForm(false)}
-            onSubmit={handleInviteUser}
+            onSubmit={handleCreateUser}
             userRoles={userRoles}
           />
         )}

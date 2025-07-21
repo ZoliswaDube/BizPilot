@@ -15,7 +15,7 @@ interface UserRole {
 
 interface UserFormProps {
   onClose: () => void
-  onSubmit: (email: string, role: string, permissions: string[]) => void
+  onSubmit: (email: string, password: string, fullName: string, role: string, permissions: string[]) => void
   userRoles: UserRole[]
 }
 
@@ -32,6 +32,8 @@ const AVAILABLE_PERMISSIONS = {
 
 export function UserForm({ onClose, onSubmit, userRoles }: UserFormProps) {
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [fullName, setFullName] = useState('')
   const [selectedRole, setSelectedRole] = useState('')
   const [customPermissions, setCustomPermissions] = useState<string[]>([])
   const [showCustomPermissions, setShowCustomPermissions] = useState(false)
@@ -39,14 +41,14 @@ export function UserForm({ onClose, onSubmit, userRoles }: UserFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email || !selectedRole) return
+    if (!email || !password || !fullName || !selectedRole) return
 
     setLoading(true)
     try {
       const permissions = showCustomPermissions ? customPermissions : []
-      await onSubmit(email, selectedRole, permissions)
+      await onSubmit(email, password, fullName, selectedRole, permissions)
     } catch (err) {
-      console.error('Error inviting user:', err)
+      console.error('Error creating user:', err)
     } finally {
       setLoading(false)
     }
@@ -83,7 +85,7 @@ export function UserForm({ onClose, onSubmit, userRoles }: UserFormProps) {
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.1 }}
             >
-              Invite User
+              Create User
             </motion.h2>
             <button
               onClick={onClose}
@@ -98,6 +100,24 @@ export function UserForm({ onClose, onSubmit, userRoles }: UserFormProps) {
               initial={{ y: 10, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.2 }}
+            >
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Full Name *
+              </label>
+              <input
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="w-full px-4 py-3 bg-dark-800 border border-dark-600 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                placeholder="Enter user's full name"
+                required
+              />
+            </motion.div>
+
+            <motion.div
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.25 }}
             >
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Email Address *
@@ -116,6 +136,25 @@ export function UserForm({ onClose, onSubmit, userRoles }: UserFormProps) {
               initial={{ y: 10, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.3 }}
+            >
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Password *
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-3 bg-dark-800 border border-dark-600 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                placeholder="Enter user's password"
+                minLength={6}
+                required
+              />
+            </motion.div>
+
+            <motion.div
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.35 }}
             >
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Role *
@@ -204,18 +243,18 @@ export function UserForm({ onClose, onSubmit, userRoles }: UserFormProps) {
             >
               <button
                 type="submit"
-                disabled={loading || !email || !selectedRole}
+                disabled={loading || !email || !password || !fullName || !selectedRole}
                 className="flex-1 bg-primary-600 hover:bg-primary-700 disabled:bg-primary-800 text-white font-medium py-3 px-6 rounded-lg transition-colors flex items-center justify-center space-x-2"
               >
                 {loading ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    <span>Inviting...</span>
+                    <span>Creating...</span>
                   </>
                 ) : (
                   <>
                     <UserPlus className="h-5 w-5" />
-                    <span>Send Invitation</span>
+                    <span>Create User</span>
                   </>
                 )}
               </button>

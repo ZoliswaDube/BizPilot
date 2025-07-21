@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Loader2, CheckCircle, Plus } from 'lucide-react'
+import { Loader2, CheckCircle, Plus, Download, Printer } from 'lucide-react'
 import { useUserSettings } from '../../hooks/useUserSettings'
 import { useQRCodes, QRCodeConfig } from '../../hooks/useQRCodes'
 
 export function QRGenerator() {
   const { settings } = useUserSettings()
-  const { loading, error, createQRCode } = useQRCodes()
+  const { qrCodes, loading, error, createQRCode } = useQRCodes()
   
   const [formData, setFormData] = useState<QRCodeConfig>({
     name: '',
@@ -40,6 +40,81 @@ export function QRGenerator() {
     setEditingId(null)
     setFormError('')
     setShowForm(false)
+  }
+
+  const handleDownloadQR = (qrCode: any) => {
+    const link = document.createElement('a')
+    link.href = qrCode.qr_data_url
+    link.download = `${qrCode.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_qr_code.png`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const handlePrintQR = (qrCode: any) => {
+    const printWindow = window.open('', '_blank')
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Print QR Code - ${qrCode.name}</title>
+            <style>
+              body { 
+                font-family: Arial, sans-serif; 
+                text-align: center; 
+                padding: 20px;
+                margin: 0;
+              }
+              .qr-container {
+                display: inline-block;
+                border: 2px solid #333;
+                padding: 20px;
+                margin: 20px;
+              }
+              .qr-code {
+                display: block;
+                margin: 0 auto 15px;
+              }
+              .info {
+                margin: 10px 0;
+                font-size: 14px;
+              }
+              .business-name {
+                font-size: 18px;
+                font-weight: bold;
+                margin-bottom: 10px;
+              }
+              .tip-amounts {
+                margin: 10px 0;
+              }
+              .tip-amount {
+                display: inline-block;
+                margin: 2px 5px;
+                padding: 3px 8px;
+                border: 1px solid #333;
+                border-radius: 3px;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="qr-container">
+              <img src="${qrCode.qr_data_url}" alt="QR Code" class="qr-code" width="200" height="200" />
+              <div class="business-name">${qrCode.business_name}</div>
+              <div class="info">${qrCode.name}</div>
+              <div class="info">${qrCode.custom_message}</div>
+              <div class="tip-amounts">
+                Tip Amounts: ${qrCode.tip_amounts.map((amount: number) => `<span class="tip-amount">$${amount}</span>`).join('')}
+              </div>
+              <div class="info" style="font-size: 12px; margin-top: 15px;">
+                Scan this QR code to leave a tip
+              </div>
+            </div>
+          </body>
+        </html>
+      `)
+      printWindow.document.close()
+      printWindow.print()
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -268,6 +343,91 @@ export function QRGenerator() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Display Last Generated QR Code */}
+      {qrCodes.length > 0 && (
+        <motion.div 
+          className="card"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2, ease: "easeOut" }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-100">Latest QR Code</h2>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => handleDownloadQR(qrCodes[0])}
+                className="btn-secondary flex items-center text-sm"
+                title="Download QR Code"
+              >
+                <Download className="h-4 w-4 mr-1" />
+                Download
+              </button>
+              <button
+                onClick={() => handlePrintQR(qrCodes[0])}
+                className="btn-secondary flex items-center text-sm"
+                title="Print QR Code"
+              >
+                <Printer className="h-4 w-4 mr-1" />
+                Print
+              </button>
+            </div>
+          </div>
+          
+          <div className="flex flex-col md:flex-row gap-6">
+            <div className="flex-shrink-0">
+              <div className="bg-white p-4 rounded-lg inline-block">
+                <img 
+                  src={qrCodes[0].qr_data_url} 
+                  alt={`QR Code for ${qrCodes[0].name}`}
+                  className="w-48 h-48 object-contain"
+                />
+              </div>
+            </div>
+            
+            <div className="flex-1 space-y-3">
+              <div>
+                <h3 className="font-medium text-gray-200 mb-1">{qrCodes[0].name}</h3>
+                <p className="text-sm text-gray-400">{qrCodes[0].business_name}</p>
+              </div>
+              
+              <div>
+                <p className="text-sm font-medium text-gray-300 mb-1">Tip Amounts:</p>
+                <div className="flex flex-wrap gap-1">
+                  {qrCodes[0].tip_amounts.map((amount, index) => (
+                    <span key={index} className="px-2 py-1 bg-primary-600/20 text-primary-300 rounded text-xs">
+                      ${amount}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              
+              <div>
+                <p className="text-sm font-medium text-gray-300 mb-1">Message:</p>
+                <p className="text-sm text-gray-400">{qrCodes[0].custom_message}</p>
+              </div>
+              
+              <div>
+                <p className="text-sm font-medium text-gray-300 mb-1">Tip Page URL:</p>
+                <a 
+                  href={qrCodes[0].page_url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary-400 hover:text-primary-300 break-all"
+                >
+                  {qrCodes[0].page_url}
+                </a>
+              </div>
+              
+              <div>
+                <p className="text-xs text-gray-500">
+                  Created: {new Date(qrCodes[0].created_at).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       <motion.div 
         className="card bg-gradient-to-br from-blue-900/20 to-blue-800/20 border-blue-700/30"
