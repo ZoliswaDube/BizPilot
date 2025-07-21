@@ -4,6 +4,7 @@ import { MessageCircle, X, Send, Minimize2, Maximize2 } from 'lucide-react'
 import { useAIChat } from '../../hooks/useAIChat'
 import { useLocation } from 'react-router-dom'
 import { markdownToPlainText } from '../../utils/markdown'
+import { useAuth } from '../../hooks/useAuth'
 
 export const GlobalAIChat: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false)
@@ -19,9 +20,11 @@ export const GlobalAIChat: React.FC = () => {
     currentConversation,
     createNewConversation 
   } = useAIChat()
+  
+  const { user } = useAuth()
 
-  // Don't show on /ai page
-  if (location.pathname === '/ai') {
+  // Don't show on /ai page or if user is not logged in
+  if (location.pathname === '/ai' || !user) {
     return null
   }
 
