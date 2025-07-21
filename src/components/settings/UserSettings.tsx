@@ -11,8 +11,8 @@ export function UserSettings() {
   
   const [businessFormData, setBusinessFormData] = useState({
     business_name: '',
-    hourly_rate: 15.00,
-    default_margin: 40.00
+    hourly_rate: '',
+    default_margin: '',
   })
   
   const [profileFormData, setProfileFormData] = useState({
@@ -34,8 +34,8 @@ export function UserSettings() {
     if (settings) {
       setBusinessFormData({
         business_name: settings.business_name || '',
-        hourly_rate: settings.hourly_rate || 15.00,
-        default_margin: settings.default_margin || 40.00
+        hourly_rate: String(settings.hourly_rate || ''),
+        default_margin: String(settings.default_margin || ''),
       })
     }
   }, [settings])
@@ -72,18 +72,24 @@ export function UserSettings() {
     setBusinessFormError('')
 
     // Validation
-    if (businessFormData.hourly_rate < 0) {
+    const hourly_rate = parseFloat(String(businessFormData.hourly_rate || '').replace(',', '.')) || 0;
+    if (hourly_rate < 0) {
       setBusinessFormError('Hourly rate must be positive')
       setBusinessFormLoading(false)
       return
     }
-    if (businessFormData.default_margin < 0 || businessFormData.default_margin >= 100) {
+    const default_margin = parseFloat(businessFormData.default_margin.replace(',', '.')) || 0;
+    if (default_margin < 0 || default_margin >= 100) {
       setBusinessFormError('Default margin must be between 0% and 99%')
       setBusinessFormLoading(false)
       return
     }
 
-    const result = await updateSettings(businessFormData)
+    const result = await updateSettings({
+      business_name: businessFormData.business_name,
+      hourly_rate: hourly_rate,
+      default_margin: default_margin,
+    })
     
     if (result?.error) {
       setBusinessFormError(result.error)
@@ -307,10 +313,9 @@ export function UserSettings() {
                       name="hourly_rate"
                       min={0}
                       step={0.50}
-                      value={businessFormData.hourly_rate.toString()}
+                      value={businessFormData.hourly_rate}
                       onChange={(value) => {
-                        const numValue = parseFloat(value) || 0
-                        setBusinessFormData(prev => ({ ...prev, hourly_rate: numValue }))
+                        setBusinessFormData(prev => ({ ...prev, hourly_rate: value }))
                         setBusinessHasChanges(true)
                         setBusinessSuccess(false)
                       }}
@@ -334,10 +339,9 @@ export function UserSettings() {
                       min={0}
                       max={99}
                       step={0.1}
-                      value={businessFormData.default_margin.toString()}
+                      value={businessFormData.default_margin}
                       onChange={(value) => {
-                        const numValue = parseFloat(value) || 0
-                        setBusinessFormData(prev => ({ ...prev, default_margin: numValue }))
+                        setBusinessFormData(prev => ({ ...prev, default_margin: value }))
                         setBusinessHasChanges(true)
                         setBusinessSuccess(false)
                       }}
@@ -411,20 +415,20 @@ export function UserSettings() {
                 <div>
                   <p className="text-sm text-gray-400">Labor Cost</p>
                   <p className="font-medium text-gray-100">
-                    {formatCurrency(businessFormData.hourly_rate)}/hour
+                    {formatCurrency(parseFloat(String(businessFormData.hourly_rate || '').replace(',', '.')) || 0)}/hour
                   </p>
                 </div>
                 
                 <div>
                   <p className="text-sm text-gray-400">Default Margin</p>
                   <p className="font-medium text-gray-100">
-                    {formatPercentage(businessFormData.default_margin)}
+                    {formatPercentage(parseFloat(businessFormData.default_margin.replace(',', '.')) || 0)}
                   </p>
                 </div>
 
                 <div className="pt-3 border-t border-dark-600">
                   <p className="text-xs text-gray-500">
-                    Example: 30 min labor = {formatCurrency((businessFormData.hourly_rate / 60) * 30)}
+                    Example: 30 min labor = {formatCurrency((parseFloat(String(businessFormData.hourly_rate || '').replace(',', '.')) || 0) / 60 * 30)}
                   </p>
                 </div>
               </div>

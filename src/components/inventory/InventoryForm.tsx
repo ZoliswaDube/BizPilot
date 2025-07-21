@@ -26,17 +26,17 @@ export function InventoryForm() {
   // Form state
   const [formData, setFormData] = useState({
     name: '',
-    current_quantity: 0,
-    cost_per_unit: 0,
-    low_stock_alert: 0,
+    current_quantity: '',
+    cost_per_unit: '',
+    low_stock_alert: '',
     unit: '',
     batch_lot_number: '',
     expiration_date: '',
     description: '',
     supplier: '',
     location: '',
-    min_order_quantity: 0,
-    reorder_point: 0,
+    min_order_quantity: '',
+    reorder_point: '',
     image_url: ''
   })
 
@@ -60,17 +60,17 @@ export function InventoryForm() {
       if (item) {
         setFormData({
           name: item.name || '',
-          current_quantity: item.current_quantity || 0,
-          cost_per_unit: item.cost_per_unit || 0,
-          low_stock_alert: item.low_stock_alert || 0,
+          current_quantity: item.current_quantity || '',
+          cost_per_unit: item.cost_per_unit || '',
+          low_stock_alert: item.low_stock_alert || '',
           unit: item.unit || '',
           batch_lot_number: item.batch_lot_number || '',
           expiration_date: item.expiration_date ? item.expiration_date.split('T')[0] : '',
           description: '',
           supplier: '',
           location: '',
-          min_order_quantity: 0,
-          reorder_point: 0,
+          min_order_quantity: '',
+          reorder_point: '',
           image_url: ''
         })
       }
@@ -94,15 +94,15 @@ export function InventoryForm() {
       errors.push('Unit is required')
     }
     
-    if (formData.current_quantity < 0) {
+    if (parseFloat(formData.current_quantity) < 0) {
       errors.push('Current quantity cannot be negative')
     }
     
-    if (formData.cost_per_unit < 0) {
+    if (parseFloat(formData.cost_per_unit) < 0) {
       errors.push('Cost per unit cannot be negative')
     }
     
-    if (formData.low_stock_alert < 0) {
+    if (parseFloat(formData.low_stock_alert) < 0) {
       errors.push('Low stock alert cannot be negative')
     }
     
@@ -130,17 +130,17 @@ export function InventoryForm() {
     try {
       const itemData = {
         name: formData.name.trim(),
-        current_quantity: formData.current_quantity,
-        cost_per_unit: formData.cost_per_unit,
-        low_stock_alert: formData.low_stock_alert,
+        current_quantity: parseFloat(formData.current_quantity.replace(',', '.')) || 0,
+        cost_per_unit: parseFloat(formData.cost_per_unit.replace(',', '.')) || 0,
+        low_stock_alert: parseFloat(formData.low_stock_alert.replace(',', '.')) || 0,
         unit: formData.unit.trim(),
         batch_lot_number: formData.batch_lot_number.trim() || null,
         expiration_date: formData.expiration_date || null,
         description: formData.description.trim() || null,
         supplier: formData.supplier.trim() || null,
         location: formData.location.trim() || null,
-        min_order_quantity: formData.min_order_quantity,
-        reorder_point: formData.reorder_point,
+        min_order_quantity: parseFloat(formData.min_order_quantity.replace(',', '.')) || 0,
+        reorder_point: parseFloat(formData.reorder_point.replace(',', '.')) || 0,
         image_url: formData.image_url.trim() || null
       }
 
@@ -340,8 +340,8 @@ export function InventoryForm() {
                     <motion.div whileFocus={{ scale: 1.02 }}>
                       <ManualNumberInput
                         step={0.01}
-                        value={formData.current_quantity.toString()}
-                        onChange={(value) => setFormData({ ...formData, current_quantity: parseFloat(value) || 0 })}
+                        value={formData.current_quantity}
+                        onChange={(value) => setFormData({ ...formData, current_quantity: value })}
                         className="input-field"
                         placeholder="0"
                         required
@@ -404,8 +404,8 @@ export function InventoryForm() {
                   <motion.div whileFocus={{ scale: 1.02 }}>
                     <ManualNumberInput
                       step={0.01}
-                      value={formData.cost_per_unit.toString()}
-                      onChange={(value) => setFormData({ ...formData, cost_per_unit: parseFloat(value) || 0 })}
+                      value={formData.cost_per_unit}
+                      onChange={(value) => setFormData({ ...formData, cost_per_unit: value })}
                       className="input-field"
                       placeholder="0.00"
                       disabled={!canEdit}
@@ -421,8 +421,8 @@ export function InventoryForm() {
                     <motion.div whileFocus={{ scale: 1.02 }}>
                       <ManualNumberInput
                         step={0.01}
-                        value={formData.low_stock_alert.toString()}
-                        onChange={(value) => setFormData({ ...formData, low_stock_alert: parseFloat(value) || 0 })}
+                        value={formData.low_stock_alert}
+                        onChange={(value) => setFormData({ ...formData, low_stock_alert: value })}
                         className="input-field"
                         placeholder="0"
                         disabled={!canEdit}
@@ -436,8 +436,8 @@ export function InventoryForm() {
                     <motion.div whileFocus={{ scale: 1.02 }}>
                       <ManualNumberInput
                         step={0.01}
-                        value={formData.reorder_point.toString()}
-                        onChange={(value) => setFormData({ ...formData, reorder_point: parseFloat(value) || 0 })}
+                        value={formData.reorder_point}
+                        onChange={(value) => setFormData({ ...formData, reorder_point: value })}
                         className="input-field"
                         placeholder="0"
                         disabled={!canEdit}
@@ -453,8 +453,8 @@ export function InventoryForm() {
                   <motion.div whileFocus={{ scale: 1.02 }}>
                     <ManualNumberInput
                       step={0.01}
-                      value={formData.min_order_quantity.toString()}
-                      onChange={(value) => setFormData({ ...formData, min_order_quantity: parseFloat(value) || 0 })}
+                      value={formData.min_order_quantity}
+                      onChange={(value) => setFormData({ ...formData, min_order_quantity: value })}
                       className="input-field"
                       placeholder="0"
                       disabled={!canEdit}

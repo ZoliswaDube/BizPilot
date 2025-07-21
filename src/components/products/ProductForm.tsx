@@ -45,11 +45,13 @@ export function ProductForm() {
 
   const isEditMode = !!id
 
-  const [formData, setFormData] = useState<ProductFormData>({
+  // Form state
+  const [formData, setFormData] = useState({
+    id: '',
     name: '',
     laborMinutes: 0,
-    targetMargin: 40,
-    ingredients: [{ name: '', cost: 0, quantity: 0, unit: 'unit' }],
+    targetMargin: '',
+    ingredients: [{ name: '', cost: '', quantity: '', unit: 'unit' }],
     sku: '',
     minStockLevel: 0,
     reorderPoint: 0,
@@ -106,10 +108,10 @@ export function ProductForm() {
 
   // Update target margin when settings load
   useEffect(() => {
-    if (settings && !isEditMode && formData.targetMargin === 40) {
+    if (settings && !isEditMode && formData.targetMargin === '40') {
       setFormData(prev => ({
         ...prev,
-        targetMargin: settings.default_margin
+        targetMargin: settings.default_margin.toString()
       }))
     }
   }, [settings, isEditMode, formData.targetMargin])
@@ -153,7 +155,7 @@ export function ProductForm() {
           cost: ing.cost,
           quantity: ing.quantity,
           unit: ing.unit
-        })) : [{ name: '', cost: 0, quantity: 0, unit: 'unit' }],
+        })) : [{ name: '', cost: '', quantity: '', unit: 'unit' }],
         sku: product.sku || '',
         minStockLevel: product.min_stock_level || 0,
         reorderPoint: product.reorder_point || 0,
@@ -172,12 +174,12 @@ export function ProductForm() {
   }
 
   const hourlyRate = settings?.hourly_rate || 15
-  const calculations = calculateProduct(formData.ingredients, formData.laborMinutes, hourlyRate, formData.targetMargin)
+  const calculations = calculateProduct(formData.ingredients, formData.laborMinutes, hourlyRate, parseFloat(String(formData.targetMargin || '').replace(',', '.')) || 0)
 
   const addIngredient = () => {
     setFormData(prev => ({
       ...prev,
-      ingredients: [...prev.ingredients, { name: '', cost: 0, quantity: 0, unit: 'unit' }]
+      ingredients: [...prev.ingredients, { name: '', cost: '', quantity: '', unit: 'unit' }]
     }))
   }
 
@@ -226,7 +228,14 @@ export function ProductForm() {
       return
     }
 
-    const validIngredients = formData.ingredients.filter(ing => 
+    const parsedIngredients = formData.ingredients.map(ing => ({
+      ...ing,
+      cost: parseFloat(ing.cost.replace(',', '.')) || 0,
+      quantity: parseFloat(ing.quantity.replace(',', '.')) || 0,
+    }))
+    const targetMargin = parseFloat(formData.targetMargin.replace(',', '.')) || 0;
+
+    const validIngredients = parsedIngredients.filter(ing => 
       ing.name.trim() && ing.cost > 0 && ing.quantity > 0
     )
 
@@ -484,8 +493,8 @@ export function ProductForm() {
                               <ManualNumberInput
                                 min={0}
                                 step={0.01}
-                                value={ingredient.cost.toString()}
-                                onChange={(value) => updateIngredient(index, 'cost', parseFloat(value) || 0)}
+                                value={ingredient.cost}
+                                onChange={(value) => updateIngredient(index, 'cost', value)}
                                 className="input-field text-sm"
                                 placeholder="0.00"
                               />
@@ -499,8 +508,8 @@ export function ProductForm() {
                               <ManualNumberInput
                                 min={0}
                                 step={0.01}
-                                value={ingredient.quantity.toString()}
-                                onChange={(value) => updateIngredient(index, 'quantity', parseFloat(value) || 0)}
+                                value={ingredient.quantity}
+                                onChange={(value) => updateIngredient(index, 'quantity', value)}
                                 className="input-field text-sm"
                                 placeholder="0"
                               />
@@ -552,10 +561,9 @@ export function ProductForm() {
                   max={99}
                   step={0.1}
                   name="targetMargin"
-                  value={formData.targetMargin.toString()}
+                  value={formData.targetMargin}
                   onChange={(value) => {
-                    const numValue = parseFloat(value) || 0
-                    setFormData(prev => ({ ...prev, targetMargin: numValue }))
+                    setFormData(prev => ({ ...prev, targetMargin: value }))
                   }}
                   className="input-field max-w-xs"
                   placeholder="40"
