@@ -41,14 +41,15 @@ export function InventoryTable({ onDelete }: InventoryTableProps) {
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
-  const [editingItem, setEditingItem] = useState<string | null>(null)
-  const [editingValues, setEditingValues] = useState<Partial<InventoryItem>>({})
+  const [editingItems, setEditingItems] = useState<Set<string>>(new Set())
+  const [editingValues, setEditingValues] = useState<Record<string, Partial<InventoryItem & { current_quantity: string | number; cost_per_unit: string | number }>>>({})
   const [bulkAdjustQuantity, setBulkAdjustQuantity] = useState<number>(0)
   const [bulkAdjustNotes, setBulkAdjustNotes] = useState<string>('')
   const [showBulkActions, setShowBulkActions] = useState(false)
   const [showBulkEditModal, setShowBulkEditModal] = useState(false)
   const [formError, setFormError] = useState('')
   const [submitLoading, setSubmitLoading] = useState(false)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
   // Check if user can edit inventory
   const canEdit = hasPermission('inventory', 'update') || userRole === 'admin' || userRole === 'manager'
@@ -116,46 +117,68 @@ export function InventoryTable({ onDelete }: InventoryTableProps) {
   }
 
   // Handle inline editing
-  const handleEditClick = (item: InventoryItem) => {
-    setEditingItem(item.id)
-    setEditingValues({
-      name: item.name,
-      current_quantity: item.current_quantity,
-      cost_per_unit: item.cost_per_unit,
-      low_stock_alert: item.low_stock_alert,
-      unit: item.unit
-    })
+  const handleCellEdit = (itemId: string, field: 'current_quantity' | 'cost_per_unit', value: string) => {
+    const newEditingItems = new Set(editingItems)
+    newEditingItems.add(itemId)
+    setEditingItems(newEditingItems)
+    
+    const newEditingValues = { ...editingValues }
+    if (!newEditingValues[itemId]) {
+      newEditingValues[itemId] = {}
+    }
+    newEditingValues[itemId][field] = value as any
+    setEditingValues(newEditingValues)
+    setHasUnsavedChanges(true)
   }
 
-  const handleEditSave = async (itemId: string) => {
-    if (!canEdit) return
+  const handleSaveAll = async () => {
+    if (!canEdit || editingItems.size === 0) return
     
     setSubmitLoading(true)
     setFormError('')
     
     try {
-      const parsedValues = {
-        ...editingValues,
-        current_quantity: parseFloat(editingValues.current_quantity.replace(',', '.')) || 0,
-        cost_per_unit: parseFloat(editingValues.cost_per_unit.replace(',', '.')) || 0,
+      let successCount = 0
+      let errorCount = 0
+      
+      for (const itemId of editingItems) {
+        const values = editingValues[itemId]
+        if (!values) continue
+        
+        const parsedValues: Partial<InventoryItem> = {}
+        if (values.current_quantity !== undefined) {
+          parsedValues.current_quantity = parseFloat(String(values.current_quantity).replace(',', '.')) || 0
+        }
+        if (values.cost_per_unit !== undefined) {
+          parsedValues.cost_per_unit = parseFloat(String(values.cost_per_unit).replace(',', '.')) || 0
+        }
+        
+        const { error } = await updateInventoryItem(itemId, parsedValues)
+        if (error) {
+          errorCount++
+        } else {
+          successCount++
+        }
       }
-      const { error } = await updateInventoryItem(itemId, parsedValues)
-      if (error) {
-        setFormError(error)
+      
+      if (errorCount > 0) {
+        setFormError(`${successCount} items updated successfully, ${errorCount} failed`)
       } else {
-        setEditingItem(null)
+        setEditingItems(new Set())
         setEditingValues({})
+        setHasUnsavedChanges(false)
       }
     } catch (err) {
-      setFormError('Failed to update item')
+      setFormError('Failed to update items')
     }
     
     setSubmitLoading(false)
   }
 
-  const handleEditCancel = () => {
-    setEditingItem(null)
+  const handleCancelAll = () => {
+    setEditingItems(new Set())
     setEditingValues({})
+    setHasUnsavedChanges(false)
   }
 
   // Handle bulk operations
@@ -232,6 +255,34 @@ export function InventoryTable({ onDelete }: InventoryTableProps) {
         </div>
         
         <div className="flex gap-2">
+          {canEdit && hasUnsavedChanges && (
+            <>
+              <motion.button
+                onClick={handleSaveAll}
+                disabled={submitLoading}
+                className="btn-primary flex items-center gap-2"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+              >
+                {submitLoading ? (
+                  <Package className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckSquare className="h-4 w-4" />
+                )}
+                Save All ({editingItems.size})
+              </motion.button>
+              <motion.button
+                onClick={handleCancelAll}
+                disabled={submitLoading}
+                className="btn-secondary flex items-center gap-2"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+              >
+                <Trash2 className="h-4 w-4" />
+                Cancel
+              </motion.button>
+            </>
+          )}
           {canEdit && selectedItems.size > 0 && (
             <>
               <motion.button
@@ -417,27 +468,23 @@ export function InventoryTable({ onDelete }: InventoryTableProps) {
                     />
                   </td>
                   <td className="px-4 py-3">
-                    {editingItem === item.id ? (
-                      <input
-                        type="text"
-                        value={editingValues.name || ''}
-                        onChange={(e) => setEditingValues({ ...editingValues, name: e.target.value })}
-                        className="input-field text-sm"
-                        disabled={submitLoading}
-                      />
-                    ) : (
-                      <div className="font-medium text-gray-100">{item.name}</div>
-                    )}
+                    <div className="font-medium text-gray-100">{item.name}</div>
                   </td>
                   <td className="px-4 py-3">
-                    {editingItem === item.id ? (
-                      <ManualNumberInput
-                        step={0.01}
-                        value={editingValues.current_quantity || ''}
-                        onChange={(value) => setEditingValues({ ...editingValues, current_quantity: value })}
-                        className="input-field text-sm w-20"
-                        disabled={submitLoading}
-                      />
+                    {canEdit ? (
+                      <div className="flex items-center gap-2">
+                        <ManualNumberInput
+                          step={0.01}
+                          value={editingValues[item.id]?.current_quantity !== undefined 
+                            ? String(editingValues[item.id].current_quantity) 
+                            : String(item.current_quantity)
+                          }
+                          onChange={(value) => handleCellEdit(item.id, 'current_quantity', value)}
+                          className="input-field text-sm w-20 bg-transparent border-transparent hover:border-primary-500 focus:border-primary-500"
+                          disabled={submitLoading}
+                        />
+                        <span className="text-gray-400 text-sm">{item.unit}</span>
+                      </div>
                     ) : (
                       <div className="flex items-center gap-2">
                         <span className="text-gray-100">{item.current_quantity}</span>
@@ -446,13 +493,17 @@ export function InventoryTable({ onDelete }: InventoryTableProps) {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    {editingItem === item.id ? (
+                    {canEdit ? (
                       <ManualNumberInput
                         step={0.01}
-                        value={editingValues.cost_per_unit || ''}
-                        onChange={(value) => setEditingValues({ ...editingValues, cost_per_unit: value })}
-                        className="input-field text-sm w-24"
+                        value={editingValues[item.id]?.cost_per_unit !== undefined 
+                          ? String(editingValues[item.id].cost_per_unit) 
+                          : String(item.cost_per_unit || '')
+                        }
+                        onChange={(value) => handleCellEdit(item.id, 'cost_per_unit', value)}
+                        className="input-field text-sm w-24 bg-transparent border-transparent hover:border-primary-500 focus:border-primary-500"
                         disabled={submitLoading}
+                        placeholder="-"
                       />
                     ) : (
                       <div className="text-gray-100">
@@ -489,43 +540,13 @@ export function InventoryTable({ onDelete }: InventoryTableProps) {
                   {canEdit && (
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        {editingItem === item.id ? (
-                          <>
-                            <button
-                              onClick={() => handleEditSave(item.id)}
-                              disabled={submitLoading}
-                              className="text-green-400 hover:text-green-300"
-                              title="Save changes"
-                            >
-                              <CheckSquare className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={handleEditCancel}
-                              disabled={submitLoading}
-                              className="text-gray-400 hover:text-gray-300"
-                              title="Cancel editing"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => handleEditClick(item)}
-                              className="text-primary-400 hover:text-primary-300"
-                              title="Edit item"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => onDelete(item.id, item.name)}
-                              className="text-red-400 hover:text-red-300"
-                              title="Delete item"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </>
-                        )}
+                        <button
+                          onClick={() => onDelete(item.id, item.name)}
+                          className="text-red-400 hover:text-red-300"
+                          title="Delete item"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
                     </td>
                   )}
