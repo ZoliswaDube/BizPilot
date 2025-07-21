@@ -4,7 +4,7 @@ import { MessageCircle, X, Send, Minimize2, Maximize2 } from 'lucide-react'
 import { useAIChat } from '../../hooks/useAIChat'
 import { useLocation } from 'react-router-dom'
 import { markdownToPlainText } from '../../utils/markdown'
-import { useAuth } from '../../hooks/useAuth'
+import { useAuth } from '../../hooks/useAuthCompat'
 
 export const GlobalAIChat: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false)
