@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Minus, Calculator, Save, ArrowLeft, Loader2 } from 'lucide-react'
 import { useAuthStore } from '../../store/auth'
 import { useUserSettings } from '../../hooks/useUserSettings'
+import { useBusiness } from '../../hooks/useBusiness'
 
 import { supabase } from '../../lib/supabase'
 import { 
@@ -39,6 +40,7 @@ export function ProductForm() {
   const navigate = useNavigate()
   const { id } = useParams()
   const { user } = useAuthStore()
+  const { business } = useBusiness()
   const { settings, loading: settingsLoading } = useUserSettings()
   // const { categories, loading: categoriesLoading } = useCategories()
   // const { suppliers, loading: suppliersLoading } = useSuppliers()
@@ -261,6 +263,7 @@ export function ProductForm() {
       image_url: formData.imageUrl.trim() || null,
       barcode: formData.barcode.trim() || null,
       category_id: formData.categoryId,
+      business_id: business?.id || null,
     }
 
     try {

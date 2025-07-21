@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/auth'
 import { useUserSettings } from './useUserSettings'
-import { sendToDeepSeek, generateConversationTitle } from '../services/deepseekApi'
+import { sendToGemini, generateConversationTitle } from '../services/deepseekApi'
 import { Database } from '../lib/supabase'
 
 type AIConversation = Database['public']['Tables']['ai_conversations']['Row']
@@ -210,7 +210,7 @@ export function useAIChat() {
       const context = await getBusinessContext()
       
       // Call DeepSeek API
-      const aiResponse = await sendToDeepSeek(content, context)
+      const aiResponse = await sendToGemini(content, context)
       
       // Add AI response to conversation
       await addMessage(currentConversation.id, aiResponse, false)
