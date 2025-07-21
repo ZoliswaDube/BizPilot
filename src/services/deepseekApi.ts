@@ -5,27 +5,34 @@ const groq = new Groq({
   dangerouslyAllowBrowser: true // Required for client-side usage
 });
 
-export const sendToGroq = async (message: string, context: any): Promise<string> => {
+export const sendToGroq = async (message: string, context: any, conversationHistory: Array<{role: 'user' | 'assistant', content: string}> = []): Promise<string> => {
   if (!groq.apiKey) {
     throw new Error('Groq API key not found. Please set VITE_GROQ_API_KEY in your environment variables.');
   }
 
   const systemPrompt = `You are a helpful business AI assistant for BizPilot. Be conversational and friendly. Only provide detailed business analysis when specifically asked. For greetings and casual messages, respond naturally and offer to help.
 
-Business context: ${JSON.stringify(context)}`;
+Business context: ${JSON.stringify(context)}
+
+Remember previous conversation context and refer to it when relevant. Provide personalized responses based on the user's business data and previous interactions.`;
 
   try {
+    // Build messages array with conversation history
+    const messages = [
+      {
+        role: 'system' as const,
+        content: systemPrompt
+      },
+      // Include recent conversation history (last 10 messages to manage token usage)
+      ...conversationHistory.slice(-10),
+      {
+        role: 'user' as const,
+        content: message
+      }
+    ];
+
     const chatCompletion = await groq.chat.completions.create({
-      messages: [
-        {
-          role: 'system',
-          content: systemPrompt
-        },
-        {
-          role: 'user',
-          content: message
-        }
-      ],
+      messages,
       model: 'llama-3.3-70b-versatile', // Fast and capable model
       temperature: 0.7,
       max_tokens: 2048,

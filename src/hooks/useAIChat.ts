@@ -234,8 +234,14 @@ export function useAIChat() {
       // Get latest business context
       const context = await getBusinessContext()
       
-      // Call Groq API
-      const aiResponse = await sendToGroq(content, context)
+      // Build conversation history for better AI memory
+      const conversationHistory = messages.map(msg => ({
+        role: msg.is_user ? 'user' as const : 'assistant' as const,
+        content: msg.content
+      }))
+      
+      // Call Groq API with conversation history
+      const aiResponse = await sendToGroq(content, context, conversationHistory)
       
       // Add AI response to conversation
       await addMessage(currentConversation.id, aiResponse, false)

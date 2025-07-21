@@ -235,7 +235,7 @@ export function ProductForm() {
       cost: parseFloat(ing.cost.replace(',', '.')) || 0,
       quantity: parseFloat(ing.quantity.replace(',', '.')) || 0,
     }))
-    const targetMargin = parseFloat(formData.targetMargin.replace(',', '.')) || 0;
+    const targetMargin = parseFloat(String(formData.targetMargin || '').replace(',', '.')) || 0;
 
     const validIngredients = parsedIngredients.filter(ing => 
       ing.name.trim() && ing.cost > 0 && ing.quantity > 0

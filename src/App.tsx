@@ -17,6 +17,7 @@ import { CategoryManagement } from './components/categories/CategoryManagement' 
 import { SupplierManagement } from './components/suppliers/SupplierManagement' // New import
 import { UserSettings } from './components/settings/UserSettings' // New import
 import { AIChat } from './components/ai/AIChat' // New import
+import { GlobalAIChat } from './components/ai/GlobalAIChat' // Global AI chat modal
 import { QRGenerator } from './components/qr/QRGenerator' // New import
 import { PricingPage } from './components/pricing/PricingPage' // New import
 import { CheckoutPage } from './components/checkout/CheckoutPage' // New import
@@ -183,6 +184,7 @@ function App() {
             } />
           </Routes>
         </AnimatePresence>
+        <GlobalAIChat />
       </Router>
     </>
   )
