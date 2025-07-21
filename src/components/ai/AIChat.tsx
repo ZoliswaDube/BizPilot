@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Send, MessageSquare, Mic, MicOff, Loader2, Lightbulb, TrendingUp, Package, DollarSign, Plus, Trash2 } from 'lucide-react'
 import { useAIChat } from '../../hooks/useAIChat'
 import { formatPercentage } from '../../utils/calculations'
+import { markdownToPlainText } from '../../utils/markdown'
 
 interface QuickQuestion {
   id: string
@@ -164,10 +165,10 @@ export function AIChat() {
   }
 
   return (
-    <div className="h-full flex flex-col lg:flex-row overflow-hidden">
+    <div className="h-full flex flex-col lg:flex-row overflow-hidden relative">
       {/* Sidebar - Conversation List */}
-      <div className="w-full lg:w-80 border-b lg:border-b-0 lg:border-r border-dark-700 flex flex-col">
-        <div className="p-4 border-b border-dark-700">
+      <div className="w-full lg:w-80 border-b lg:border-b-0 lg:border-r border-dark-700 flex flex-col lg:sticky lg:top-0 lg:h-screen">
+        <div className="p-4 border-b border-dark-700 lg:sticky lg:top-0 bg-dark-900 z-10">
           <button
             onClick={handleNewConversation}
             className="btn-primary w-full flex items-center justify-center"
@@ -211,7 +212,7 @@ export function AIChat() {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-h-0">
+      <div className="flex-1 flex flex-col min-h-0 relative">
         <div className="p-4 border-b border-dark-700">
           <h1 className="text-xl font-bold text-gray-100">AI Business Assistant</h1>
           <p className="text-sm text-gray-400">
@@ -264,7 +265,7 @@ export function AIChat() {
                     : 'bg-dark-800 text-gray-100 border border-dark-600'
                 }`}
               >
-                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                <p className="text-sm whitespace-pre-wrap">{markdownToPlainText(message.content)}</p>
                 <p
                   className={`text-xs mt-1 ${
                     message.is_user ? 'text-primary-200' : 'text-gray-500'
@@ -331,6 +332,15 @@ export function AIChat() {
             💡 This AI assistant analyzes your real business data to provide personalized insights and recommendations.
           </div>
         </div>
+        
+        {/* Floating New Conversation Button - Small Screens Only */}
+        <button
+          onClick={handleNewConversation}
+          className="lg:hidden fixed bottom-20 right-4 z-50 bg-primary-600 hover:bg-primary-700 text-white p-3 rounded-full shadow-lg transition-colors"
+          title="Start new conversation"
+        >
+          <Plus className="h-5 w-5" />
+        </button>
       </div>
     </div>
   )
