@@ -57,10 +57,10 @@ export function BulkEditModal({ isOpen, onClose, items, onSuccess }: BulkEditMod
         
         // Only update fields that have values
         if (bulkFields.cost_per_unit !== '') {
-          updates.cost_per_unit = parseFloat(bulkFields.cost_per_unit)
+          updates.cost_per_unit = parseFloat(bulkFields.cost_per_unit.replace(',', '.')) || 0
         }
         if (bulkFields.low_stock_alert !== '') {
-          updates.low_stock_alert = parseFloat(bulkFields.low_stock_alert)
+          updates.low_stock_alert = parseFloat(bulkFields.low_stock_alert.replace(',', '.')) || 0
         }
         if (bulkFields.unit !== '') {
           updates.unit = bulkFields.unit

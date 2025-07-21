@@ -134,7 +134,12 @@ export function InventoryTable({ onDelete }: InventoryTableProps) {
     setFormError('')
     
     try {
-      const { error } = await updateInventoryItem(itemId, editingValues)
+      const parsedValues = {
+        ...editingValues,
+        current_quantity: parseFloat(editingValues.current_quantity.replace(',', '.')) || 0,
+        cost_per_unit: parseFloat(editingValues.cost_per_unit.replace(',', '.')) || 0,
+      }
+      const { error } = await updateInventoryItem(itemId, parsedValues)
       if (error) {
         setFormError(error)
       } else {
@@ -428,8 +433,8 @@ export function InventoryTable({ onDelete }: InventoryTableProps) {
                     {editingItem === item.id ? (
                       <ManualNumberInput
                         step={0.01}
-                        value={editingValues.current_quantity?.toString() || ''}
-                        onChange={(value) => setEditingValues({ ...editingValues, current_quantity: parseFloat(value) || 0 })}
+                        value={editingValues.current_quantity || ''}
+                        onChange={(value) => setEditingValues({ ...editingValues, current_quantity: value })}
                         className="input-field text-sm w-20"
                         disabled={submitLoading}
                       />
@@ -444,8 +449,8 @@ export function InventoryTable({ onDelete }: InventoryTableProps) {
                     {editingItem === item.id ? (
                       <ManualNumberInput
                         step={0.01}
-                        value={editingValues.cost_per_unit?.toString() || ''}
-                        onChange={(value) => setEditingValues({ ...editingValues, cost_per_unit: parseFloat(value) || 0 })}
+                        value={editingValues.cost_per_unit || ''}
+                        onChange={(value) => setEditingValues({ ...editingValues, cost_per_unit: value })}
                         className="input-field text-sm w-24"
                         disabled={submitLoading}
                       />

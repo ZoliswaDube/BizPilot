@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Minus, Calculator, Save, ArrowLeft, Loader2 } from 'lucide-react'
 import { useAuthStore } from '../../store/auth'
 import { useUserSettings } from '../../hooks/useUserSettings'
+import { useBusiness } from '../../hooks/useBusiness'
 
 import { supabase } from '../../lib/supabase'
 import { 
@@ -26,8 +27,8 @@ interface ProductFormData {
   targetMargin: number
   ingredients: Ingredient[]
   sku: string
-  minStockLevel: number
-  reorderPoint: number
+  minStockLevel: string
+  reorderPoint: string
   location: string
   supplierId: string | null
   imageUrl: string
@@ -39,20 +40,23 @@ export function ProductForm() {
   const navigate = useNavigate()
   const { id } = useParams()
   const { user } = useAuthStore()
+  const { business } = useBusiness()
   const { settings, loading: settingsLoading } = useUserSettings()
   // const { categories, loading: categoriesLoading } = useCategories()
   // const { suppliers, loading: suppliersLoading } = useSuppliers()
 
   const isEditMode = !!id
 
-  const [formData, setFormData] = useState<ProductFormData>({
+  // Form state
+  const [formData, setFormData] = useState({
+    id: '',
     name: '',
     laborMinutes: 0,
-    targetMargin: 40,
-    ingredients: [{ name: '', cost: 0, quantity: 0, unit: 'unit' }],
+    targetMargin: '',
+    ingredients: [{ name: '', cost: '', quantity: '', unit: 'unit' }],
     sku: '',
-    minStockLevel: 0,
-    reorderPoint: 0,
+    minStockLevel: '',
+    reorderPoint: '',
     location: '',
     supplierId: null,
     imageUrl: '',
@@ -106,10 +110,10 @@ export function ProductForm() {
 
   // Update target margin when settings load
   useEffect(() => {
-    if (settings && !isEditMode && formData.targetMargin === 40) {
+    if (settings && !isEditMode && formData.targetMargin === '40') {
       setFormData(prev => ({
         ...prev,
-        targetMargin: settings.default_margin
+        targetMargin: settings.default_margin.toString()
       }))
     }
   }, [settings, isEditMode, formData.targetMargin])
@@ -153,7 +157,7 @@ export function ProductForm() {
           cost: ing.cost,
           quantity: ing.quantity,
           unit: ing.unit
-        })) : [{ name: '', cost: 0, quantity: 0, unit: 'unit' }],
+        })) : [{ name: '', cost: '', quantity: '', unit: 'unit' }],
         sku: product.sku || '',
         minStockLevel: product.min_stock_level || 0,
         reorderPoint: product.reorder_point || 0,
@@ -172,12 +176,12 @@ export function ProductForm() {
   }
 
   const hourlyRate = settings?.hourly_rate || 15
-  const calculations = calculateProduct(formData.ingredients, formData.laborMinutes, hourlyRate, formData.targetMargin)
+  const calculations = calculateProduct(formData.ingredients, formData.laborMinutes, hourlyRate, parseFloat(String(formData.targetMargin || '').replace(',', '.')) || 0)
 
   const addIngredient = () => {
     setFormData(prev => ({
       ...prev,
-      ingredients: [...prev.ingredients, { name: '', cost: 0, quantity: 0, unit: 'unit' }]
+      ingredients: [...prev.ingredients, { name: '', cost: '', quantity: '', unit: 'unit' }]
     }))
   }
 
@@ -226,7 +230,14 @@ export function ProductForm() {
       return
     }
 
-    const validIngredients = formData.ingredients.filter(ing => 
+    const parsedIngredients = formData.ingredients.map(ing => ({
+      ...ing,
+      cost: parseFloat(ing.cost.replace(',', '.')) || 0,
+      quantity: parseFloat(ing.quantity.replace(',', '.')) || 0,
+    }))
+    const targetMargin = parseFloat(String(formData.targetMargin || '').replace(',', '.')) || 0;
+
+    const validIngredients = parsedIngredients.filter(ing => 
       ing.name.trim() && ing.cost > 0 && ing.quantity > 0
     )
 
@@ -252,6 +263,7 @@ export function ProductForm() {
       image_url: formData.imageUrl.trim() || null,
       barcode: formData.barcode.trim() || null,
       category_id: formData.categoryId,
+      business_id: business?.id || null,
     }
 
     try {
@@ -428,6 +440,102 @@ export function ProductForm() {
                     transition={{ type: "spring", stiffness: 400, damping: 17 }}
                   />
                 </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    SKU
+                  </label>
+                  <motion.input
+                    type="text"
+                    name="sku"
+                    value={formData.sku}
+                    onChange={handleProductFieldChange}
+                    className="input-field"
+                    placeholder="Enter SKU"
+                    whileFocus={{ scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Barcode
+                  </label>
+                  <motion.input
+                    type="text"
+                    name="barcode"
+                    value={formData.barcode}
+                    onChange={handleProductFieldChange}
+                    className="input-field"
+                    placeholder="Enter barcode"
+                    whileFocus={{ scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Location
+                  </label>
+                  <motion.input
+                    type="text"
+                    name="location"
+                    value={formData.location}
+                    onChange={handleProductFieldChange}
+                    className="input-field"
+                    placeholder="Storage location"
+                    whileFocus={{ scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Min Stock Level
+                  </label>
+                  <motion.div whileFocus={{ scale: 1.02 }}>
+                    <ManualNumberInput
+                      min={0}
+                      step={1}
+                      value={formData.minStockLevel}
+                      onChange={(value) => setFormData(prev => ({ ...prev, minStockLevel: value }))}
+                      className="input-field"
+                      placeholder="Minimum stock level"
+                    />
+                  </motion.div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Reorder Point
+                  </label>
+                  <motion.div whileFocus={{ scale: 1.02 }}>
+                    <ManualNumberInput
+                      min={0}
+                      step={1}
+                      value={formData.reorderPoint}
+                      onChange={(value) => setFormData(prev => ({ ...prev, reorderPoint: value }))}
+                      className="input-field"
+                      placeholder="Reorder point"
+                    />
+                  </motion.div>
+                </div>
+                
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Image URL
+                  </label>
+                  <motion.input
+                    type="url"
+                    name="imageUrl"
+                    value={formData.imageUrl}
+                    onChange={handleProductFieldChange}
+                    className="input-field"
+                    placeholder="Product image URL"
+                    whileFocus={{ scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                  />
+                </div>
               </motion.div>
             </motion.div>
                 
@@ -484,8 +592,8 @@ export function ProductForm() {
                               <ManualNumberInput
                                 min={0}
                                 step={0.01}
-                                value={ingredient.cost.toString()}
-                                onChange={(value) => updateIngredient(index, 'cost', parseFloat(value) || 0)}
+                                value={ingredient.cost}
+                                onChange={(value) => updateIngredient(index, 'cost', value)}
                                 className="input-field text-sm"
                                 placeholder="0.00"
                               />
@@ -499,8 +607,8 @@ export function ProductForm() {
                               <ManualNumberInput
                                 min={0}
                                 step={0.01}
-                                value={ingredient.quantity.toString()}
-                                onChange={(value) => updateIngredient(index, 'quantity', parseFloat(value) || 0)}
+                                value={ingredient.quantity}
+                                onChange={(value) => updateIngredient(index, 'quantity', value)}
                                 className="input-field text-sm"
                                 placeholder="0"
                               />
@@ -552,10 +660,9 @@ export function ProductForm() {
                   max={99}
                   step={0.1}
                   name="targetMargin"
-                  value={formData.targetMargin.toString()}
+                  value={formData.targetMargin}
                   onChange={(value) => {
-                    const numValue = parseFloat(value) || 0
-                    setFormData(prev => ({ ...prev, targetMargin: numValue }))
+                    setFormData(prev => ({ ...prev, targetMargin: value }))
                   }}
                   className="input-field max-w-xs"
                   placeholder="40"

@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Download, Upload, Grid, List, Loader2, Search, AlertTriangle, Edit, Trash2 } from 'lucide-react'
 import { useInventory } from '../../hooks/useInventory'
 import { useBusiness } from '../../hooks/useBusiness'
 import { InventoryTable } from './InventoryTable'
+import { BulkInventoryImport } from './BulkInventoryImport'
+import { BulkInventoryExport } from './BulkInventoryExport'
 import { ManualNumberInput } from '../ui/manual-number-input'
 import { formatCurrency } from '../../utils/calculations'
 
@@ -16,6 +18,8 @@ export function InventoryList() {
   const { hasPermission } = useBusiness()
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table')
   const [formError, setFormError] = useState('')
+  const [showBulkImport, setShowBulkImport] = useState(false)
+  const [showBulkExport, setShowBulkExport] = useState(false)
 
   const canEdit = hasPermission('inventory', 'update')
 
@@ -86,19 +90,21 @@ export function InventoryList() {
             {canEdit && (
               <>
                 <motion.button
+                  onClick={() => setShowBulkImport(true)}
                   className="btn-secondary flex items-center gap-2"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  title="Import inventory"
+                  title="Import inventory from spreadsheet"
                 >
                   <Upload className="h-4 w-4" />
                   Import
                 </motion.button>
                 <motion.button
+                  onClick={() => setShowBulkExport(true)}
                   className="btn-secondary flex items-center gap-2"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  title="Export inventory"
+                  title="Export inventory to spreadsheet"
                 >
                   <Download className="h-4 w-4" />
                   Export
@@ -152,6 +158,16 @@ export function InventoryList() {
           onDelete={handleDeleteItem}
         />
       )}
+
+      {/* Bulk Import/Export Modals */}
+      <AnimatePresence>
+        {showBulkImport && (
+          <BulkInventoryImport onClose={() => setShowBulkImport(false)} />
+        )}
+        {showBulkExport && (
+          <BulkInventoryExport onClose={() => setShowBulkExport(false)} />
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }

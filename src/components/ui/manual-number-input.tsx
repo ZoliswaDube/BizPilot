@@ -1,7 +1,7 @@
 import React from 'react'
 
 interface ManualNumberInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'onChange'> {
-  value: string | number
+  value: string
   onChange: (value: string) => void
   onBlur?: () => void
   min?: number
@@ -9,6 +9,7 @@ interface ManualNumberInputProps extends Omit<React.InputHTMLAttributes<HTMLInpu
   step?: number
   placeholder?: string
   className?: string
+  decimalSeparator?: '.' | ','
 }
 
 export const ManualNumberInput = React.forwardRef<HTMLInputElement, ManualNumberInputProps>(({
@@ -20,34 +21,39 @@ export const ManualNumberInput = React.forwardRef<HTMLInputElement, ManualNumber
   step = 1,
   placeholder,
   className = '',
+  decimalSeparator = '.',
   ...rest
 }, ref) => {
+  // Allow both . and , as decimal separator
+  const regex = decimalSeparator === ',' ? /^-?\d*(,\d*)?$/ : /^-?\d*(\.\d*)?$/;
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const inputValue = e.target.value
-    
+    let inputValue = e.target.value
+    // Replace comma with dot for internal consistency if needed
+    if (decimalSeparator === ',' && inputValue.includes(',')) {
+      inputValue = inputValue.replace(',', '.')
+    }
     // Allow empty string, numbers, decimals, and negative numbers
-    if (inputValue === '' || /^-?\d*\.?\d*$/.test(inputValue)) {
-      onChange(inputValue)
+    if (inputValue === '' || regex.test(e.target.value)) {
+      onChange(e.target.value)
     }
   }
 
   const handleBlur = () => {
-    const numValue = parseFloat(value.toString())
-    
+    // Convert to float and apply min/max constraints
+    let numValue = parseFloat(value.replace(',', '.'))
     if (!isNaN(numValue)) {
-      // Apply min/max constraints
-      let constrainedValue = numValue
-      if (typeof min === 'number') constrainedValue = Math.max(constrainedValue, min)
-      if (typeof max === 'number') constrainedValue = Math.min(constrainedValue, max)
-      
-      // Preserve user-entered decimal precision
-      const formattedValue = constrainedValue.toString()
-      onChange(formattedValue)
+      if (typeof min === 'number') numValue = Math.max(numValue, min)
+      if (typeof max === 'number') numValue = Math.min(numValue, max)
+      // Format to appropriate decimal places based on step
+      const decimalPlaces = step.toString().includes('.') 
+        ? step.toString().split('.')[1].length 
+        : 0
+      const formattedValue = numValue.toFixed(decimalPlaces)
+      onChange(decimalSeparator === ',' ? formattedValue.replace('.', ',') : formattedValue)
     } else {
-      // If not a valid number, clear the field
       onChange('')
     }
-    
     onBlur?.()
   }
 

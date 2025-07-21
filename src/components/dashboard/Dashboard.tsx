@@ -302,13 +302,14 @@ export function Dashboard() {
 
           {/* Remove the old cards code since we replaced it above */}
 
-          {/* Getting Started */}
-          <motion.div 
-            className="card bg-gradient-to-br from-primary-900/20 to-accent-900/20 border-primary-700/30"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1 }}
-          >
+          {/* Getting Started - Only show when no products exist */}
+          {stats.totalProducts === 0 && (
+            <motion.div 
+              className="card bg-gradient-to-br from-primary-900/20 to-accent-900/20 border-primary-700/30"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1 }}
+            >
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-primary-300">Getting Started</h2>
               {user?.email_confirmed_at ? (
@@ -373,7 +374,8 @@ export function Dashboard() {
                 </motion.div>
               ))}
             </div>
-          </motion.div>
+            </motion.div>
+          )}
 
           {/* Performance Insights */}
           {stats.totalProducts > 0 && (
