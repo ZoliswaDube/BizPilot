@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/auth'
 import { useUserSettings } from './useUserSettings'
-import { sendToGemini, generateConversationTitle } from '../services/deepseekApi'
+import { sendToGroq, generateConversationTitle } from '../services/deepseekApi'
 import { Database } from '../lib/supabase'
 
 type AIConversation = Database['public']['Tables']['ai_conversations']['Row']
@@ -154,17 +154,42 @@ export function useAIChat() {
     }
 
     try {
-      // Fetch products
+      // Get user's business first
+      const { data: businessUser } = await supabase
+        .from('business_users')
+        .select(`
+          business:businesses(id, name)
+        `)
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single()
+
+      const business = Array.isArray(businessUser?.business) ? businessUser?.business[0] : businessUser?.business
+      const businessId = business?.id
+      const businessName = business?.name || ''
+
+      if (!businessId) {
+        return {
+          totalProducts: 0,
+          totalInventoryItems: 0,
+          lowStockItems: 0,
+          avgMargin: 0,
+          businessName: '',
+          hourlyRate: settings?.hourly_rate || 15
+        }
+      }
+
+      // Fetch products by business_id
       const { data: products } = await supabase
         .from('products')
         .select('profit_margin')
-        .eq('user_id', user.id)
+        .eq('business_id', businessId)
 
-      // Fetch inventory
+      // Fetch inventory by business_id
       const { data: inventory } = await supabase
         .from('inventory')
         .select('current_quantity, low_stock_alert')
-        .eq('user_id', user.id)
+        .eq('business_id', businessId)
 
       const totalProducts = products?.length || 0
       const totalInventoryItems = inventory?.length || 0
@@ -181,7 +206,7 @@ export function useAIChat() {
         totalInventoryItems,
         lowStockItems,
         avgMargin,
-        businessName: settings?.business_name || '',
+        businessName,
         hourlyRate: settings?.hourly_rate || 15
       }
     } catch (err) {
@@ -209,8 +234,8 @@ export function useAIChat() {
       // Get latest business context
       const context = await getBusinessContext()
       
-      // Call DeepSeek API
-      const aiResponse = await sendToGemini(content, context)
+      // Call Groq API
+      const aiResponse = await sendToGroq(content, context)
       
       // Add AI response to conversation
       await addMessage(currentConversation.id, aiResponse, false)

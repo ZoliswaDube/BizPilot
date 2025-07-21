@@ -66,7 +66,7 @@ export function useBusiness() {
 
       try {
         // Get user's business membership
-        const { data: businessUser, error: businessUserError } = await supabase
+        const { data: businessUserData, error: businessUserError } = await supabase
           .from('business_users')
           .select(`
             *,
@@ -74,7 +74,9 @@ export function useBusiness() {
           `)
           .eq('user_id', user.id)
           .eq('is_active', true)
-          .maybeSingle()
+          .order('accepted_at', { ascending: false })
+          .limit(1)
+          .single()
 
         if (businessUserError) {
           console.error('Error fetching business user:', businessUserError)
@@ -93,16 +95,16 @@ export function useBusiness() {
           return
         }
 
-        if (!businessUser) {
+        if (!businessUserData) {
           // User doesn't have a business yet
           setBusiness(null)
           setUserRole('')
           return
         }
 
-        if (businessUser) {
-          setBusiness(businessUser.business)
-          setUserRole(businessUser.role)
+        if (businessUserData) {
+          setBusiness(businessUserData.business)
+          setUserRole(businessUserData.role)
 
           // Load business users
           const { data: users, error: usersError } = await supabase
@@ -111,7 +113,7 @@ export function useBusiness() {
               *,
               profile:user_profiles(email, full_name)
             `)
-            .eq('business_id', businessUser.business_id)
+            .eq('business_id', businessUserData.business_id)
 
           if (!usersError) {
             setBusinessUsers(users || [])
@@ -124,7 +126,7 @@ export function useBusiness() {
               *,
               permissions:user_permissions(*)
             `)
-            .eq('business_id', businessUser.business_id)
+            .eq('business_id', businessUserData.business_id)
 
           if (!rolesError) {
             setUserRoles(roles || [])

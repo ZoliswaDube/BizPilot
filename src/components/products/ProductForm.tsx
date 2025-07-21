@@ -27,8 +27,8 @@ interface ProductFormData {
   targetMargin: number
   ingredients: Ingredient[]
   sku: string
-  minStockLevel: number
-  reorderPoint: number
+  minStockLevel: string
+  reorderPoint: string
   location: string
   supplierId: string | null
   imageUrl: string
@@ -55,8 +55,8 @@ export function ProductForm() {
     targetMargin: '',
     ingredients: [{ name: '', cost: '', quantity: '', unit: 'unit' }],
     sku: '',
-    minStockLevel: 0,
-    reorderPoint: 0,
+    minStockLevel: '',
+    reorderPoint: '',
     location: '',
     supplierId: null,
     imageUrl: '',
@@ -436,6 +436,102 @@ export function ProductForm() {
                     onChange={handleProductFieldChange}
                     className="input-field"
                     placeholder="Enter product name"
+                    whileFocus={{ scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    SKU
+                  </label>
+                  <motion.input
+                    type="text"
+                    name="sku"
+                    value={formData.sku}
+                    onChange={handleProductFieldChange}
+                    className="input-field"
+                    placeholder="Enter SKU"
+                    whileFocus={{ scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Barcode
+                  </label>
+                  <motion.input
+                    type="text"
+                    name="barcode"
+                    value={formData.barcode}
+                    onChange={handleProductFieldChange}
+                    className="input-field"
+                    placeholder="Enter barcode"
+                    whileFocus={{ scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Location
+                  </label>
+                  <motion.input
+                    type="text"
+                    name="location"
+                    value={formData.location}
+                    onChange={handleProductFieldChange}
+                    className="input-field"
+                    placeholder="Storage location"
+                    whileFocus={{ scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Min Stock Level
+                  </label>
+                  <motion.div whileFocus={{ scale: 1.02 }}>
+                    <ManualNumberInput
+                      min={0}
+                      step={1}
+                      value={formData.minStockLevel}
+                      onChange={(value) => setFormData(prev => ({ ...prev, minStockLevel: value }))}
+                      className="input-field"
+                      placeholder="Minimum stock level"
+                    />
+                  </motion.div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Reorder Point
+                  </label>
+                  <motion.div whileFocus={{ scale: 1.02 }}>
+                    <ManualNumberInput
+                      min={0}
+                      step={1}
+                      value={formData.reorderPoint}
+                      onChange={(value) => setFormData(prev => ({ ...prev, reorderPoint: value }))}
+                      className="input-field"
+                      placeholder="Reorder point"
+                    />
+                  </motion.div>
+                </div>
+                
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Image URL
+                  </label>
+                  <motion.input
+                    type="url"
+                    name="imageUrl"
+                    value={formData.imageUrl}
+                    onChange={handleProductFieldChange}
+                    className="input-field"
+                    placeholder="Product image URL"
                     whileFocus={{ scale: 1.02 }}
                     transition={{ type: "spring", stiffness: 400, damping: 17 }}
                   />

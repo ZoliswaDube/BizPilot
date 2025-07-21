@@ -20,6 +20,7 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
     "framer-motion": "^10.16.16",
+    "groq-sdk": "^0.27.0",
     "lucide-react": "^0.294.0",
     "openai": "^4.28.0",
     "qrcode": "^1.5.3",
@@ -32,6 +33,9 @@
     "zustand": "^5.0.6"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.0.0",
+    "@testing-library/react": "^14.0.0",
+    "@testing-library/user-event": "^14.4.3",
     "@types/node": "^20.9.0",
     "@types/qrcode": "^1.5.5",
     "@types/react": "^18.2.37",
@@ -47,9 +51,6 @@
     "tailwindcss": "^3.3.5",
     "typescript": "^5.2.2",
     "vite": "^4.5.0",
-    "vitest": "^1.0.0",
-    "@testing-library/react": "^14.0.0",
-    "@testing-library/jest-dom": "^6.0.0",
-    "@testing-library/user-event": "^14.4.3"
+    "vitest": "^1.0.0"
   }
 }
