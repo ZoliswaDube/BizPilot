@@ -3,7 +3,14 @@ import { RoleForm } from '../components/users/RoleForm';
 
 describe('RoleForm', () => {
   it('should render without crashing', () => {
-    render(<RoleForm />);
+    const mockOnClose = () => {};
+    const mockOnSubmit = () => {};
+    render(
+      <RoleForm 
+        onClose={mockOnClose} 
+        onSubmit={mockOnSubmit} 
+      />
+    );
     // TODO: Add more specific tests for role form logic
   });
-}); 
+});

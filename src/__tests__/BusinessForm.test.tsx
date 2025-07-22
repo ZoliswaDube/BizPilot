@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import BusinessForm from '../components/business/BusinessForm';
+import { BusinessForm } from '../components/business/BusinessForm';
 
 describe('BusinessForm', () => {
   it('should render without crashing', () => {

@@ -10,13 +10,18 @@ import { INVENTORY_COLUMNS, REQUIRED_INVENTORY_KEYS } from './inventoryColumns'
 
 interface InventoryRow {
   name: string
-  current_quantity: number
-  cost_per_unit?: number
-  low_stock_alert?: number
   unit: string
-  batch_lot_number?: string
-  expiration_date?: string
-  image_url?: string
+  current_quantity: number
+  cost_per_unit: number
+  low_stock_alert?: number | null
+  batch_lot_number?: string | null
+  expiration_date?: string | null
+  image_url?: string | null
+  description?: string | null
+  supplier?: string | null
+  location?: string | null
+  min_order_quantity?: number | null
+  reorder_point?: number | null
 }
 
 interface ValidationError {
@@ -110,6 +115,7 @@ export function BulkInventoryImport({ onClose }: BulkInventoryImportProps) {
       }
 
       // Define flexible header variations for each canonical field
+      // This is the single source of truth for header mapping
       const fieldMappings: Record<string, string[]> = {
         name: ['name', 'product_name', 'item_name'],
         unit: ['unit', 'units', 'measurement_unit'],
@@ -118,7 +124,12 @@ export function BulkInventoryImport({ onClose }: BulkInventoryImportProps) {
         low_stock_alert: ['low_stock_alert', 'low_stock', 'minimum_stock', 'min_stock'],
         batch_lot_number: ['batch_lot_number', 'batch', 'lot', 'batch_number', 'lot_number'],
         expiration_date: ['expiration_date', 'expires', 'expiry_date', 'exp_date'],
-        image_url: ['image_url', 'image', 'photo_url', 'picture']
+        image_url: ['image_url', 'image', 'photo_url', 'picture'],
+        description: ['description', 'desc', 'details'],
+        supplier: ['supplier', 'vendor', 'supplier_name'],
+        location: ['location', 'storage_location', 'warehouse'],
+        min_order_quantity: ['min_order_quantity', 'min_order', 'moq'],
+        reorder_point: ['reorder_point', 'reorder_level', 'reorder']
       }
       
       
@@ -157,15 +168,15 @@ export function BulkInventoryImport({ onClose }: BulkInventoryImportProps) {
           const value = row[colIndex] ? row[colIndex].toString().trim() : ''
           
           // Handle different field types
-          if (['name', 'unit', 'batch_lot_number', 'image_url'].includes(standardField)) {
+          if (['name', 'unit', 'batch_lot_number', 'description', 'supplier', 'location', 'image_url'].includes(standardField)) {
             // String fields
-            rowData[standardField] = value
-          } else if (['current_quantity', 'cost_per_unit', 'low_stock_alert'].includes(standardField)) {
+            rowData[standardField] = value || null
+          } else if (['current_quantity', 'cost_per_unit', 'low_stock_alert', 'min_order_quantity', 'reorder_point'].includes(standardField)) {
             // Numeric fields
             if (value) {
               const numValue = parseFloat(value.replace(',', '.'))
               if (isNaN(numValue)) {
-                if (requiredFields.includes(standardField as any)) {
+                if (requiredFields.includes(standardField)) {
                   errors.push({
                     row: index + 2,
                     field: standardField,
@@ -176,7 +187,7 @@ export function BulkInventoryImport({ onClose }: BulkInventoryImportProps) {
               } else {
                 rowData[standardField] = numValue
               }
-            } else if (requiredFields.includes(standardField as any)) {
+            } else if (requiredFields.includes(standardField)) {
               errors.push({
                 row: index + 2,
                 field: standardField,
@@ -286,7 +297,11 @@ export function BulkInventoryImport({ onClose }: BulkInventoryImportProps) {
           if (item.unit !== undefined) updateData.unit = item.unit
           if (item.batch_lot_number !== undefined) updateData.batch_lot_number = item.batch_lot_number
           if (item.expiration_date !== undefined) updateData.expiration_date = item.expiration_date
-          // Only canonical fields are supported
+          if (item.description !== undefined) updateData.description = item.description
+          if (item.supplier !== undefined) updateData.supplier = item.supplier
+          if (item.location !== undefined) updateData.location = item.location
+          if (item.min_order_quantity !== undefined) updateData.min_order_quantity = item.min_order_quantity
+          if (item.reorder_point !== undefined) updateData.reorder_point = item.reorder_point
           if (item.image_url !== undefined) updateData.image_url = item.image_url
 
           const { error } = await supabase
@@ -325,29 +340,39 @@ export function BulkInventoryImport({ onClose }: BulkInventoryImportProps) {
   }
 
   const downloadTemplate = () => {
-    // Create Excel template with canonical headers
+    // Create Excel template with proper headers using canonical column list
     const headers = INVENTORY_COLUMNS.map(col => col.label)
 
     const sampleData = [
       [
-        'Sample Cheese',
-        'wheels', 
-        100,
-        5.50,
-        10,
-        'BATCH001',
-        '2024-12-31',
-        'https://example.com/cheese.jpg'
+        'Sample Cheese',        // name
+        'wheels',               // unit  
+        100,                    // current_quantity
+        5.50,                   // cost_per_unit
+        10,                     // low_stock_alert
+        'BATCH001',             // batch_lot_number
+        '2024-12-31',           // expiration_date
+        'https://example.com/cheese.jpg', // image_url
+        'Aged cheddar cheese',  // description
+        'Local Dairy Co',       // supplier
+        'Cold Storage A',       // location
+        50,                     // min_order_quantity
+        20                      // reorder_point
       ],
       [
-        'Sample Bread',
-        'loaves',
-        25,
-        2.99,
-        5,
-        'BATCH002',
-        '2024-07-25',
-        'https://example.com/bread.jpg'
+        'Sample Bread',         // name
+        'loaves',               // unit
+        25,                     // current_quantity
+        2.99,                   // cost_per_unit
+        5,                      // low_stock_alert
+        'BATCH002',             // batch_lot_number
+        '2024-07-25',           // expiration_date
+        '',                     // image_url
+        'Fresh sourdough bread', // description
+        'Artisan Bakery',       // supplier
+        'Bakery Section',       // location
+        10,                     // min_order_quantity
+        5                       // reorder_point
       ]
     ]
 
@@ -360,8 +385,25 @@ export function BulkInventoryImport({ onClose }: BulkInventoryImportProps) {
     // Create worksheet
     const worksheet = XLSX.utils.aoa_to_sheet(excelData)
     
-    // Set column widths for canonical fields
-    const colWidths = INVENTORY_COLUMNS.map(() => ({ wch: 15 }))
+    // Set column widths for better readability based on canonical columns
+    const colWidths = INVENTORY_COLUMNS.map(col => {
+      switch (col.key) {
+        case 'name': return { wch: 20 }
+        case 'unit': return { wch: 10 }
+        case 'current_quantity': return { wch: 15 }
+        case 'cost_per_unit': return { wch: 12 }
+        case 'low_stock_alert': return { wch: 15 }
+        case 'batch_lot_number': return { wch: 15 }
+        case 'expiration_date': return { wch: 15 }
+        case 'image_url': return { wch: 30 }
+        case 'description': return { wch: 25 }
+        case 'supplier': return { wch: 20 }
+        case 'location': return { wch: 15 }
+        case 'min_order_quantity': return { wch: 18 }
+        case 'reorder_point': return { wch: 15 }
+        default: return { wch: 15 }
+      }
+    })
     worksheet['!cols'] = colWidths
     
     // Add worksheet to workbook

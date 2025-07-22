@@ -3,7 +3,8 @@ import { OAuthButtons } from '../components/auth/OAuthButtons';
 
 describe('OAuthButtons', () => {
   it('should render without crashing', () => {
-    render(<OAuthButtons />);
+    const mockOnSuccess = () => {};
+    render(<OAuthButtons onSuccess={mockOnSuccess} />);
     // TODO: Add more specific tests for OAuth buttons logic
   });
-}); 
+});
