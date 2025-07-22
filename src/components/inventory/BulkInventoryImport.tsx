@@ -1,23 +1,21 @@
-import { useState, useRef } from 'react'
+import React, { useState, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { Upload, Download, FileSpreadsheet, AlertCircle, CheckCircle, X, Loader2 } from 'lucide-react'
+import { useInventory } from '../../hooks/useInventory'
 import { useAuthStore } from '../../store/auth'
 import { useBusiness } from '../../hooks/useBusiness'
-import { useInventory } from '../../hooks/useInventory'
+import { supabase } from '../../lib/supabase'
+import { FileSpreadsheet, Upload, X, Download, AlertCircle, CheckCircle, Loader2 } from 'lucide-react'
+import * as XLSX from 'xlsx'
+import { INVENTORY_COLUMNS, REQUIRED_INVENTORY_KEYS } from './inventoryColumns'
 
 interface InventoryRow {
   name: string
   current_quantity: number
-  cost_per_unit: number
-  low_stock_alert: number
+  cost_per_unit?: number
+  low_stock_alert?: number
   unit: string
   batch_lot_number?: string
   expiration_date?: string
-  description?: string
-  supplier?: string
-  location?: string
-  min_order_quantity?: number
-  reorder_point?: number
   image_url?: string
 }
 
@@ -27,16 +25,19 @@ interface ValidationError {
   message: string
 }
 
-export function BulkInventoryImport({ onClose }: { onClose: () => void }) {
+interface BulkInventoryImportProps {
+  onClose: () => void
+}
+
+export function BulkInventoryImport({ onClose }: BulkInventoryImportProps) {
+  const { inventory, fetchInventory } = useInventory()
   const { user } = useAuthStore()
   const { business } = useBusiness()
-  const { addInventoryItem, updateInventoryItem } = useInventory()
-  
   const [file, setFile] = useState<File | null>(null)
   const [parsedData, setParsedData] = useState<InventoryRow[]>([])
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
-  const [importMode, setImportMode] = useState<'add' | 'update'>('add')
+  const [importMode, setImportMode] = useState<'add' | 'update'>('update')
   const [importResults, setImportResults] = useState<{
     success: number
     failed: number
@@ -69,21 +70,77 @@ export function BulkInventoryImport({ onClose }: { onClose: () => void }) {
     setValidationErrors([])
     
     try {
-      const text = await file.text()
-      const rows = text.split('\n').map(row => row.split(',').map(cell => cell.trim().replace(/^"|"$/g, '')))
+      let headers: string[] = []
+      let dataRows: any[][] = []
       
-      if (rows.length < 2) {
-        throw new Error('File must contain at least a header row and one data row')
+      // Handle both Excel and CSV files
+      if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+        // Parse Excel file
+        const arrayBuffer = await file.arrayBuffer()
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' })
+        const sheetName = workbook.SheetNames[0]
+        const worksheet = workbook.Sheets[sheetName]
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
+        
+        if (jsonData.length < 2) {
+          throw new Error('File must contain at least a header row and one data row')
+        }
+        
+        headers = (jsonData[0] as string[]).map(h => 
+          h ? h.toString().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') : ''
+        )
+        dataRows = (jsonData.slice(1) as any[][]).filter(row => 
+          row && row.some(cell => cell !== null && cell !== undefined && cell.toString().trim())
+        )
+      } else {
+        // Parse CSV file
+        const text = await file.text()
+        const rows = text.split('\n').map(row => 
+          row.split(',').map(cell => cell.trim().replace(/^"|"$/g, ''))
+        )
+        
+        if (rows.length < 2) {
+          throw new Error('File must contain at least a header row and one data row')
+        }
+        
+        headers = rows[0].map(h => 
+          h ? h.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') : ''
+        )
+        dataRows = rows.slice(1).filter(row => row.some(cell => cell && cell.trim()))
       }
 
-      const headers = rows[0].map(h => h.toLowerCase().replace(/\s+/g, '_'))
-      const dataRows = rows.slice(1).filter(row => row.some(cell => cell.trim()))
-
-      const requiredFields = ['name', 'current_quantity', 'cost_per_unit', 'unit']
-      const missingFields = requiredFields.filter(field => !headers.includes(field))
+      // Define flexible header variations for each canonical field
+      const fieldMappings: Record<string, string[]> = {
+        name: ['name', 'product_name', 'item_name'],
+        unit: ['unit', 'units', 'measurement_unit'],
+        current_quantity: ['current_quantity', 'quantity', 'stock', 'qty'],
+        cost_per_unit: ['cost_per_unit', 'cost', 'price', 'unit_cost'],
+        low_stock_alert: ['low_stock_alert', 'low_stock', 'minimum_stock', 'min_stock'],
+        batch_lot_number: ['batch_lot_number', 'batch', 'lot', 'batch_number', 'lot_number'],
+        expiration_date: ['expiration_date', 'expires', 'expiry_date', 'exp_date'],
+        image_url: ['image_url', 'image', 'photo_url', 'picture']
+      }
+      
+      
+      // Map headers to standard field names
+      const headerMap: Record<string, string> = {}
+      Object.entries(fieldMappings).forEach(([standardField, variations]) => {
+        const matchedHeader = headers.find(header => 
+          variations.some(variation => header.includes(variation))
+        )
+        if (matchedHeader) {
+          headerMap[matchedHeader] = standardField
+        }
+      })
+      
+      // Check for required fields
+      const requiredFields = [...REQUIRED_INVENTORY_KEYS]
+      const missingFields = requiredFields.filter(field => 
+        !Object.values(headerMap).includes(field)
+      )
       
       if (missingFields.length > 0) {
-        throw new Error(`Missing required columns: ${missingFields.join(', ')}`)
+        throw new Error(`Missing required columns. Please ensure your file contains columns for: ${missingFields.join(', ')}. Check that column names match the template.`)
       }
 
       const parsed: InventoryRow[] = []
@@ -92,44 +149,55 @@ export function BulkInventoryImport({ onClose }: { onClose: () => void }) {
       dataRows.forEach((row, index) => {
         const rowData: any = {}
         
+        // Process each header using the flexible mapping
         headers.forEach((header, colIndex) => {
-          const value = row[colIndex] || ''
+          const standardField = headerMap[header]
+          if (!standardField) return // Skip unmapped columns
           
-          switch (header) {
-            case 'name':
-            case 'unit':
-            case 'batch_lot_number':
-            case 'description':
-            case 'supplier':
-            case 'location':
-            case 'image_url':
-              rowData[header] = value
-              break
-            case 'current_quantity':
-            case 'cost_per_unit':
-            case 'low_stock_alert':
-            case 'min_order_quantity':
-            case 'reorder_point':
+          const value = row[colIndex] ? row[colIndex].toString().trim() : ''
+          
+          // Handle different field types
+          if (['name', 'unit', 'batch_lot_number', 'image_url'].includes(standardField)) {
+            // String fields
+            rowData[standardField] = value
+          } else if (['current_quantity', 'cost_per_unit', 'low_stock_alert'].includes(standardField)) {
+            // Numeric fields
+            if (value) {
               const numValue = parseFloat(value.replace(',', '.'))
-              if (isNaN(numValue) && requiredFields.includes(header)) {
-                errors.push({
-                  row: index + 2,
-                  field: header,
-                  message: `Invalid number: ${value}`
-                })
+              if (isNaN(numValue)) {
+                if (requiredFields.includes(standardField as any)) {
+                  errors.push({
+                    row: index + 2,
+                    field: standardField,
+                    message: `Invalid number: ${value}`
+                  })
+                }
+                rowData[standardField] = 0
+              } else {
+                rowData[standardField] = numValue
               }
-              rowData[header] = isNaN(numValue) ? 0 : numValue
-              break
-            case 'expiration_date':
-              if (value && !isValidDate(value)) {
+            } else if (requiredFields.includes(standardField as any)) {
+              errors.push({
+                row: index + 2,
+                field: standardField,
+                message: `Required field is empty`
+              })
+              rowData[standardField] = 0
+            }
+          } else if (standardField === 'expiration_date') {
+            // Date field
+            if (value) {
+              if (!isValidDate(value)) {
                 errors.push({
                   row: index + 2,
-                  field: header,
+                  field: standardField,
                   message: `Invalid date format: ${value}. Use YYYY-MM-DD`
                 })
               }
-              rowData[header] = value || null
-              break
+              rowData[standardField] = value
+            } else {
+              rowData[standardField] = null
+            }
           }
         })
 
@@ -167,8 +235,8 @@ export function BulkInventoryImport({ onClose }: { onClose: () => void }) {
     return !isNaN(date.getTime()) && !!dateString.match(/^\d{4}-\d{2}-\d{2}$/)
   }
 
-  const handleImport = async () => {
-    if (!user || !business || parsedData.length === 0) return
+  const processImport = async () => {
+    if (!parsedData.length || !business || !user) return
     
     if (validationErrors.length > 0) {
       alert('Please fix validation errors before importing')
@@ -180,21 +248,59 @@ export function BulkInventoryImport({ onClose }: { onClose: () => void }) {
 
     for (const item of parsedData) {
       try {
-        const itemData = {
-          ...item,
-          business_id: business.id,
-          user_id: user.id
-        }
+        if (importMode === 'add') {
+          // For adding new items, use direct insert without transactions
+          const itemData = {
+            ...item,
+            business_id: business.id,
+            created_by: user.id
+          }
 
-        const { error } = importMode === 'add' 
-          ? await addInventoryItem(itemData)
-          : await updateInventoryItem(item.name, itemData) // Assuming update by name
+          const { error } = await supabase
+            .from('inventory')
+            .insert(itemData)
 
-        if (error) {
-          results.failed++
-          results.errors.push(`Row ${parsedData.indexOf(item) + 2}: ${error}`)
+          if (error) {
+            results.failed++
+            results.errors.push(`Row ${parsedData.indexOf(item) + 2}: ${error.message}`)
+          } else {
+            results.success++
+          }
         } else {
-          results.success++
+          // For updating existing items, find by name and update directly
+          const existingItem = inventory.find(inv => 
+            inv.name.toLowerCase() === item.name.toLowerCase()
+          )
+
+          if (!existingItem) {
+            results.failed++
+            results.errors.push(`Row ${parsedData.indexOf(item) + 2}: Item '${item.name}' not found`)
+            continue
+          }
+
+          // Update only the fields that are provided in the import
+          const updateData: any = {}
+          if (item.current_quantity !== undefined) updateData.current_quantity = item.current_quantity
+          if (item.cost_per_unit !== undefined) updateData.cost_per_unit = item.cost_per_unit
+          if (item.low_stock_alert !== undefined) updateData.low_stock_alert = item.low_stock_alert
+          if (item.unit !== undefined) updateData.unit = item.unit
+          if (item.batch_lot_number !== undefined) updateData.batch_lot_number = item.batch_lot_number
+          if (item.expiration_date !== undefined) updateData.expiration_date = item.expiration_date
+          // Only canonical fields are supported
+          if (item.image_url !== undefined) updateData.image_url = item.image_url
+
+          const { error } = await supabase
+            .from('inventory')
+            .update(updateData)
+            .eq('id', existingItem.id)
+            .eq('business_id', business.id)
+
+          if (error) {
+            results.failed++
+            results.errors.push(`Row ${parsedData.indexOf(item) + 2}: ${error.message}`)
+          } else {
+            results.success++
+          }
         }
       } catch (error) {
         results.failed++
@@ -204,36 +310,73 @@ export function BulkInventoryImport({ onClose }: { onClose: () => void }) {
 
     setImportResults(results)
     setIsProcessing(false)
+    
+    // Refresh inventory data after successful import
+    if (results.success > 0) {
+      fetchInventory()
+    }
+    
+    // Close modal if all imports were successful
+    if (results.failed === 0) {
+      setTimeout(() => {
+        onClose()
+      }, 2000)
+    }
   }
 
   const downloadTemplate = () => {
-    const headers = [
-      'name',
-      'current_quantity',
-      'cost_per_unit',
-      'low_stock_alert',
-      'unit',
-      'batch_lot_number',
-      'expiration_date',
-      'description',
-      'supplier',
-      'location',
-      'min_order_quantity',
-      'reorder_point',
-      'image_url'
-    ]
+    // Create Excel template with canonical headers
+    const headers = INVENTORY_COLUMNS.map(col => col.label)
 
     const sampleData = [
-      'Sample Item,100,5.50,10,pieces,BATCH001,2024-12-31,Sample description,Sample Supplier,Warehouse A,50,20,https://example.com/image.jpg'
+      [
+        'Sample Cheese',
+        'wheels', 
+        100,
+        5.50,
+        10,
+        'BATCH001',
+        '2024-12-31',
+        'https://example.com/cheese.jpg'
+      ],
+      [
+        'Sample Bread',
+        'loaves',
+        25,
+        2.99,
+        5,
+        'BATCH002',
+        '2024-07-25',
+        'https://example.com/bread.jpg'
+      ]
     ]
 
-    const csvContent = [headers.join(','), ...sampleData].join('\n')
-    const blob = new Blob([csvContent], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
+    // Create Excel workbook
+    const workbook = XLSX.utils.book_new()
     
+    // Prepare data for Excel (headers + sample data)
+    const excelData = [headers, ...sampleData]
+    
+    // Create worksheet
+    const worksheet = XLSX.utils.aoa_to_sheet(excelData)
+    
+    // Set column widths for canonical fields
+    const colWidths = INVENTORY_COLUMNS.map(() => ({ wch: 15 }))
+    worksheet['!cols'] = colWidths
+    
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Inventory Template')
+    
+    // Generate Excel file
+    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
+    const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    
+    // Create download link
     const link = document.createElement('a')
-    link.href = url
-    link.download = 'inventory_template.csv'
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', 'inventory_import_template.xlsx')
+    link.style.visibility = 'hidden'
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -414,7 +557,7 @@ export function BulkInventoryImport({ onClose }: { onClose: () => void }) {
               Cancel
             </button>
             <button
-              onClick={handleImport}
+              onClick={processImport}
               disabled={!file || parsedData.length === 0 || validationErrors.length > 0 || isProcessing}
               className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
             >
