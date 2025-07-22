@@ -20,21 +20,7 @@ import { UnitSelect } from '../ui/unit-select'
 type ProductInsert = Database['public']['Tables']['products']['Insert']
 type ProductUpdate = Database['public']['Tables']['products']['Update']
 
-interface ProductFormData {
-  id?: string
-  name: string
-  laborMinutes: number
-  targetMargin: number
-  ingredients: Ingredient[]
-  sku: string
-  minStockLevel: string
-  reorderPoint: string
-  location: string
-  supplierId: string | null
-  imageUrl: string
-  barcode: string
-  categoryId: string | null
-}
+
 
 export function ProductForm() {
   const navigate = useNavigate()
@@ -176,7 +162,16 @@ export function ProductForm() {
   }
 
   const hourlyRate = settings?.hourly_rate || 15
-  const calculations = calculateProduct(formData.ingredients, formData.laborMinutes, hourlyRate, parseFloat(String(formData.targetMargin || '').replace(',', '.')) || 0)
+  const calculations = calculateProduct(
+    formData.ingredients.map(i => ({
+      ...i,
+      cost: parseFloat(i.cost),
+      quantity: parseFloat(i.quantity)
+    })),
+    formData.laborMinutes,
+    hourlyRate,
+    parseFloat(String(formData.targetMargin || '').replace(',', '.')) || 0
+  )
 
   const addIngredient = () => {
     setFormData(prev => ({
@@ -232,10 +227,9 @@ export function ProductForm() {
 
     const parsedIngredients = formData.ingredients.map(ing => ({
       ...ing,
-      cost: parseFloat(ing.cost.replace(',', '.')) || 0,
-      quantity: parseFloat(ing.quantity.replace(',', '.')) || 0,
+      cost: typeof ing.cost === 'string' ? parseFloat(ing.cost.replace(',', '.')) || 0 : ing.cost,
+      quantity: typeof ing.quantity === 'string' ? parseFloat(ing.quantity.replace(',', '.')) || 0 : ing.quantity,
     }))
-    const targetMargin = parseFloat(String(formData.targetMargin || '').replace(',', '.')) || 0;
 
     const validIngredients = parsedIngredients.filter(ing => 
       ing.name.trim() && ing.cost > 0 && ing.quantity > 0
@@ -256,8 +250,8 @@ export function ProductForm() {
       selling_price: calculations.sellingPrice,
       profit_margin: calculations.profitMargin,
       sku: formData.sku.trim() || null,
-      min_stock_level: formData.minStockLevel,
-      reorder_point: formData.reorderPoint,
+      min_stock_level: parseFloat(formData.minStockLevel),
+      reorder_point: parseFloat(formData.reorderPoint),
       location: formData.location.trim() || null,
       supplier_id: formData.supplierId,
       image_url: formData.imageUrl.trim() || null,

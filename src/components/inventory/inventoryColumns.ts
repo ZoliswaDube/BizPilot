@@ -15,7 +15,7 @@ export interface InventoryColumn {
 
 // Utility type: union of allowed keys - matches database schema exactly
 // eslint-disable-next-line @typescript-eslint/consistent-type-definitions
-interface InventoryRowKeys {
+export interface InventoryRowKeys {
   name: string
   unit: string
   current_quantity: number

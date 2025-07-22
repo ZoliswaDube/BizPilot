@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase'
 import { FileSpreadsheet, Upload, X, Download, AlertCircle, CheckCircle, Loader2 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { INVENTORY_COLUMNS, REQUIRED_INVENTORY_KEYS } from './inventoryColumns'
+import type { InventoryRowKeys } from './inventoryColumns'
 
 interface InventoryRow {
   name: string
@@ -145,7 +146,7 @@ export function BulkInventoryImport({ onClose }: BulkInventoryImportProps) {
       })
       
       // Check for required fields
-      const requiredFields = [...REQUIRED_INVENTORY_KEYS]
+      const requiredFields: string[] = [...REQUIRED_INVENTORY_KEYS]
       const missingFields = requiredFields.filter(field => 
         !Object.values(headerMap).includes(field)
       )
@@ -162,7 +163,7 @@ export function BulkInventoryImport({ onClose }: BulkInventoryImportProps) {
         
         // Process each header using the flexible mapping
         headers.forEach((header, colIndex) => {
-          const standardField = headerMap[header]
+          const standardField = String(headerMap[header])
           if (!standardField) return // Skip unmapped columns
           
           const value = row[colIndex] ? row[colIndex].toString().trim() : ''

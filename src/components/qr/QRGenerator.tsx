@@ -378,7 +378,7 @@ export function QRGenerator() {
             <div className="flex-shrink-0">
               <div className="bg-white p-4 rounded-lg inline-block">
                 <img 
-                  src={qrCodes[0].qr_data_url} 
+                  src={qrCodes[0].qr_data_url ?? ''} 
                   alt={`QR Code for ${qrCodes[0].name}`}
                   className="w-48 h-48 object-contain"
                 />
@@ -394,7 +394,7 @@ export function QRGenerator() {
               <div>
                 <p className="text-sm font-medium text-gray-300 mb-1">Tip Amounts:</p>
                 <div className="flex flex-wrap gap-1">
-                  {qrCodes[0].tip_amounts.map((amount, index) => (
+                  {Array.isArray(qrCodes[0].tip_amounts) && qrCodes[0].tip_amounts.map((amount: any, index: number) => (
                     <span key={index} className="px-2 py-1 bg-primary-600/20 text-primary-300 rounded text-xs">
                       ${amount}
                     </span>
@@ -410,7 +410,7 @@ export function QRGenerator() {
               <div>
                 <p className="text-sm font-medium text-gray-300 mb-1">Tip Page URL:</p>
                 <a 
-                  href={qrCodes[0].page_url} 
+                  href={qrCodes[0].page_url ?? ''} 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="text-sm text-primary-400 hover:text-primary-300 break-all"
