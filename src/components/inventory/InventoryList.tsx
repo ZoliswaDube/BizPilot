@@ -21,7 +21,7 @@ export function InventoryList() {
   const [showBulkImport, setShowBulkImport] = useState(false)
   const [showBulkExport, setShowBulkExport] = useState(false)
 
-  const canEdit = hasPermission('inventory', 'update') || userRole === 'admin' || userRole === 'manager'
+  // const canEdit = hasPermission('inventory', 'update') || userRole === 'admin' || userRole === 'manager'
   const canImportExport = userRole === 'admin' || userRole === 'manager' || hasPermission('inventory', 'read')
 
   const handleDeleteItem = async (id: string, name: string) => {
