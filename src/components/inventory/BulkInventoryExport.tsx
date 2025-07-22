@@ -1,32 +1,23 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Download, FileSpreadsheet, X, Loader2, CheckCircle } from 'lucide-react'
+import { Download, FileSpreadsheet, X, Loader2, CheckCircle, FileText } from 'lucide-react'
 import { useAuthStore } from '../../store/auth'
 import { useBusiness } from '../../hooks/useBusiness'
 import { supabase } from '../../lib/supabase'
+import * as XLSX from 'xlsx'
 
 interface ExportOptions {
   includeImages: boolean
   includeExpired: boolean
   includeOutOfStock: boolean
   selectedFields: string[]
+  format: 'csv' | 'excel'
 }
 
-const AVAILABLE_FIELDS = [
-  { key: 'name', label: 'Name', required: true },
-  { key: 'current_quantity', label: 'Current Quantity', required: true },
-  { key: 'cost_per_unit', label: 'Cost Per Unit', required: true },
-  { key: 'low_stock_alert', label: 'Low Stock Alert', required: false },
-  { key: 'unit', label: 'Unit', required: true },
-  { key: 'batch_lot_number', label: 'Batch/Lot Number', required: false },
-  { key: 'expiration_date', label: 'Expiration Date', required: false },
-  { key: 'description', label: 'Description', required: false },
-  { key: 'supplier', label: 'Supplier', required: false },
-  { key: 'location', label: 'Location', required: false },
-  { key: 'min_order_quantity', label: 'Min Order Quantity', required: false },
-  { key: 'reorder_point', label: 'Reorder Point', required: false },
-  { key: 'image_url', label: 'Image URL', required: false },
-]
+import { INVENTORY_COLUMNS } from './inventoryColumns'
+
+// Canonical list of exportable fields. Do not modify in-place; edit inventoryColumns.ts instead.
+const AVAILABLE_FIELDS = INVENTORY_COLUMNS
 
 export function BulkInventoryExport({ onClose }: { onClose: () => void }) {
   const { user } = useAuthStore()
@@ -36,7 +27,8 @@ export function BulkInventoryExport({ onClose }: { onClose: () => void }) {
     includeImages: true,
     includeExpired: true,
     includeOutOfStock: true,
-    selectedFields: AVAILABLE_FIELDS.filter(f => f.required).map(f => f.key)
+    selectedFields: INVENTORY_COLUMNS.map(c => c.key), // include all canonical fields
+    format: 'excel'
   })
   const [isExporting, setIsExporting] = useState(false)
   const [exportComplete, setExportComplete] = useState(false)
@@ -91,38 +83,77 @@ export function BulkInventoryExport({ onClose }: { onClose: () => void }) {
         return filteredItem
       })
 
-      // Convert to CSV
+      // Prepare headers
       const headers = exportOptions.selectedFields.map(field => 
         AVAILABLE_FIELDS.find(f => f.key === field)?.label || field
       )
-      
-      const csvRows = [
-        headers.join(','),
-        ...filteredData.map(item => 
-          exportOptions.selectedFields.map(field => {
-            const value = item[field]
-            // Handle values that might contain commas or quotes
-            if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
-              return `"${value.replace(/"/g, '""')}"`
-            }
-            return value || ''
-          }).join(',')
-        )
-      ]
 
-      const csvContent = csvRows.join('\n')
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-      
-      // Create download link
-      const link = document.createElement('a')
-      const url = URL.createObjectURL(blob)
-      link.setAttribute('href', url)
-      link.setAttribute('download', `inventory_export_${new Date().toISOString().split('T')[0]}.csv`)
-      link.style.visibility = 'hidden'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
+      if (exportOptions.format === 'excel') {
+        // Create Excel workbook
+        const workbook = XLSX.utils.book_new()
+        
+        // Prepare data for Excel
+        const excelData = [
+          headers,
+          ...filteredData.map(item => 
+            exportOptions.selectedFields.map(field => item[field] || '')
+          )
+        ]
+        
+        // Create worksheet
+        const worksheet = XLSX.utils.aoa_to_sheet(excelData)
+        
+        // Set column widths
+        const colWidths = headers.map(() => ({ wch: 15 }))
+        worksheet['!cols'] = colWidths
+        
+        // Add worksheet to workbook
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Inventory')
+        
+        // Generate Excel file
+        const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
+        const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+        
+        // Create download link
+        const link = document.createElement('a')
+        const url = URL.createObjectURL(blob)
+        link.setAttribute('href', url)
+        link.setAttribute('download', `inventory_export_${new Date().toISOString().split('T')[0]}.xlsx`)
+        link.style.visibility = 'hidden'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+      } else {
+        // Create CSV
+        const csvRows = [
+          headers.join(','),
+          ...filteredData.map(item => 
+            exportOptions.selectedFields.map(field => {
+              const value = item[field]
+              // Handle values that might contain commas or quotes
+              if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+                return `"${value.replace(/"/g, '""')}"`
+              }
+              return value || ''
+            }).join(',')
+          )
+        ]
+
+        const csvContent = csvRows.join('\n')
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+        
+        // Create download link
+        const link = document.createElement('a')
+        const url = URL.createObjectURL(blob)
+        link.setAttribute('href', url)
+        link.setAttribute('download', `inventory_export_${new Date().toISOString().split('T')[0]}.csv`)
+        link.style.visibility = 'hidden'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+      }
 
       setExportComplete(true)
       setTimeout(() => {
@@ -211,6 +242,47 @@ export function BulkInventoryExport({ onClose }: { onClose: () => void }) {
                   className="mr-3 rounded"
                 />
                 <span className="text-gray-300">Include image URLs</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Format Selection */}
+          <div className="space-y-4">
+            <h3 className="font-medium text-gray-100">Export Format</h3>
+            
+            <div className="flex space-x-4">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="format"
+                  value="excel"
+                  checked={exportOptions.format === 'excel'}
+                  onChange={(e) => setExportOptions(prev => ({
+                    ...prev,
+                    format: e.target.value as 'csv' | 'excel'
+                  }))}
+                  className="mr-3"
+                />
+                <FileSpreadsheet className="h-4 w-4 mr-2 text-green-400" />
+                <span className="text-gray-300">Excel (.xlsx)</span>
+                <span className="text-xs text-gray-500 ml-2">Recommended for editing</span>
+              </label>
+              
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="format"
+                  value="csv"
+                  checked={exportOptions.format === 'csv'}
+                  onChange={(e) => setExportOptions(prev => ({
+                    ...prev,
+                    format: e.target.value as 'csv' | 'excel'
+                  }))}
+                  className="mr-3"
+                />
+                <FileText className="h-4 w-4 mr-2 text-blue-400" />
+                <span className="text-gray-300">CSV (.csv)</span>
+                <span className="text-xs text-gray-500 ml-2">Universal format</span>
               </label>
             </div>
           </div>

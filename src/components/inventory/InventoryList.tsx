@@ -15,13 +15,14 @@ import { formatCurrency } from '../../utils/calculations'
 
 export function InventoryList() {
   const { deleteInventoryItem } = useInventory()
-  const { hasPermission } = useBusiness()
+  const { hasPermission, userRole } = useBusiness()
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table')
   const [formError, setFormError] = useState('')
   const [showBulkImport, setShowBulkImport] = useState(false)
   const [showBulkExport, setShowBulkExport] = useState(false)
 
-  const canEdit = hasPermission('inventory', 'update')
+  const canEdit = hasPermission('inventory', 'update') || userRole === 'admin' || userRole === 'manager'
+  const canImportExport = userRole === 'admin' || userRole === 'manager' || hasPermission('inventory', 'read')
 
   const handleDeleteItem = async (id: string, name: string) => {
     if (window.confirm(`Are you sure you want to delete the inventory item "${name}"? This cannot be undone.`)) {
@@ -87,7 +88,7 @@ export function InventoryList() {
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
-            {canEdit && (
+            {canImportExport && (
               <>
                 <motion.button
                   onClick={() => setShowBulkImport(true)}

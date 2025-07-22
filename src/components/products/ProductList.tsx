@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Plus, Search, Package, Edit, Trash2, Calculator, Tag, Truck } from 'lucide-react'
+import { Plus, Search, Package, Edit, Trash2, Calculator, Tag, Truck, Grid3X3, List } from 'lucide-react'
 import { useAuthStore } from '../../store/auth'
 import { supabase } from '../../lib/supabase'
 import { formatCurrency, formatPercentage } from '../../utils/calculations'
@@ -33,6 +33,7 @@ export function ProductList() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
   useEffect(() => {
     if (user) {
@@ -184,7 +185,42 @@ export function ProductList() {
         </motion.div>
       )}
 
-      {/* Products Grid */}
+      {/* View Toggle */}
+      {filteredProducts.length > 0 && (
+        <motion.div 
+          className="flex justify-end"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+        >
+          <div className="bg-dark-800 rounded-lg p-1 border border-dark-600">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-2 rounded transition-colors ${
+                viewMode === 'grid'
+                  ? 'bg-primary-600 text-white'
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-dark-700'
+              }`}
+              title="Grid view"
+            >
+              <Grid3X3 className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-2 rounded transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-primary-600 text-white'
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-dark-700'
+              }`}
+              title="List view"
+            >
+              <List className="h-4 w-4" />
+            </button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Products Display */}
       {filteredProducts.length === 0 ? (
         <motion.div 
           className="text-center py-12"
@@ -210,127 +246,206 @@ export function ProductList() {
           )}
         </motion.div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
           {filteredProducts.map((product, index) => (
             <motion.div 
               key={product.id} 
-              className="card hover:shadow-xl hover:shadow-primary-500/10 transition-all duration-300 border-dark-600 hover:border-primary-600/30"
+              className={`card hover:shadow-xl hover:shadow-primary-500/10 transition-all duration-300 border-dark-600 hover:border-primary-600/30 ${
+                viewMode === 'list' ? 'flex flex-row items-center space-x-6' : ''
+              }`}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 + index * 0.1 }}
-              whileHover={{ scale: 1.02, y: -4 }}
+              whileHover={{ scale: viewMode === 'grid' ? 1.02 : 1.01, y: viewMode === 'grid' ? -4 : 0 }}
             >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
-                  <h3 className="font-semibold text-gray-100 mb-1">{product.name}</h3>
-                  <p className="text-sm text-gray-400">
-                    {product.sku && <span className="mr-2">SKU: {product.sku}</span>}
-                    {product.ingredient_count} ingredient{product.ingredient_count !== 1 ? 's' : ''}
-                    {product.labor_minutes > 0 && ` • ${product.labor_minutes} min labor`}
-                  </p>
-                  {product.categories?.name && (
-                    <p className="text-xs text-gray-500 flex items-center mt-1">
-                      <Tag className="h-3 w-3 mr-1" /> {product.categories.name}
-                    </p>
-                  )}
-                  {product.suppliers?.name && (
-                    <p className="text-xs text-gray-500 flex items-center mt-1">
-                      <Truck className="h-3 w-3 mr-1" /> {product.suppliers.name}
-                    </p>
-                  )}
-                  {product.location && (
-                    <p className="text-xs text-gray-500 flex items-center mt-1">
-                      Location: {product.location}
-                    </p>
-                  )}
-                  {product.barcode && (
-                    <p className="text-xs text-gray-500 flex items-center mt-1">
-                      Barcode: {product.barcode}
-                    </p>
-                  )}
-                  {product.min_stock_level !== null && product.min_stock_level > 0 && (
-                    <p className="text-xs text-yellow-400 flex items-center mt-1">
-                      Min Stock: {product.min_stock_level}
-                    </p>
-                  )}
-                  {product.reorder_point !== null && product.reorder_point > 0 && (
-                    <p className="text-xs text-orange-400 flex items-center mt-1">
-                      Reorder Point: {product.reorder_point}
-                    </p>
-                  )}
-                </div>
-                <div className="flex space-x-1">
-                  <motion.button
-                    onClick={() => navigate(`/products/edit/${product.id}`)}
-                    className="p-1 text-gray-500 hover:text-gray-300"
-                    title="Edit product"
-                    whileHover={{ scale: 1.2 }}
-                    whileTap={{ scale: 0.9 }}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </motion.button>
-                  <motion.button
-                    onClick={() => deleteProduct(product.id, product.name)}
-                    className="p-1 text-gray-500 hover:text-red-400"
-                    title="Delete product"
-                    whileHover={{ scale: 1.2 }}
-                    whileTap={{ scale: 0.9 }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </motion.button>
-                </div>
-              </div>
+              {viewMode === 'grid' ? (
+                // Grid View Layout
+                <>
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-gray-100 mb-1">{product.name}</h3>
+                      <p className="text-sm text-gray-400">
+                        {product.sku && <span className="mr-2">SKU: {product.sku}</span>}
+                        {product.ingredient_count} ingredient{product.ingredient_count !== 1 ? 's' : ''}
+                        {product.labor_minutes > 0 && ` • ${product.labor_minutes} min labor`}
+                      </p>
+                      {product.categories?.name && (
+                        <p className="text-xs text-gray-500 flex items-center mt-1">
+                          <Tag className="h-3 w-3 mr-1" /> {product.categories.name}
+                        </p>
+                      )}
+                      {product.suppliers?.name && (
+                        <p className="text-xs text-gray-500 flex items-center mt-1">
+                          <Truck className="h-3 w-3 mr-1" /> {product.suppliers.name}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex space-x-1">
+                      <motion.button
+                        onClick={() => navigate(`/products/edit/${product.id}`)}
+                        className="p-1 text-gray-500 hover:text-gray-300"
+                        title="Edit product"
+                        whileHover={{ scale: 1.2 }}
+                        whileTap={{ scale: 0.9 }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </motion.button>
+                      <motion.button
+                        onClick={() => deleteProduct(product.id, product.name)}
+                        className="p-1 text-gray-500 hover:text-red-400"
+                        title="Delete product"
+                        whileHover={{ scale: 1.2 }}
+                        whileTap={{ scale: 0.9 }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </motion.button>
+                    </div>
+                  </div>
 
-              <div className="mb-3">
-                <ImageDisplay
-                  src={product.image_url}
-                  alt={product.name}
-                  size="lg"
-                  showZoom={true}
-                  className="w-full h-32"
-                />
-              </div>
+                  <div className="mb-3">
+                    <ImageDisplay
+                      src={product.image_url}
+                      alt={product.name}
+                      size="lg"
+                      showZoom={true}
+                      className="w-full h-32"
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-400">Total Cost:</span>
-                  <span className="font-medium text-gray-100">
-                    {formatCurrency(product.total_cost || 0)}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-400">Selling Price:</span>
-                  <span className="font-medium text-gray-100">
-                    {formatCurrency(product.selling_price || 0)}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-400">Profit Margin:</span>
-                  <span className={`font-medium ${
-                    (product.profit_margin || 0) >= 30 ? 'text-green-400' : 
-                    (product.profit_margin || 0) >= 15 ? 'text-yellow-400' : 'text-red-400'
-                  }`}>
-                    {formatPercentage(product.profit_margin || 0)}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center pt-2 border-t border-dark-700">
-                  <span className="text-sm text-gray-400">Profit:</span>
-                  <span className="font-bold text-green-400">
-                    {formatCurrency((product.selling_price || 0) - (product.total_cost || 0))}
-                  </span>
-                </div>
-              </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-400">Total Cost:</span>
+                      <span className="font-medium text-gray-100">
+                        {formatCurrency(product.total_cost || 0)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-400">Selling Price:</span>
+                      <span className="font-medium text-gray-100">
+                        {formatCurrency(product.selling_price || 0)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-400">Profit Margin:</span>
+                      <span className={`font-medium ${
+                        (product.profit_margin || 0) >= 30 ? 'text-green-400' : 
+                        (product.profit_margin || 0) >= 15 ? 'text-yellow-400' : 'text-red-400'
+                      }`}>
+                        {formatPercentage(product.profit_margin || 0)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center pt-2 border-t border-dark-700">
+                      <span className="text-sm text-gray-400">Profit:</span>
+                      <span className="font-bold text-green-400">
+                        {formatCurrency((product.selling_price || 0) - (product.total_cost || 0))}
+                      </span>
+                    </div>
+                  </div>
 
-              <div className="mt-4 pt-3 border-t border-dark-700">
-                <motion.button 
-                  className="w-full flex items-center justify-center text-sm text-primary-400 hover:text-primary-300"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <Calculator className="h-4 w-4 mr-1" />
-                  View Details
-                </motion.button>
-              </div>
+                  <div className="mt-4 pt-3 border-t border-dark-700">
+                    <motion.button 
+                      className="w-full flex items-center justify-center text-sm text-primary-400 hover:text-primary-300"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <Calculator className="h-4 w-4 mr-1" />
+                      View Details
+                    </motion.button>
+                  </div>
+                </>
+              ) : (
+                // List View Layout
+                <>
+                  {/* Product Image */}
+                  <div className="flex-shrink-0">
+                    <ImageDisplay
+                      src={product.image_url}
+                      alt={product.name}
+                      size="md"
+                      showZoom={true}
+                      className="w-20 h-20"
+                    />
+                  </div>
+
+                  {/* Product Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-100 text-lg mb-1">{product.name}</h3>
+                        <div className="flex flex-wrap gap-4 text-sm text-gray-400 mb-2">
+                          {product.sku && <span>SKU: {product.sku}</span>}
+                          <span>{product.ingredient_count} ingredient{product.ingredient_count !== 1 ? 's' : ''}</span>
+                          {product.labor_minutes > 0 && <span>{product.labor_minutes} min labor</span>}
+                        </div>
+                        <div className="flex flex-wrap gap-4 text-xs text-gray-500">
+                          {product.categories?.name && (
+                            <span className="flex items-center">
+                              <Tag className="h-3 w-3 mr-1" /> {product.categories.name}
+                            </span>
+                          )}
+                          {product.suppliers?.name && (
+                            <span className="flex items-center">
+                              <Truck className="h-3 w-3 mr-1" /> {product.suppliers.name}
+                            </span>
+                          )}
+                          {product.location && <span>Location: {product.location}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pricing Info */}
+                  <div className="flex-shrink-0 text-right">
+                    <div className="space-y-1">
+                      <div className="text-sm">
+                        <span className="text-gray-400">Cost: </span>
+                        <span className="font-medium text-gray-100">{formatCurrency(product.total_cost || 0)}</span>
+                      </div>
+                      <div className="text-sm">
+                        <span className="text-gray-400">Price: </span>
+                        <span className="font-medium text-gray-100">{formatCurrency(product.selling_price || 0)}</span>
+                      </div>
+                      <div className="text-sm">
+                        <span className="text-gray-400">Margin: </span>
+                        <span className={`font-medium ${
+                          (product.profit_margin || 0) >= 30 ? 'text-green-400' : 
+                          (product.profit_margin || 0) >= 15 ? 'text-yellow-400' : 'text-red-400'
+                        }`}>
+                          {formatPercentage(product.profit_margin || 0)}
+                        </span>
+                      </div>
+                      <div className="text-sm pt-1 border-t border-dark-700">
+                        <span className="text-gray-400">Profit: </span>
+                        <span className="font-bold text-green-400">
+                          {formatCurrency((product.selling_price || 0) - (product.total_cost || 0))}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex-shrink-0 flex flex-col space-y-2">
+                    <motion.button
+                      onClick={() => navigate(`/products/edit/${product.id}`)}
+                      className="p-2 text-gray-500 hover:text-gray-300 hover:bg-dark-700 rounded"
+                      title="Edit product"
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </motion.button>
+                    <motion.button
+                      onClick={() => deleteProduct(product.id, product.name)}
+                      className="p-2 text-gray-500 hover:text-red-400 hover:bg-dark-700 rounded"
+                      title="Delete product"
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </motion.button>
+                  </div>
+                </>
+              )}
             </motion.div>
           ))}
         </div>
