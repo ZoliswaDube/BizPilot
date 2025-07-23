@@ -145,7 +145,7 @@ export function BulkInventoryImport({ onClose }: BulkInventoryImportProps) {
       })
       
       // Check for required fields
-      const requiredFields = [...REQUIRED_INVENTORY_KEYS]
+      const requiredFields: string[] = [...REQUIRED_INVENTORY_KEYS]
       const missingFields = requiredFields.filter(field => 
         !Object.values(headerMap).includes(field)
       )
@@ -162,7 +162,7 @@ export function BulkInventoryImport({ onClose }: BulkInventoryImportProps) {
         
         // Process each header using the flexible mapping
         headers.forEach((header, colIndex) => {
-          const standardField = headerMap[header]
+          const standardField = String(headerMap[header])
           if (!standardField) return // Skip unmapped columns
           
           const value = row[colIndex] ? row[colIndex].toString().trim() : ''

@@ -25,45 +25,6 @@ export function SupplierManagement() {
     setFormData(prev => ({ ...prev, [name]: value }))
   }
 
-  const handleAddOrUpdateSupplier = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setFormError('')
-    if (!formData.name?.trim()) {
-      setFormError('Supplier name cannot be empty.')
-      return
-    }
-    setSubmitLoading(true)
-
-    let resultError: string | null = null
-    if (editingSupplier) {
-      const { error } = await updateSupplier(editingSupplier.id, formData)
-      resultError = error
-    } else {
-      const { error } = await addSupplier(formData as Omit<Database['public']['Tables']['suppliers']['Insert'], 'user_id'>)
-      resultError = error
-    }
-
-    if (resultError) {
-      setFormError(resultError)
-    } else {
-      setFormData({ name: '', contact_person: '', email: '', phone: '', address: '' })
-      setEditingSupplier(null)
-    }
-    setSubmitLoading(false)
-  }
-
-  const handleEditClick = (supplier: Supplier) => {
-    setEditingSupplier(supplier)
-    setFormData({
-      name: supplier.name,
-      contact_person: supplier.contact_person || '',
-      email: supplier.email || '',
-      phone: supplier.phone || '',
-      address: supplier.address || ''
-    })
-    setFormError('')
-  }
-
   const handleDeleteSupplier = async (id: string, name: string) => {
     if (window.confirm(`Are you sure you want to delete the supplier "${name}"? This cannot be undone.`)) {
       setFormError('')

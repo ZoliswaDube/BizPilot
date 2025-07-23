@@ -252,7 +252,7 @@ CORE FEATURES TO BUILD:
 TECHNICAL REQUIREMENTS:
 - React + Vite + Tailwind CSS
 - Supabase for database and authentication  
-- OpenAI API for AI insights
+- Deepseek API for AI insights
 - Lucide React for icons
 - QRCode.js for QR generation
 - Responsive design
