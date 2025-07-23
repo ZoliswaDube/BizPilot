@@ -7,7 +7,6 @@ import { supabase } from '../../lib/supabase'
 import { FileSpreadsheet, Upload, X, Download, AlertCircle, CheckCircle, Loader2 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { INVENTORY_COLUMNS, REQUIRED_INVENTORY_KEYS } from './inventoryColumns'
-import type { InventoryRowKeys } from './inventoryColumns'
 
 interface InventoryRow {
   name: string
