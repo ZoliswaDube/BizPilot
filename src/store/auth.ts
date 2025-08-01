@@ -92,10 +92,7 @@ export const useAuthStore = create<AuthState>()(
       setLoading: (loading) => set({ loading }),
       
       fetchUserProfile: async (userId: string) => {
-        console.log('🔐 useAuthStore: fetchUserProfile called', { userId })
-        
         try {
-          console.log('🔐 useAuthStore: Starting profile fetch query...')
           
           const { data: profile, error } = await supabase
             .from('user_profiles')
@@ -103,33 +100,21 @@ export const useAuthStore = create<AuthState>()(
             .eq('user_id', userId)
             .single()
           
-          console.log('🔐 useAuthStore: fetchUserProfile result', { 
-            hasProfile: !!profile, 
-            error: error?.message,
-            errorCode: error?.code
-          })
-          
           // Check if user changed during fetch (race condition protection)
           const currentUser = get().user
           if (!currentUser || currentUser.id !== userId) {
-            console.log('🔐 useAuthStore: User changed during profile fetch, aborting')
             return
           }
           
           if (error) {
-            console.error('🔐 useAuthStore: Error fetching user profile:', error)
-            
             // Handle case where profile doesn't exist yet (PGRST116 = no rows returned)
             if (error.code === 'PGRST116') {
-              console.log('🔐 useAuthStore: Profile not found (PGRST116), database triggers will handle creation')
               get().setUserProfile(null)
               return
             }
             
             throw error
           }
-          
-          console.log('🔐 useAuthStore: User profile set successfully')
           get().setUserProfile(profile)
           
           // Also fetch business user role
@@ -141,8 +126,6 @@ export const useAuthStore = create<AuthState>()(
       },
       
       fetchBusinessUser: async (userId: string) => {
-        console.log('🔐 useAuthStore: fetchBusinessUser called', { userId })
-        
         try {
           // Fetch the user's business role (assuming they have one active business for now)
           // In a multi-business scenario, you'd need to specify which business
@@ -153,48 +136,33 @@ export const useAuthStore = create<AuthState>()(
             .eq('is_active', true)
             .maybeSingle() // Use maybeSingle instead of single to handle no results gracefully
           
-          console.log('🔐 useAuthStore: fetchBusinessUser result', { 
-            hasBusinessUser: !!businessUser, 
-            error: error?.message,
-            errorCode: error?.code,
-            role: businessUser?.role
-          })
-          
           // Check if user changed during fetch (race condition protection)
           const currentUser = get().user
           if (!currentUser || currentUser.id !== userId) {
-            console.log('🔐 useAuthStore: User changed during business user fetch, aborting')
             return
           }
           
           if (error) {
-            console.error('🔐 useAuthStore: Error fetching business user:', error)
-            
             // Handle RLS policy errors (406) - user likely has no business association
             if (error.code === 'PGRST301' || error.message?.includes('406')) {
-              console.log('🔐 useAuthStore: RLS policy blocked access - user has no business association')
               get().setBusinessUser(null)
               return
             }
             
             // Handle case where business user doesn't exist yet
             if (error.code === 'PGRST116') {
-              console.log('🔐 useAuthStore: Business user not found, user may not be part of any business yet')
               get().setBusinessUser(null)
               return
             }
             
             // For other errors, set businessUser to null and continue
-            console.log('🔐 useAuthStore: Setting businessUser to null due to error')
             get().setBusinessUser(null)
             return
           }
           
           if (businessUser) {
-            console.log('🔐 useAuthStore: Business user set successfully')
             get().setBusinessUser(businessUser)
           } else {
-            console.log('🔐 useAuthStore: No business user found, user has no business association')
             get().setBusinessUser(null)
           }
         } catch (err) {

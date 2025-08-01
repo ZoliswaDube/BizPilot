@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Save } from 'lucide-react'
+import { X, Save, Loader2, AlertCircle } from 'lucide-react'
 
 interface RoleFormProps {
   onClose: () => void
-  onSubmit: (name: string, description: string, permissions: string[]) => void
+  onSubmit: (name: string, description: string, permissions: string[]) => Promise<void>
   role?: {
     id: string
     name: string
@@ -35,16 +35,31 @@ export function RoleForm({ onClose, onSubmit, role }: RoleFormProps) {
     role?.permissions.map(p => `${p.resource}:${p.action}`) || []
   )
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name || !description) return
+    
+    // Validation
+    if (!name.trim()) {
+      setError('Role name is required')
+      return
+    }
+    
+    if (!description.trim()) {
+      setError('Role description is required')
+      return
+    }
 
     setLoading(true)
+    setError(null)
+    
     try {
-      await onSubmit(name, description, permissions)
+      await onSubmit(name.trim(), description.trim(), permissions)
+      // onSubmit should handle success feedback and closing the modal
     } catch (err) {
       console.error('Error saving role:', err)
+      setError(err instanceof Error ? err.message : 'Failed to save role')
     } finally {
       setLoading(false)
     }
@@ -76,10 +91,12 @@ export function RoleForm({ onClose, onSubmit, role }: RoleFormProps) {
     }
   }
 
+  const isFormValid = name.trim() && description.trim()
+
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100]"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -102,11 +119,32 @@ export function RoleForm({ onClose, onSubmit, role }: RoleFormProps) {
             </motion.h2>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-200 transition-colors"
+              disabled={loading}
+              className="text-gray-400 hover:text-gray-200 transition-colors disabled:opacity-50"
             >
               <X className="h-6 w-6" />
             </button>
           </div>
+
+          {/* Error Message */}
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                className="mb-6 flex items-center gap-3 p-4 bg-red-900/30 border-2 border-red-500/50 rounded-lg text-red-300 shadow-lg backdrop-blur-sm relative z-[60]"
+                initial={{ opacity: 0, y: -10, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.9 }}
+                transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              >
+                <div className="absolute inset-0 bg-red-500/10 rounded-lg blur-sm"></div>
+                <AlertCircle className="h-5 w-5 flex-shrink-0 relative z-10" />
+                <div className="text-sm font-medium relative z-10 flex-1">
+                  <div className="font-semibold text-red-200 mb-1">Error Creating Role</div>
+                  <div className="text-red-300">{error}</div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -121,10 +159,14 @@ export function RoleForm({ onClose, onSubmit, role }: RoleFormProps) {
                 <input
                   type="text"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => {
+                    setName(e.target.value)
+                    if (error) setError(null) // Clear error when user starts typing
+                  }}
                   className="w-full px-4 py-3 bg-dark-800 border border-dark-600 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Enter role name"
+                  placeholder="Enter role name (e.g., Sales Manager)"
                   required
+                  disabled={loading}
                 />
               </motion.div>
 
@@ -139,10 +181,14 @@ export function RoleForm({ onClose, onSubmit, role }: RoleFormProps) {
                 <input
                   type="text"
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  onChange={(e) => {
+                    setDescription(e.target.value)
+                    if (error) setError(null) // Clear error when user starts typing
+                  }}
                   className="w-full px-4 py-3 bg-dark-800 border border-dark-600 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   placeholder="Enter role description"
                   required
+                  disabled={loading}
                 />
               </motion.div>
             </div>
@@ -166,7 +212,8 @@ export function RoleForm({ onClose, onSubmit, role }: RoleFormProps) {
                         <button
                           type="button"
                           onClick={() => handleSelectAll(resource)}
-                          className="text-xs text-primary-400 hover:text-primary-300 transition-colors"
+                          disabled={loading}
+                          className="text-xs text-primary-400 hover:text-primary-300 transition-colors disabled:opacity-50"
                         >
                           {permissions.filter(p => p.startsWith(`${resource}:`)).length === actions.length
                             ? 'Deselect All'
@@ -184,7 +231,8 @@ export function RoleForm({ onClose, onSubmit, role }: RoleFormProps) {
                               type="checkbox"
                               checked={permissions.includes(`${resource}:${action}`)}
                               onChange={() => handlePermissionToggle(resource, action)}
-                              className="rounded border-dark-600 bg-dark-800 text-primary-600 focus:ring-primary-500"
+                              disabled={loading}
+                              className="rounded border-dark-600 bg-dark-800 text-primary-600 focus:ring-primary-500 disabled:opacity-50"
                             />
                             <span className="text-xs text-gray-400 capitalize">
                               {action}
@@ -206,12 +254,12 @@ export function RoleForm({ onClose, onSubmit, role }: RoleFormProps) {
             >
               <button
                 type="submit"
-                disabled={loading || !name || !description}
-                className="flex-1 bg-primary-600 hover:bg-primary-700 disabled:bg-primary-800 text-white font-medium py-3 px-6 rounded-lg transition-colors flex items-center justify-center space-x-2"
+                disabled={loading || !isFormValid}
+                className="flex-1 bg-primary-600 hover:bg-primary-700 disabled:bg-primary-800 disabled:cursor-not-allowed text-white font-medium py-3 px-6 rounded-lg transition-colors flex items-center justify-center space-x-2"
               >
                 {loading ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <Loader2 className="h-4 w-4 animate-spin" />
                     <span>Saving...</span>
                   </>
                 ) : (
@@ -225,7 +273,8 @@ export function RoleForm({ onClose, onSubmit, role }: RoleFormProps) {
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 bg-dark-700 hover:bg-dark-600 text-gray-300 font-medium py-3 px-6 rounded-lg transition-colors"
+                disabled={loading}
+                className="flex-1 bg-dark-700 hover:bg-dark-600 disabled:opacity-50 text-gray-300 font-medium py-3 px-6 rounded-lg transition-colors"
               >
                 Cancel
               </button>
