@@ -1,35 +1,26 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { Home, Package, Users, DollarSign, Settings } from 'lucide-react-native';
+import { Home, ShoppingCart, Users, TrendingUp, Settings, Package, Layers, MoreHorizontal } from 'lucide-react-native';
 import { theme } from '../../src/styles/theme';
 
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
+        headerShown: false,
+        tabBarStyle: {
+          backgroundColor: theme.colors.dark[950],
+          borderTopColor: theme.colors.dark[800],
+          borderTopWidth: 1,
+          height: 70,
+          paddingBottom: 10,
+          paddingTop: 10,
+        },
         tabBarActiveTintColor: theme.colors.primary[500],
         tabBarInactiveTintColor: theme.colors.gray[400],
-        tabBarStyle: {
-          backgroundColor: theme.colors.dark[900],
-          borderTopColor: theme.colors.dark[700],
-          borderTopWidth: 1,
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 8,
-        },
         tabBarLabelStyle: {
-          fontSize: theme.fontSize.xs,
-          fontWeight: theme.fontWeight.medium,
-        },
-        headerStyle: {
-          backgroundColor: theme.colors.dark[900],
-          borderBottomColor: theme.colors.dark[700],
-          borderBottomWidth: 1,
-        },
-        headerTintColor: theme.colors.gray[100],
-        headerTitleStyle: {
-          fontSize: theme.fontSize.lg,
-          fontWeight: theme.fontWeight.semibold,
+          fontSize: 12,
+          fontWeight: '500',
         },
       }}
     >
@@ -37,45 +28,35 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Dashboard',
-          tabBarIcon: ({ color, size }) => (
-            <Home size={size} color={color} />
-          ),
+          tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="orders"
         options={{
           title: 'Orders',
-          tabBarIcon: ({ color, size }) => (
-            <Package size={size} color={color} />
-          ),
+          tabBarIcon: ({ color, size }) => <ShoppingCart size={size} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="customers"
+        name="products"
         options={{
-          title: 'Customers',
-          tabBarIcon: ({ color, size }) => (
-            <Users size={size} color={color} />
-          ),
+          title: 'Products',
+          tabBarIcon: ({ color, size }) => <Package size={size} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="financials"
+        name="inventory"
         options={{
-          title: 'Financials',
-          tabBarIcon: ({ color, size }) => (
-            <DollarSign size={size} color={color} />
-          ),
+          title: 'Inventory',
+          tabBarIcon: ({ color, size }) => <Layers size={size} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="settings"
+        name="more"
         options={{
-          title: 'Settings',
-          tabBarIcon: ({ color, size }) => (
-            <Settings size={size} color={color} />
-          ),
+          title: 'More',
+          tabBarIcon: ({ color, size }) => <MoreHorizontal size={size} color={color} />,
         }}
       />
     </Tabs>

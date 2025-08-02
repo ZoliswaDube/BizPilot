@@ -1,0 +1,20 @@
+# BizPilot App Icon Placeholder
+
+This is a placeholder for the BizPilot Mobile app icon.
+
+## Specifications Required:
+- **Size**: 1024x1024 pixels
+- **Format**: PNG with no transparency
+- **Content**: BizPilot logo with brand colors
+- **Colors**: Use brand purple (#8b5cf6) and pink (#ec4899)
+- **Background**: Dark blue (#020617) or transparent for adaptive icon
+
+## Design Elements:
+- Stylized "BP" monogram or pilot wings
+- Modern, minimalist, professional appearance
+- High contrast for visibility at all sizes
+- Scalable vector-based design
+
+## Replace this file with actual 1024x1024 PNG icon before production build.
+
+For design guide, see: assets/app-icon-guide.md 

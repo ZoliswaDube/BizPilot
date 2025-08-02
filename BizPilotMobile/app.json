@@ -1,71 +1,56 @@
 {
   "expo": {
-    "name": "BizPilot",
+    "name": "BizPilot Mobile",
     "slug": "bizpilot-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "automatic",
-    "scheme": "bizpilot",
+    "userInterfaceStyle": "dark",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#020617"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.bizpilot.mobile",
+      "buildNumber": "1",
       "infoPlist": {
-        "NSCameraUsageDescription": "This app uses the camera to scan receipts and barcodes for inventory management",
-        "NSContactsUsageDescription": "This app uses contacts to import customer information",
-        "NSLocationWhenInUseUsageDescription": "This app uses location to find nearby customers and suppliers",
-        "NSFaceIDUsageDescription": "Use Face ID to authenticate securely"
+        "NSCameraUsageDescription": "This app uses the camera to scan barcodes and capture receipts for business management.",
+        "NSFaceIDUsageDescription": "Use Face ID to securely authenticate and access your business data."
       }
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#020617"
-      },
       "package": "com.bizpilot.mobile",
+      "versionCode": 1,
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.READ_CONTACTS",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.VIBRATE",
-        "android.permission.USE_BIOMETRIC",
-        "android.permission.USE_FINGERPRINT"
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.USE_BIOMETRIC"
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
     "plugins": [
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/notification-icon.png",
-          "color": "#a78bfa"
-        }
-      ],
+      "expo-router",
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow BizPilot to access your camera to scan receipts and barcodes"
+          "cameraPermission": "Allow BizPilot to access your camera to scan barcodes and capture receipts."
         }
       ],
-      "expo-contacts",
-      "expo-location",
-      "expo-local-authentication",
       [
-        "expo-router",
+        "expo-local-authentication",
         {
-          "root": "./app"
+          "faceIDPermission": "Use Face ID to securely authenticate and access your business data."
         }
       ]
     ],
+    "scheme": "bizpilot",
     "experiments": {
       "typedRoutes": true
     }

@@ -25,15 +25,16 @@ interface AuthState {
   business: Business | null;
   token: string | null;
   isLoading: boolean;
+  loading: boolean;
   error: string | null;
   
   // Actions
   initialize: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, fullName: string) => Promise<void>;
+  signUp: (email: string, password: string, fullName?: string) => Promise<void>;
   signOut: () => Promise<void>;
-  setUser: (user: User | null) => void;
-  setBusiness: (business: Business | null) => void;
+  updateProfile: (updates: Partial<User>) => Promise<void>;
+  selectBusiness: (business: Business) => void;
   clearError: () => void;
 }
 
@@ -43,115 +44,106 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       business: null,
       token: null,
-      isLoading: true,
+      isLoading: false,
+      loading: false,
       error: null,
 
       initialize: async () => {
         try {
-          set({ isLoading: true, error: null });
+          set({ isLoading: true, loading: true });
           
-          // Get stored token
+          // Try to get stored token
           const token = await SecureStore.getItemAsync('auth_token');
-          
-          if (token) {
-            // TODO: Validate token with MCP server
-            // For now, we'll use the persisted user data
-            const { user, business } = get();
-            
-            if (user) {
-              set({ token, isLoading: false });
-              return;
-            }
+          if (!token) {
+            set({ isLoading: false, loading: false });
+            return;
           }
-          
-          set({ user: null, business: null, token: null, isLoading: false });
-        } catch (error) {
+
+          // Mock API call - replace with actual MCP server integration
+          const response = await mockAuthAPI('GET', '/user', token);
+          if (response.success) {
+            set({
+              user: response.user,
+              business: response.business,
+              token,
+              isLoading: false,
+              loading: false,
+              error: null,
+            });
+          } else {
+            await SecureStore.deleteItemAsync('auth_token');
+            set({ isLoading: false, loading: false });
+          }
+        } catch (error: any) {
           console.error('Auth initialization error:', error);
           set({ 
-            user: null, 
-            business: null, 
-            token: null, 
+            error: error.message, 
             isLoading: false, 
-            error: 'Failed to initialize authentication' 
+            loading: false 
           });
         }
       },
 
       signIn: async (email: string, password: string) => {
         try {
-          set({ isLoading: true, error: null });
+          set({ loading: true, error: null });
           
-          // TODO: Implement MCP server authentication
-          // This is a placeholder implementation
-          const mockUser: User = {
-            id: 'user-123',
+          // Mock API call - replace with actual MCP server integration
+          const response = await mockAuthAPI('POST', '/auth/signin', null, {
             email,
-            full_name: 'Demo User',
-            avatar_url: null,
-          };
-          
-          const mockBusiness: Business = {
-            id: 'business-123',
-            name: 'Demo Business',
-            description: 'A demo business for testing',
-            address: null,
-            phone: null,
-            email: null,
-            logo_url: null,
-          };
-          
-          const token = 'demo-token-' + Date.now();
-          
-          // Store token securely
-          await SecureStore.setItemAsync('auth_token', token);
-          
-          set({ 
-            user: mockUser,
-            business: mockBusiness,
-            token,
-            isLoading: false,
-            error: null 
+            password,
           });
-        } catch (error) {
+
+          if (response.success) {
+            await SecureStore.setItemAsync('auth_token', response.token);
+            set({
+              user: response.user,
+              business: response.business,
+              token: response.token,
+              loading: false,
+              error: null,
+            });
+          } else {
+            throw new Error(response.message || 'Authentication failed');
+          }
+        } catch (error: any) {
           console.error('Sign in error:', error);
           set({ 
-            isLoading: false, 
-            error: 'Invalid email or password' 
+            error: error.message, 
+            loading: false 
           });
           throw error;
         }
       },
 
-      signUp: async (email: string, password: string, fullName: string) => {
+      signUp: async (email: string, password: string, fullName?: string) => {
         try {
-          set({ isLoading: true, error: null });
+          set({ loading: true, error: null });
           
-          // TODO: Implement MCP server registration
-          // This is a placeholder implementation
-          const mockUser: User = {
-            id: 'user-' + Date.now(),
+          // Mock API call - replace with actual MCP server integration
+          const response = await mockAuthAPI('POST', '/auth/signup', null, {
             email,
+            password,
             full_name: fullName,
-            avatar_url: null,
-          };
-          
-          const token = 'demo-token-' + Date.now();
-          
-          // Store token securely
-          await SecureStore.setItemAsync('auth_token', token);
-          
-          set({ 
-            user: mockUser,
-            business: null, // User needs to create/join a business
-            token,
-            isLoading: false,
-            error: null 
           });
-        } catch (error) {
+
+          if (response.success) {
+            await SecureStore.setItemAsync('auth_token', response.token);
+            set({
+              user: response.user,
+              business: response.business,
+              token: response.token,
+              loading: false,
+              error: null,
+            });
+          } else {
+            throw new Error(response.message || 'Account creation failed');
+          }
+        } catch (error: any) {
           console.error('Sign up error:', error);
           set({ 
-            isLoading: false, 
-            error: 'Failed to create account' 
+            error: error.message, 
+            loading: false 
           });
           throw error;
         }
@@ -159,29 +151,48 @@ export const useAuthStore = create<AuthState>()(
 
       signOut: async () => {
         try {
-          set({ isLoading: true, error: null });
-          
-          // Remove token from secure storage
           await SecureStore.deleteItemAsync('auth_token');
-          
-          set({ 
+          set({
             user: null,
-            business: null, 
-            token: null, 
-            isLoading: false,
-            error: null 
+            business: null,
+            token: null,
+            error: null,
           });
-        } catch (error) {
+        } catch (error: any) {
           console.error('Sign out error:', error);
-          set({ isLoading: false });
         }
       },
 
-      setUser: (user: User | null) => {
-        set({ user });
+      updateProfile: async (updates: Partial<User>) => {
+        try {
+          set({ loading: true, error: null });
+          
+          const { user, token } = get();
+          if (!user || !token) throw new Error('Not authenticated');
+
+          // Mock API call - replace with actual MCP server integration
+          const response = await mockAuthAPI('PATCH', '/user/profile', token, updates);
+          
+          if (response.success) {
+            set({
+              user: { ...user, ...updates },
+              loading: false,
+              error: null,
+            });
+          } else {
+            throw new Error(response.message || 'Profile update failed');
+          }
+        } catch (error: any) {
+          console.error('Profile update error:', error);
+          set({ 
+            error: error.message, 
+            loading: false 
+          });
+          throw error;
+        }
       },
 
-      setBusiness: (business: Business | null) => {
+      selectBusiness: (business: Business) => {
         set({ business });
       },
 
@@ -192,11 +203,69 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'auth-storage',
       storage: createJSONStorage(() => AsyncStorage),
-      // Only persist user and business data, not sensitive token
-      partialize: (state) => ({ 
+      partialize: (state) => ({
         user: state.user,
-        business: state.business 
+        business: state.business,
       }),
     }
   )
-); 
+);
+
+// Mock API function - replace with actual MCP server integration
+async function mockAuthAPI(
+  method: string,
+  endpoint: string,
+  token?: string | null,
+  data?: any
+): Promise<any> {
+  console.log(`Mock API: ${method} ${endpoint}`, data);
+  
+  // Simulate API delay
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  // Mock successful responses
+  if (endpoint === '/auth/signin' || endpoint === '/auth/signup') {
+    return {
+      success: true,
+      token: 'mock_token_' + Date.now(),
+      user: {
+        id: 'user_1',
+        email: data.email,
+        full_name: data.full_name || 'Test User',
+        avatar_url: null,
+      },
+      business: {
+        id: 'business_1',
+        name: 'Test Business',
+        description: 'A test business',
+        address: null,
+        phone: null,
+        email: null,
+        logo_url: null,
+      },
+    };
+  }
+  
+  if (endpoint === '/user' && token) {
+    return {
+      success: true,
+      user: {
+        id: 'user_1',
+        email: 'test@example.com',
+        full_name: 'Test User',
+        avatar_url: null,
+      },
+      business: {
+        id: 'business_1',
+        name: 'Test Business',
+        description: 'A test business',
+        address: null,
+        phone: null,
+        email: null,
+        logo_url: null,
+      },
+    };
+  }
+  
+  return { success: false, message: 'API endpoint not implemented' };
+} 

@@ -1,0 +1,9 @@
+Placeholder assets directory for BizPilot Mobile
+
+This directory should contain:
+- icon.png (app icon)
+- splash.png (splash screen)
+- adaptive-icon.png (Android adaptive icon)
+- favicon.png (web favicon)
+
+For now, these are just placeholders. 

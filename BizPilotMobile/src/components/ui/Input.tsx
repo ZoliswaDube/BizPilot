@@ -1,164 +1,205 @@
 import React, { useState } from 'react';
-import {
-  TextInput,
-  View,
-  Text,
-  StyleSheet,
-  TextInputProps,
-  ViewStyle,
-} from 'react-native';
-import { theme, componentStyles } from '../../styles/theme';
+import { View, TextInput, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { theme } from '../../styles/theme';
 
-interface InputProps extends TextInputProps {
+export interface InputProps {
   label?: string;
-  error?: string;
-  containerStyle?: ViewStyle;
-  inputStyle?: ViewStyle;
-  variant?: 'default' | 'outlined' | 'filled';
+  value?: string;
+  onChangeText?: (text: string) => void;
+  placeholder?: string;
+  secureTextEntry?: boolean;
+  keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad' | 'decimal-pad';
+  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+  autoCorrect?: boolean;
+  editable?: boolean;
+  multiline?: boolean;
+  numberOfLines?: number;
+  maxLength?: number;
+  onFocus?: () => void;
+  onBlur?: () => void;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
+  error?: string;
+  style?: any;
+  containerStyle?: any;
+  variant?: 'default' | 'outlined' | 'filled';
 }
 
 export function Input({
   label,
-  error,
-  containerStyle,
-  inputStyle,
-  variant = 'default',
+  value,
+  onChangeText,
+  placeholder,
+  secureTextEntry = false,
+  keyboardType = 'default',
+  autoCapitalize = 'sentences',
+  autoCorrect = true,
+  editable = true,
+  multiline = false,
+  numberOfLines = 1,
+  maxLength,
+  onFocus,
+  onBlur,
   leftIcon,
   rightIcon,
-  ...textInputProps
+  error,
+  style,
+  containerStyle,
+  variant = 'default',
 }: InputProps) {
   const [isFocused, setIsFocused] = useState(false);
 
-  const inputContainerStyle = [
-    styles.inputContainer,
-    styles[variant],
-    isFocused && styles.focused,
-    error && styles.error,
-    leftIcon && styles.withLeftIcon,
-    rightIcon && styles.withRightIcon,
-    inputStyle,
-  ];
+  const handleFocus = () => {
+    setIsFocused(true);
+    onFocus?.();
+  };
 
-  const textInputStyle = [
-    styles.input,
-    leftIcon && styles.inputWithLeftIcon,
-    rightIcon && styles.inputWithRightIcon,
-  ];
+  const handleBlur = () => {
+    setIsFocused(false);
+    onBlur?.();
+  };
+
+  const getVariantStyles = () => {
+    switch (variant) {
+      case 'outlined':
+        return {
+          borderWidth: 2,
+          borderColor: error 
+            ? theme.colors.red[500] 
+            : isFocused 
+              ? theme.colors.primary[500] 
+              : theme.colors.dark[600],
+          backgroundColor: 'transparent',
+        };
+      case 'filled':
+        return {
+          borderWidth: 0,
+          backgroundColor: theme.colors.dark[700],
+        };
+      default:
+        return {
+          borderWidth: 1,
+          borderColor: error 
+            ? theme.colors.red[500] 
+            : isFocused 
+              ? theme.colors.primary[500] 
+              : theme.colors.dark[600],
+          backgroundColor: theme.colors.dark[800],
+        };
+    }
+  };
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && (
+        <Text style={styles.label}>{label}</Text>
+      )}
       
-      <View style={inputContainerStyle}>
-        {leftIcon && <View style={styles.leftIconContainer}>{leftIcon}</View>}
+      <View style={[
+        styles.inputContainer,
+        getVariantStyles(),
+        isFocused && styles.focused,
+        error && styles.error,
+        style
+      ]}>
+        {leftIcon && (
+          <View style={styles.leftIcon}>
+            {leftIcon}
+          </View>
+        )}
         
         <TextInput
-          {...textInputProps}
-          style={textInputStyle}
-          onFocus={(e) => {
-            setIsFocused(true);
-            textInputProps.onFocus?.(e);
-          }}
-          onBlur={(e) => {
-            setIsFocused(false);
-            textInputProps.onBlur?.(e);
-          }}
+          style={[
+            styles.input,
+            leftIcon && styles.inputWithLeftIcon,
+            rightIcon && styles.inputWithRightIcon,
+            multiline && styles.multilineInput,
+          ]}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
           placeholderTextColor={theme.colors.gray[400]}
+          secureTextEntry={secureTextEntry}
+          keyboardType={keyboardType}
+          autoCapitalize={autoCapitalize}
+          autoCorrect={autoCorrect}
+          editable={editable}
+          multiline={multiline}
+          numberOfLines={numberOfLines}
+          maxLength={maxLength}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
         />
         
-        {rightIcon && <View style={styles.rightIconContainer}>{rightIcon}</View>}
+        {rightIcon && (
+          <TouchableOpacity style={styles.rightIcon}>
+            {rightIcon}
+          </TouchableOpacity>
+        )}
       </View>
       
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {error && (
+        <Text style={styles.errorText}>{error}</Text>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
   },
-  
   label: {
     fontSize: theme.fontSize.sm,
     fontWeight: theme.fontWeight.medium,
-    color: theme.colors.gray[200],
-    marginBottom: theme.spacing.xs,
+    color: theme.colors.gray[300],
+    marginBottom: theme.spacing.sm,
   },
-  
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    ...componentStyles.input.default,
+    borderRadius: theme.borderRadius.lg,
+    paddingHorizontal: theme.spacing.md,
+    minHeight: 48,
   },
-  
-  default: {
-    backgroundColor: theme.colors.dark[800],
-    borderColor: theme.colors.dark[600],
+  input: {
+    flex: 1,
+    fontSize: theme.fontSize.md,
+    color: theme.colors.white,
+    paddingVertical: theme.spacing.sm,
+    fontFamily: theme.fontFamily.sans,
   },
-  
-  outlined: {
-    backgroundColor: 'transparent',
-    borderColor: theme.colors.dark[600],
-    borderWidth: 1,
+  inputWithLeftIcon: {
+    marginLeft: theme.spacing.sm,
   },
-  
-  filled: {
-    backgroundColor: theme.colors.dark[700],
-    borderColor: 'transparent',
+  inputWithRightIcon: {
+    marginRight: theme.spacing.sm,
   },
-  
+  multilineInput: {
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.md,
+    textAlignVertical: 'top',
+  },
+  leftIcon: {
+    marginRight: theme.spacing.sm,
+  },
+  rightIcon: {
+    marginLeft: theme.spacing.sm,
+  },
   focused: {
-    ...componentStyles.input.focused,
+    borderColor: theme.colors.primary[500],
     shadowColor: theme.colors.primary[500],
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 2,
   },
-  
   error: {
-    borderColor: theme.colors.danger[500],
-    borderWidth: 1,
+    borderColor: theme.colors.red[500],
   },
-  
-  withLeftIcon: {
-    paddingLeft: theme.spacing.xs,
-  },
-  
-  withRightIcon: {
-    paddingRight: theme.spacing.xs,
-  },
-  
-  input: {
-    flex: 1,
-    fontSize: theme.fontSize.base,
-    color: theme.colors.gray[100],
-    paddingVertical: 0, // Remove default padding to use container padding
-  },
-  
-  inputWithLeftIcon: {
-    marginLeft: theme.spacing.xs,
-  },
-  
-  inputWithRightIcon: {
-    marginRight: theme.spacing.xs,
-  },
-  
-  leftIconContainer: {
-    marginLeft: theme.spacing.xs,
-  },
-  
-  rightIconContainer: {
-    marginRight: theme.spacing.xs,
-  },
-  
   errorText: {
-    fontSize: theme.fontSize.xs,
-    color: theme.colors.danger[500],
-    marginTop: theme.spacing.xs,
-    marginLeft: theme.spacing.xs,
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.red[500],
+    marginTop: theme.spacing.sm,
   },
 }); 

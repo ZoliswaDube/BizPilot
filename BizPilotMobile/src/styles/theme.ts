@@ -1,4 +1,4 @@
-// Theme configuration matching the web app's Tailwind theme
+// Theme configuration matching the web app's Tailwind config
 export const theme = {
   colors: {
     // Blue - secondary color
@@ -40,7 +40,72 @@ export const theme = {
       800: '#86198f',
       900: '#701a75',
     },
-    // Dark background colors
+    // Red/danger colors
+    red: {
+      50: '#fef2f2',
+      100: '#fee2e2',
+      200: '#fecaca',
+      300: '#fca5a5',
+      400: '#f87171',
+      500: '#ef4444',
+      600: '#dc2626',
+      700: '#b91c1c',
+      800: '#991b1b',
+      900: '#7f1d1d',
+    },
+    // Green/success colors
+    green: {
+      50: '#f0fdf4',
+      100: '#dcfce7',
+      200: '#bbf7d0',
+      300: '#86efac',
+      400: '#4ade80',
+      500: '#22c55e',
+      600: '#16a34a',
+      700: '#15803d',
+      800: '#166534',
+      900: '#14532d',
+    },
+    // Yellow/warning colors
+    yellow: {
+      50: '#fefce8',
+      100: '#fef3c7',
+      200: '#fde68a',
+      300: '#fcd34d',
+      400: '#fbbf24',
+      500: '#f59e0b',
+      600: '#d97706',
+      700: '#b45309',
+      800: '#92400e',
+      900: '#78350f',
+    },
+    // Orange colors
+    orange: {
+      50: '#fff7ed',
+      100: '#ffedd5',
+      200: '#fed7aa',
+      300: '#fdba74',
+      400: '#fb923c',
+      500: '#f97316',
+      600: '#ea580c',
+      700: '#c2410c',
+      800: '#9a3412',
+      900: '#7c2d12',
+    },
+    // Gray scale
+    gray: {
+      50: '#f9fafb',
+      100: '#f3f4f6',
+      200: '#e5e7eb',
+      300: '#d1d5db',
+      400: '#9ca3af',
+      500: '#6b7280',
+      600: '#4b5563',
+      700: '#374151',
+      800: '#1f2937',
+      900: '#111827',
+    },
+    // Dark theme colors
     dark: {
       50: '#f8fafc',
       100: '#f1f5f9',
@@ -54,82 +119,60 @@ export const theme = {
       900: '#0f172a',
       950: '#020617',
     },
-    // Semantic colors
-    success: {
-      500: '#10b981',
-      600: '#059669',
-      700: '#047857',
-    },
-    warning: {
-      500: '#f59e0b',
-      600: '#d97706',
-      700: '#b45309',
-    },
-    danger: {
-      500: '#ef4444',
-      600: '#dc2626',
-      700: '#b91c1c',
-    },
-    // Grays
-    gray: {
-      50: '#f9fafb',
-      100: '#f3f4f6',
-      200: '#e5e7eb',
-      300: '#d1d5db',
-      400: '#9ca3af',
-      500: '#6b7280',
-      600: '#4b5563',
-      700: '#374151',
-      800: '#1f2937',
-      900: '#111827',
-    },
-    // Basic colors
+    // Special colors
     white: '#ffffff',
     black: '#000000',
     transparent: 'transparent',
   },
+  
   spacing: {
     xs: 4,
     sm: 8,
     md: 16,
     lg: 24,
     xl: 32,
-    xxl: 40,
+    '2xl': 48,
+    '3xl': 64,
+    '4xl': 80,
   },
+  
+  fontSize: {
+    xs: 12,
+    sm: 14,
+    md: 16,
+    lg: 18,
+    xl: 20,
+    '2xl': 24,
+    '3xl': 28,
+    '4xl': 32,
+    '5xl': 36,
+  },
+  
+  fontWeight: {
+    light: '300',
+    normal: '400',
+    medium: '500',
+    semibold: '600',
+    bold: '700',
+    extrabold: '800',
+  },
+  
+  fontFamily: {
+    sans: 'System',
+    mono: 'Menlo',
+  },
+  
   borderRadius: {
     none: 0,
     sm: 4,
     md: 8,
     lg: 12,
     xl: 16,
+    '2xl': 20,
+    '3xl': 24,
     full: 9999,
   },
-  fontSize: {
-    xs: 12,
-    sm: 14,
-    base: 16,
-    lg: 18,
-    xl: 20,
-    '2xl': 24,
-    '3xl': 28,
-    '4xl': 32,
-  },
-  lineHeight: {
-    xs: 16,
-    sm: 18,
-    base: 24,
-    lg: 26,
-    xl: 28,
-    '2xl': 32,
-    '3xl': 36,
-    '4xl': 40,
-  },
-  fontWeight: {
-    normal: '400',
-    medium: '500',
-    semibold: '600',
-    bold: '700',
-  },
+  
   shadows: {
     sm: {
       shadowColor: '#000',
@@ -150,107 +193,64 @@ export const theme = {
       shadowOffset: { width: 0, height: 10 },
       shadowOpacity: 0.15,
       shadowRadius: 15,
-      elevation: 6,
-    },
-    primary: {
-      shadowColor: '#a78bfa',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.2,
-      shadowRadius: 6,
-      elevation: 3,
+      elevation: 5,
     },
   },
-} as const;
-
-// Type-safe color accessors
-export type Theme = typeof theme;
-export type ColorKey = keyof Theme['colors'];
-export type ColorShade = keyof Theme['colors']['primary'];
-
-// Helper function to get color values
-export const getColor = (colorKey: string, shade?: string | number): string => {
-  const keys = colorKey.split('.');
-  let value: any = theme.colors;
-  
-  for (const key of keys) {
-    value = value[key];
-    if (!value) break;
-  }
-  
-  if (shade && typeof value === 'object') {
-    return value[shade] || value['500']; // Default to 500 if shade not found
-  }
-  
-  return typeof value === 'string' ? value : '#000000'; // Fallback
 };
 
-// Pre-defined component styles matching web app
+// Component-specific styles that match the web app
 export const componentStyles = {
-  // Button styles matching web app's btn-primary and btn-secondary
   button: {
     primary: {
       backgroundColor: theme.colors.primary[600],
-      borderRadius: theme.borderRadius.full,
-      paddingHorizontal: theme.spacing.md,
-      paddingVertical: theme.spacing.sm,
-      shadowColor: theme.colors.primary[500],
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.2,
-      shadowRadius: 6,
-      elevation: 3,
+      borderColor: theme.colors.primary[600],
     },
     secondary: {
-      backgroundColor: theme.colors.dark[800] + '80', // 50% opacity
-      borderRadius: theme.borderRadius.full,
-      paddingHorizontal: theme.spacing.md,
-      paddingVertical: theme.spacing.sm,
-      borderWidth: 1,
+      backgroundColor: theme.colors.dark[700],
       borderColor: theme.colors.dark[600],
-      shadowColor: theme.colors.dark[500],
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 2,
+    },
+    danger: {
+      backgroundColor: theme.colors.red[600],
+      borderColor: theme.colors.red[600],
+    },
+    ghost: {
+      backgroundColor: 'transparent',
+      borderColor: theme.colors.dark[600],
     },
   },
   
-  // Input field styles matching web app
   input: {
     default: {
       backgroundColor: theme.colors.dark[800],
       borderColor: theme.colors.dark[600],
       borderWidth: 1,
       borderRadius: theme.borderRadius.lg,
-      paddingHorizontal: theme.spacing.sm + 4,
+      paddingHorizontal: theme.spacing.md,
       paddingVertical: theme.spacing.sm,
-      color: theme.colors.gray[100],
-      fontSize: theme.fontSize.base,
+      minHeight: 48,
     },
     focused: {
       borderColor: theme.colors.primary[500],
-      borderWidth: 2,
+      shadowColor: theme.colors.primary[500],
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 2,
     },
   },
   
-  // Card styles matching web app
   card: {
     default: {
       backgroundColor: theme.colors.dark[900],
       borderRadius: theme.borderRadius.lg,
       borderWidth: 1,
-      borderColor: theme.colors.dark[700] + '80', // 50% opacity
-      padding: theme.spacing.lg,
-      shadowColor: theme.colors.primary[500],
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.1,
-      shadowRadius: 8,
-      elevation: 4,
+      borderColor: theme.colors.dark[700],
+      ...theme.shadows.sm,
     },
-    hover: {
-      borderColor: theme.colors.primary[500] + '4D', // 30% opacity
-      shadowOpacity: 0.2,
-      shadowRadius: 12,
-      elevation: 6,
+    elevated: {
+      backgroundColor: theme.colors.dark[900],
+      borderRadius: theme.borderRadius.lg,
+      ...theme.shadows.lg,
     },
   },
-} as const; 
+}; 
