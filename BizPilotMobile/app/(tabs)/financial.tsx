@@ -4,12 +4,9 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   Alert,
   RefreshControl,
   StyleSheet,
-  Modal,
-  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { 
@@ -17,716 +14,527 @@ import {
   Camera, 
   DollarSign, 
   TrendingUp, 
-  TrendingDown,
   PieChart,
   Receipt,
-  Calendar,
   Filter,
-  ArrowUpRight,
-  ArrowDownRight
+  BarChart3,
 } from 'lucide-react-native';
-import * as ImagePicker from 'expo-image-picker';
 import { Card } from '../../src/components/ui/Card';
 import { Button } from '../../src/components/ui/Button';
-import { Input } from '../../src/components/ui/Input';
-import { theme } from '../../src/styles/theme';
+import ExpenseCategorizationModal from '../../src/components/financial/ExpenseCategorizationModal';
+import FinancialReports from '../../src/components/financial/FinancialReports';
+import { mcp_supabase_execute_sql } from '../../src/services/mcpClient';
+import { useAuthStore } from '../../src/store/auth';
+import * as Haptics from 'expo-haptics';
 
 interface Expense {
   id: string;
   description: string;
   amount: number;
-  category: string;
+  category_name: string;
   date: string;
+  vendor?: string;
   receipt_url?: string;
   created_at: string;
 }
 
-interface FinancialSummary {
-  totalRevenue: number;
+interface QuickStats {
   totalExpenses: number;
-  netProfit: number;
-  profitMargin: number;
-  monthlyGrowth: number;
+  monthlyAverage: number;
+  largestExpense: number;
+  categoriesCount: number;
 }
 
-// Mock data for demo
-const mockExpenses: Expense[] = [
-  {
-    id: '1',
-    description: 'Office Supplies',
-    amount: 150.00,
-    category: 'Office',
-    date: '2024-01-15',
-    created_at: '2024-01-15T10:00:00Z',
-  },
-  {
-    id: '2',
-    description: 'Marketing Campaign',
-    amount: 500.00,
-    category: 'Marketing',
-    date: '2024-01-14',
-    created_at: '2024-01-14T15:30:00Z',
-  },
-  {
-    id: '3',
-    description: 'Software Subscription',
-    amount: 99.00,
-    category: 'Software',
-    date: '2024-01-13',
-    created_at: '2024-01-13T09:15:00Z',
-  },
-];
-
-const mockSummary: FinancialSummary = {
-  totalRevenue: 12500.00,
-  totalExpenses: 3200.00,
-  netProfit: 9300.00,
-  profitMargin: 74.4,
-  monthlyGrowth: 12.5,
-};
-
-const expenseCategories = [
-  'Office', 'Marketing', 'Software', 'Travel', 'Equipment', 
-  'Utilities', 'Insurance', 'Professional Services', 'Other'
-];
-
 export default function FinancialScreen() {
-  const [expenses, setExpenses] = useState<Expense[]>(mockExpenses);
-  const [summary, setSummary] = useState<FinancialSummary>(mockSummary);
+  const { business } = useAuthStore();
+  const [activeTab, setActiveTab] = useState<'overview' | 'reports'>('overview');
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [quickStats, setQuickStats] = useState<QuickStats>({
+    totalExpenses: 0,
+    monthlyAverage: 0,
+    largestExpense: 0,
+    categoriesCount: 0,
+  });
   const [refreshing, setRefreshing] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
-  const [selectedPeriod, setSelectedPeriod] = useState('month');
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const [reportPeriod, setReportPeriod] = useState<'week' | 'month' | 'quarter' | 'year'>('month');
+
+  useEffect(() => {
+    loadFinancialData();
+  }, [business]);
+
+  const loadFinancialData = async () => {
+    if (!business?.id) return;
+
+    try {
+      await Promise.all([
+        loadExpenses(),
+        loadQuickStats(),
+      ]);
+    } catch (error) {
+      console.error('Error loading financial data:', error);
+    }
+  };
+
+  const loadExpenses = async () => {
+    try {
+      const result = await mcp_supabase_execute_sql({
+        query: `
+          SELECT 
+            e.id,
+            e.description,
+            e.amount,
+            e.date,
+            e.vendor,
+            e.receipt_url,
+            e.created_at,
+            ec.name as category_name
+          FROM expenses e
+          LEFT JOIN expense_categories ec ON e.category_id = ec.id
+          WHERE e.business_id = $1
+          ORDER BY e.date DESC, e.created_at DESC
+          LIMIT 50
+        `,
+        params: [business?.id]
+      });
+
+      if (result.success) {
+        setExpenses(result.data || []);
+      }
+    } catch (error) {
+      console.error('Error loading expenses:', error);
+    }
+  };
+
+  const loadQuickStats = async () => {
+    try {
+      const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+      
+      const statsResult = await mcp_supabase_execute_sql({
+        query: `
+          SELECT 
+            COUNT(*) as total_count,
+            SUM(amount) as total_amount,
+            MAX(amount) as largest_expense,
+            COUNT(DISTINCT category_id) as categories_count
+          FROM expenses
+          WHERE business_id = $1
+          AND date >= $2
+        `,
+        params: [business?.id, `${currentMonth}-01`]
+      });
+
+      if (statsResult.success && statsResult.data?.[0]) {
+        const data = statsResult.data[0];
+        setQuickStats({
+          totalExpenses: data.total_amount || 0,
+          monthlyAverage: (data.total_amount || 0) / Math.max(1, data.total_count || 1),
+          largestExpense: data.largest_expense || 0,
+          categoriesCount: data.categories_count || 0,
+        });
+      }
+    } catch (error) {
+      console.error('Error loading quick stats:', error);
+    }
+  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    // Simulate API call
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    await loadFinancialData();
+    setRefreshing(false);
   };
 
-  const handleAddExpense = (expenseData: any) => {
-    const newExpense: Expense = {
-      id: `expense_${Date.now()}`,
-      ...expenseData,
-      created_at: new Date().toISOString(),
-    };
-    setExpenses(prev => [newExpense, ...prev]);
-    
-    // Update summary
-    setSummary(prev => ({
-      ...prev,
-      totalExpenses: prev.totalExpenses + expenseData.amount,
-      netProfit: prev.totalRevenue - (prev.totalExpenses + expenseData.amount),
-    }));
+  const handleAddExpense = () => {
+    setSelectedExpense(null);
+    setShowExpenseModal(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
 
-  const renderSummaryCard = () => (
-    <Card style={styles.summaryCard}>
-      <View style={styles.summaryHeader}>
-        <Text style={styles.summaryTitle}>Financial Overview</Text>
-        <TouchableOpacity style={styles.periodSelector}>
-          <Text style={styles.periodText}>This {selectedPeriod}</Text>
-        </TouchableOpacity>
-      </View>
+  const handleEditExpense = (expense: Expense) => {
+    setSelectedExpense(expense);
+    setShowExpenseModal(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
 
-      <View style={styles.summaryMetrics}>
-        <View style={styles.metricItem}>
-          <View style={styles.metricHeader}>
-            <TrendingUp size={20} color={theme.colors.green[500]} />
-            <Text style={styles.metricLabel}>Revenue</Text>
+  const handleExpenseCreated = () => {
+    loadFinancialData();
+  };
+
+  const formatCurrency = (amount: number): string => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount);
+  };
+
+  const formatDate = (dateString: string): string => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
+  const renderOverviewTab = () => (
+    <ScrollView
+      style={styles.tabContent}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+      }
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Quick Stats */}
+      <Card style={styles.statsCard}>
+        <Text style={styles.cardTitle}>This Month</Text>
+        <View style={styles.statsGrid}>
+          <View style={styles.statItem}>
+            <DollarSign size={24} color="#ef4444" />
+            <Text style={styles.statValue}>{formatCurrency(quickStats.totalExpenses)}</Text>
+            <Text style={styles.statLabel}>Total Expenses</Text>
           </View>
-          <Text style={styles.metricValue}>${summary.totalRevenue.toLocaleString()}</Text>
-          <View style={styles.metricChange}>
-            <ArrowUpRight size={16} color={theme.colors.green[500]} />
-            <Text style={[styles.changeText, { color: theme.colors.green[500] }]}>
-              +{summary.monthlyGrowth}%
+          <View style={styles.statItem}>
+            <TrendingUp size={24} color="#a78bfa" />
+            <Text style={styles.statValue}>{formatCurrency(quickStats.monthlyAverage)}</Text>
+            <Text style={styles.statLabel}>Avg per Expense</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Receipt size={24} color="#10b981" />
+            <Text style={styles.statValue}>{formatCurrency(quickStats.largestExpense)}</Text>
+            <Text style={styles.statLabel}>Largest Expense</Text>
+          </View>
+          <View style={styles.statItem}>
+            <PieChart size={24} color="#f59e0b" />
+            <Text style={styles.statValue}>{quickStats.categoriesCount}</Text>
+            <Text style={styles.statLabel}>Categories</Text>
+          </View>
+        </View>
+      </Card>
+
+      {/* Quick Actions */}
+      <Card style={styles.actionsCard}>
+        <Text style={styles.cardTitle}>Quick Actions</Text>
+        <View style={styles.actionButtons}>
+                     <Button
+             title="Add Expense"
+             onPress={handleAddExpense}
+             style={styles.actionButton}
+           />
+           <Button
+             title="Scan Receipt"
+             onPress={handleAddExpense}
+             variant="secondary"
+             style={styles.actionButton}
+           />
+        </View>
+      </Card>
+
+      {/* Recent Expenses */}
+      <Card style={styles.expensesCard}>
+        <View style={styles.expensesHeader}>
+          <Text style={styles.cardTitle}>Recent Expenses</Text>
+          <TouchableOpacity style={styles.filterButton}>
+            <Filter size={20} color="#a78bfa" />
+          </TouchableOpacity>
+        </View>
+
+        {expenses.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Receipt size={48} color="#6b7280" />
+            <Text style={styles.emptyStateText}>No expenses yet</Text>
+            <Text style={styles.emptyStateSubtext}>
+              Add your first expense to start tracking
             </Text>
+            <Button
+              title="Add Expense"
+              onPress={handleAddExpense}
+              style={styles.emptyStateButton}
+            />
           </View>
-        </View>
+        ) : (
+          <View style={styles.expensesList}>
+            {expenses.slice(0, 10).map((expense) => (
+              <TouchableOpacity
+                key={expense.id}
+                style={styles.expenseItem}
+                onPress={() => handleEditExpense(expense)}
+              >
+                <View style={styles.expenseInfo}>
+                  <Text style={styles.expenseDescription}>{expense.description}</Text>
+                  <View style={styles.expenseDetails}>
+                    <Text style={styles.expenseCategory}>{expense.category_name}</Text>
+                    {expense.vendor && (
+                      <>
+                        <Text style={styles.expenseSeparator}>•</Text>
+                        <Text style={styles.expenseVendor}>{expense.vendor}</Text>
+                      </>
+                    )}
+                  </View>
+                  <Text style={styles.expenseDate}>{formatDate(expense.date)}</Text>
+                </View>
+                <View style={styles.expenseAmount}>
+                  <Text style={styles.expenseAmountText}>
+                    {formatCurrency(expense.amount)}
+                  </Text>
+                  {expense.receipt_url && (
+                    <View style={styles.receiptIndicator}>
+                      <Receipt size={12} color="#10b981" />
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </Card>
 
-        <View style={styles.metricItem}>
-          <View style={styles.metricHeader}>
-            <TrendingDown size={20} color={theme.colors.red[500]} />
-            <Text style={styles.metricLabel}>Expenses</Text>
-          </View>
-          <Text style={styles.metricValue}>${summary.totalExpenses.toLocaleString()}</Text>
-        </View>
-
-        <View style={styles.metricItem}>
-          <View style={styles.metricHeader}>
-            <DollarSign size={20} color={theme.colors.primary[500]} />
-            <Text style={styles.metricLabel}>Net Profit</Text>
-          </View>
-          <Text style={styles.metricValue}>${summary.netProfit.toLocaleString()}</Text>
-          <Text style={styles.marginText}>{summary.profitMargin}% margin</Text>
-        </View>
-      </View>
-    </Card>
+      <View style={styles.bottomSpacing} />
+    </ScrollView>
   );
 
-  const renderExpenseCard = (expense: Expense) => (
-    <Card key={expense.id} style={styles.expenseCard}>
-      <View style={styles.expenseHeader}>
-        <View style={styles.expenseInfo}>
-          <Text style={styles.expenseDescription}>{expense.description}</Text>
-          <Text style={styles.expenseCategory}>{expense.category}</Text>
-        </View>
-        <View style={styles.expenseAmount}>
-          <Text style={styles.amountText}>${expense.amount.toFixed(2)}</Text>
-          {expense.receipt_url && (
-            <Receipt size={16} color={theme.colors.primary[500]} />
-          )}
-        </View>
-      </View>
-      <View style={styles.expenseFooter}>
-        <Text style={styles.expenseDate}>
-          {new Date(expense.date).toLocaleDateString()}
-        </Text>
-      </View>
-    </Card>
+  const renderReportsTab = () => (
+    <FinancialReports
+      period={reportPeriod}
+      onPeriodChange={setReportPeriod}
+    />
   );
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Financial</Text>
-        <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.filterButton}>
-            <Filter size={20} color={theme.colors.gray[400]} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => setShowExpenseModal(true)}
-          >
-            <Plus size={24} color={theme.colors.white} />
-          </TouchableOpacity>
-        </View>
+        <Text style={styles.headerTitle}>Financial</Text>
       </View>
 
-      <ScrollView
-        style={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
-      >
-        {/* Summary */}
-        {renderSummaryCard()}
+      {/* Tab Navigation */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'overview' && styles.activeTab]}
+          onPress={() => {
+            setActiveTab('overview');
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }}
+        >
+          <DollarSign size={20} color={activeTab === 'overview' ? '#a78bfa' : '#9ca3af'} />
+          <Text style={[
+            styles.tabText,
+            activeTab === 'overview' && styles.activeTabText
+          ]}>
+            Overview
+          </Text>
+        </TouchableOpacity>
 
-        {/* Quick Actions */}
-        <Card style={styles.actionsCard}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.actionButtons}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => setShowExpenseModal(true)}
-            >
-              <Plus size={24} color={theme.colors.primary[500]} />
-              <Text style={styles.actionButtonText}>Add Expense</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.actionButton}>
-              <PieChart size={24} color={theme.colors.primary[500]} />
-              <Text style={styles.actionButtonText}>View Reports</Text>
-            </TouchableOpacity>
-          </View>
-        </Card>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'reports' && styles.activeTab]}
+          onPress={() => {
+            setActiveTab('reports');
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }}
+        >
+          <BarChart3 size={20} color={activeTab === 'reports' ? '#a78bfa' : '#9ca3af'} />
+          <Text style={[
+            styles.tabText,
+            activeTab === 'reports' && styles.activeTabText
+          ]}>
+            Reports
+          </Text>
+        </TouchableOpacity>
+      </View>
 
-        {/* Recent Expenses */}
-        <View style={styles.expensesSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Expenses</Text>
-            <TouchableOpacity>
-              <Text style={styles.viewAllText}>View All</Text>
-            </TouchableOpacity>
-          </View>
+      {/* Tab Content */}
+      {activeTab === 'overview' ? renderOverviewTab() : renderReportsTab()}
 
-          {expenses.length === 0 ? (
-            <Card style={styles.emptyCard}>
-              <Receipt size={48} color={theme.colors.gray[400]} />
-              <Text style={styles.emptyText}>No expenses yet</Text>
-              <Text style={styles.emptySubtext}>
-                Add your first expense to start tracking
-              </Text>
-            </Card>
-          ) : (
-            expenses.map(renderExpenseCard)
-          )}
-        </View>
-      </ScrollView>
-
-      {/* Add Expense Modal */}
-      <AddExpenseModal
+      {/* Expense Modal */}
+      <ExpenseCategorizationModal
         visible={showExpenseModal}
         onClose={() => setShowExpenseModal(false)}
-        onAdd={handleAddExpense}
+        onExpenseCreated={handleExpenseCreated}
+        existingExpense={selectedExpense}
       />
     </SafeAreaView>
   );
 }
 
-// Add Expense Modal Component
-const AddExpenseModal = ({ visible, onClose, onAdd }: {
-  visible: boolean;
-  onClose: () => void;
-  onAdd: (data: any) => void;
-}) => {
-  const [description, setDescription] = useState('');
-  const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState('Office');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [receiptImage, setReceiptImage] = useState<string | null>(null);
-
-  const handleTakePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Camera permission is required to capture receipts');
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setReceiptImage(result.assets[0].uri);
-    }
-  };
-
-  const handleSelectImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Photo library access is required');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setReceiptImage(result.assets[0].uri);
-    }
-  };
-
-  const handleAdd = () => {
-    if (!description.trim()) {
-      Alert.alert('Error', 'Description is required');
-      return;
-    }
-    if (!amount || isNaN(parseFloat(amount))) {
-      Alert.alert('Error', 'Valid amount is required');
-      return;
-    }
-
-    onAdd({
-      description: description.trim(),
-      amount: parseFloat(amount),
-      category,
-      date,
-      receipt_url: receiptImage,
-    });
-
-    // Reset form
-    setDescription('');
-    setAmount('');
-    setCategory('Office');
-    setDate(new Date().toISOString().split('T')[0]);
-    setReceiptImage(null);
-    onClose();
-  };
-
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
-    >
-      <SafeAreaView style={styles.modalContainer}>
-        <View style={styles.modalHeader}>
-          <TouchableOpacity onPress={onClose}>
-            <Text style={styles.modalCancelButton}>Cancel</Text>
-          </TouchableOpacity>
-          <Text style={styles.modalTitle}>Add Expense</Text>
-          <TouchableOpacity onPress={handleAdd}>
-            <Text style={styles.modalSaveButton}>Add</Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView style={styles.modalContent}>
-          <Input
-            label="Description *"
-            value={description}
-            onChangeText={setDescription}
-            placeholder="What was this expense for?"
-          />
-          
-          <Input
-            label="Amount *"
-            value={amount}
-            onChangeText={setAmount}
-            placeholder="0.00"
-            keyboardType="decimal-pad"
-            style={styles.modalInput}
-          />
-
-          <View style={styles.modalInput}>
-            <Text style={styles.inputLabel}>Category</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categorySelector}>
-              {expenseCategories.map((cat) => (
-                <TouchableOpacity
-                  key={cat}
-                  style={[
-                    styles.categoryButton,
-                    category === cat && styles.categoryButtonActive
-                  ]}
-                  onPress={() => setCategory(cat)}
-                >
-                  <Text style={[
-                    styles.categoryButtonText,
-                    category === cat && styles.categoryButtonTextActive
-                  ]}>
-                    {cat}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-
-          <Input
-            label="Date"
-            value={date}
-            onChangeText={setDate}
-            placeholder="YYYY-MM-DD"
-            style={styles.modalInput}
-          />
-
-          {/* Receipt Section */}
-          <View style={styles.receiptSection}>
-            <Text style={styles.inputLabel}>Receipt (Optional)</Text>
-            
-            {receiptImage ? (
-              <View style={styles.receiptPreview}>
-                <Image source={{ uri: receiptImage }} style={styles.receiptImage} />
-                <TouchableOpacity
-                  style={styles.removeReceiptButton}
-                  onPress={() => setReceiptImage(null)}
-                >
-                  <Text style={styles.removeReceiptText}>Remove</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View style={styles.receiptActions}>
-                <Button
-                  title="Take Photo"
-                  variant="secondary"
-                  onPress={handleTakePhoto}
-                  style={styles.receiptButton}
-                />
-                <Button
-                  title="Choose from Library"
-                  variant="secondary"
-                  onPress={handleSelectImage}
-                  style={styles.receiptButton}
-                />
-              </View>
-            )}
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    </Modal>
-  );
-};
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.dark[950],
+    backgroundColor: '#020617',
   },
   header: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1e293b',
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  tabContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
-  title: {
-    fontSize: theme.fontSize['2xl'],
-    fontWeight: theme.fontWeight.bold,
-    color: theme.colors.white,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-  },
-  filterButton: {
-    backgroundColor: theme.colors.dark[800],
-    borderRadius: theme.borderRadius.full,
-    padding: theme.spacing.sm,
-  },
-  addButton: {
-    backgroundColor: theme.colors.primary[600],
-    borderRadius: theme.borderRadius.full,
-    padding: theme.spacing.sm,
-  },
-  content: {
+  tab: {
     flex: 1,
-    paddingHorizontal: theme.spacing.md,
-  },
-  summaryCard: {
-    marginBottom: theme.spacing.md,
-  },
-  summaryHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: theme.spacing.md,
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginHorizontal: 4,
   },
-  summaryTitle: {
-    fontSize: theme.fontSize.lg,
-    fontWeight: theme.fontWeight.semibold,
-    color: theme.colors.white,
+  activeTab: {
+    backgroundColor: '#1e293b',
   },
-  periodSelector: {
-    backgroundColor: theme.colors.dark[800],
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 4,
-    borderRadius: theme.borderRadius.md,
+  tabText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#9ca3af',
+    marginLeft: 8,
   },
-  periodText: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.gray[300],
+  activeTabText: {
+    color: '#a78bfa',
   },
-  summaryMetrics: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  metricItem: {
+  tabContent: {
     flex: 1,
-    alignItems: 'center',
+    paddingHorizontal: 20,
   },
-  metricHeader: {
+  statsCard: {
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginBottom: 16,
+  },
+  statsGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  statItem: {
+    flex: 1,
+    minWidth: 140,
     alignItems: 'center',
-    gap: 4,
+    backgroundColor: '#1e293b',
+    padding: 16,
+    borderRadius: 12,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    marginTop: 8,
     marginBottom: 4,
   },
-  metricLabel: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.gray[400],
-  },
-  metricValue: {
-    fontSize: theme.fontSize.lg,
-    fontWeight: theme.fontWeight.bold,
-    color: theme.colors.white,
-  },
-  metricChange: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    marginTop: 2,
-  },
-  changeText: {
-    fontSize: theme.fontSize.xs,
-    fontWeight: theme.fontWeight.medium,
-  },
-  marginText: {
-    fontSize: theme.fontSize.xs,
-    color: theme.colors.gray[400],
-    marginTop: 2,
+  statLabel: {
+    fontSize: 12,
+    color: '#9ca3af',
+    textAlign: 'center',
   },
   actionsCard: {
-    marginBottom: theme.spacing.md,
-  },
-  sectionTitle: {
-    fontSize: theme.fontSize.lg,
-    fontWeight: theme.fontWeight.semibold,
-    color: theme.colors.white,
-    marginBottom: theme.spacing.sm,
+    marginBottom: 16,
   },
   actionButtons: {
     flexDirection: 'row',
-    gap: theme.spacing.md,
+    gap: 12,
   },
   actionButton: {
     flex: 1,
-    alignItems: 'center',
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.dark[800],
-    borderRadius: theme.borderRadius.lg,
   },
-  actionButtonText: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.gray[300],
-    marginTop: theme.spacing.sm,
+  expensesCard: {
+    marginBottom: 16,
   },
-  expensesSection: {
-    marginBottom: theme.spacing.xl,
-  },
-  sectionHeader: {
+  expensesHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: theme.spacing.sm,
+    marginBottom: 16,
   },
-  viewAllText: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.primary[500],
+  filterButton: {
+    padding: 8,
   },
-  expenseCard: {
-    marginBottom: theme.spacing.sm,
-  },
-  expenseHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  emptyState: {
     alignItems: 'center',
-    marginBottom: theme.spacing.sm,
+    paddingVertical: 40,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#9ca3af',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  emptyStateButton: {
+    paddingHorizontal: 32,
+  },
+  expensesList: {
+    gap: 12,
+  },
+  expenseItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#1e293b',
+    borderRadius: 12,
   },
   expenseInfo: {
     flex: 1,
   },
   expenseDescription: {
-    fontSize: theme.fontSize.md,
-    fontWeight: theme.fontWeight.medium,
-    color: theme.colors.white,
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#ffffff',
+    marginBottom: 4,
+  },
+  expenseDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   expenseCategory: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.gray[400],
-    marginTop: 2,
+    fontSize: 14,
+    color: '#a78bfa',
   },
-  expenseAmount: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
+  expenseSeparator: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginHorizontal: 8,
   },
-  amountText: {
-    fontSize: theme.fontSize.lg,
-    fontWeight: theme.fontWeight.bold,
-    color: theme.colors.red[500],
-  },
-  expenseFooter: {
-    paddingTop: theme.spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.dark[700],
+  expenseVendor: {
+    fontSize: 14,
+    color: '#9ca3af',
   },
   expenseDate: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.gray[400],
+    fontSize: 12,
+    color: '#6b7280',
   },
-  emptyCard: {
-    alignItems: 'center',
-    paddingVertical: theme.spacing.xl,
+  expenseAmount: {
+    alignItems: 'flex-end',
   },
-  emptyText: {
-    fontSize: theme.fontSize.lg,
-    fontWeight: theme.fontWeight.medium,
-    color: theme.colors.gray[300],
-    marginTop: theme.spacing.md,
+  expenseAmountText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginBottom: 4,
   },
-  emptySubtext: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.gray[400],
-    textAlign: 'center',
-    marginTop: theme.spacing.sm,
+  receiptIndicator: {
+    padding: 2,
   },
-  // Modal styles
-  modalContainer: {
-    flex: 1,
-    backgroundColor: theme.colors.dark[950],
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.dark[700],
-  },
-  modalTitle: {
-    fontSize: theme.fontSize.lg,
-    fontWeight: theme.fontWeight.semibold,
-    color: theme.colors.white,
-  },
-  modalCancelButton: {
-    fontSize: theme.fontSize.md,
-    color: theme.colors.gray[400],
-  },
-  modalSaveButton: {
-    fontSize: theme.fontSize.md,
-    color: theme.colors.primary[500],
-    fontWeight: theme.fontWeight.medium,
-  },
-  modalContent: {
-    flex: 1,
-    paddingHorizontal: theme.spacing.md,
-    paddingTop: theme.spacing.lg,
-  },
-  modalInput: {
-    marginTop: theme.spacing.md,
-  },
-  inputLabel: {
-    fontSize: theme.fontSize.sm,
-    fontWeight: theme.fontWeight.medium,
-    color: theme.colors.gray[300],
-    marginBottom: theme.spacing.sm,
-  },
-  categorySelector: {
-    marginTop: theme.spacing.sm,
-  },
-  categoryButton: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    marginRight: theme.spacing.sm,
-    borderRadius: theme.borderRadius.full,
-    backgroundColor: theme.colors.dark[800],
-  },
-  categoryButtonActive: {
-    backgroundColor: theme.colors.primary[600],
-  },
-  categoryButtonText: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.gray[300],
-  },
-  categoryButtonTextActive: {
-    color: theme.colors.white,
-    fontWeight: theme.fontWeight.medium,
-  },
-  receiptSection: {
-    marginTop: theme.spacing.lg,
-  },
-  receiptActions: {
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-    marginTop: theme.spacing.sm,
-  },
-  receiptButton: {
-    flex: 1,
-  },
-  receiptPreview: {
-    marginTop: theme.spacing.sm,
-    alignItems: 'center',
-  },
-  receiptImage: {
-    width: 200,
-    height: 150,
-    borderRadius: theme.borderRadius.lg,
-  },
-  removeReceiptButton: {
-    marginTop: theme.spacing.sm,
-    paddingVertical: theme.spacing.sm,
-  },
-  removeReceiptText: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.red[500],
+  bottomSpacing: {
+    height: 20,
   },
 }); 

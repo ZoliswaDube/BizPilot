@@ -2,1004 +2,707 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   TouchableOpacity,
   Alert,
-  SafeAreaView,
   RefreshControl,
-  Modal,
-  TextInput,
+  StyleSheet,
+  FlatList,
 } from 'react-native';
-import {
-  Plus,
-  Search,
-  Filter,
-  Edit,
-  Trash2,
-  Package,
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { 
+  Plus, 
+  Search, 
+  Filter, 
+  Package, 
+  AlertTriangle, 
   TrendingDown,
-  AlertTriangle,
-  Calendar,
-  MapPin,
+  Upload,
+  Download,
+  Edit3,
   BarChart3,
+  CheckCircle,
+  X,
 } from 'lucide-react-native';
-import { useAnalytics } from '../../src/hooks/useAnalytics';
 import { Card } from '../../src/components/ui/Card';
 import { Button } from '../../src/components/ui/Button';
 import { Input } from '../../src/components/ui/Input';
-import { theme } from '../../src/styles/theme';
+import BulkInventoryOperations from '../../src/components/inventory/BulkInventoryOperations';
 import { mcp_supabase_execute_sql } from '../../src/services/mcpClient';
+import { useAuthStore } from '../../src/store/auth';
+import * as Haptics from 'expo-haptics';
+import InventoryItemEditor from '../../src/components/inventory/InventoryItemEditor';
 
 interface InventoryItem {
   id: string;
   name: string;
   current_quantity: number;
   unit: string;
+  low_stock_alert?: number;
   cost_per_unit: number;
-  low_stock_alert: number;
+  updated_at?: string;
+  product_id?: string;
   batch_lot_number?: string;
   expiration_date?: string;
-  location?: string;
-  supplier?: string;
   description?: string;
+  supplier?: string;
+  location?: string;
+  min_order_quantity?: number;
+  reorder_point?: number;
+  image_url?: string;
+}
+
+interface InventoryStats {
+  total_items: number;
+  low_stock_items: number;
   total_value: number;
-  status: 'in_stock' | 'low_stock' | 'out_of_stock' | 'expired';
+  recent_updates: number;
 }
 
 export default function InventoryScreen() {
-  useAnalytics('Inventory');
-  
+  const { business } = useAuthStore();
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<InventoryStats>({
+    total_items: 0,
+    low_stock_items: 0,
+    total_value: 0,
+    recent_updates: 0,
+  });
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showAdjustModal, setShowAdjustModal] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
-
-  // Mock data for development
-  const [mockInventory] = useState<InventoryItem[]>([
-    {
-      id: '1',
-      name: 'Coffee Beans - Premium Blend',
-      current_quantity: 150,
-      unit: 'kg',
-      cost_per_unit: 25.00,
-      low_stock_alert: 20,
-      batch_lot_number: 'CB-2024-001',
-      expiration_date: '2024-12-31',
-      location: 'Warehouse A - Shelf 3',
-      supplier: 'Coffee Suppliers Inc',
-      description: 'High-quality Arabica coffee beans',
-      total_value: 3750,
-      status: 'in_stock',
-    },
-    {
-      id: '2',
-      name: 'Flour - Organic Wheat',
-      current_quantity: 8,
-      unit: 'kg',
-      cost_per_unit: 12.50,
-      low_stock_alert: 10,
-      batch_lot_number: 'FL-2024-002',
-      expiration_date: '2024-08-15',
-      location: 'Storage Room B',
-      supplier: 'Organic Grains Co',
-      description: 'Certified organic wheat flour',
-      total_value: 100,
-      status: 'low_stock',
-    },
-    {
-      id: '3',
-      name: 'Sugar - Cane Sugar',
-      current_quantity: 0,
-      unit: 'kg',
-      cost_per_unit: 3.20,
-      low_stock_alert: 15,
-      location: 'Pantry',
-      supplier: 'Sweet Supply Co',
-      description: 'Pure cane sugar for baking',
-      total_value: 0,
-      status: 'out_of_stock',
-    },
-    {
-      id: '4',
-      name: 'Milk - Whole Milk',
-      current_quantity: 25,
-      unit: 'L',
-      cost_per_unit: 2.80,
-      low_stock_alert: 10,
-      batch_lot_number: 'ML-2024-003',
-      expiration_date: '2024-02-15',
-      location: 'Refrigerator 1',
-      supplier: 'Dairy Fresh Ltd',
-      description: 'Fresh whole milk',
-      total_value: 70,
-      status: 'expired',
-    },
-  ]);
+  const [showBulkOperations, setShowBulkOperations] = useState(false);
+  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterLocation, setFilterLocation] = useState('');
+  const [filterSupplier, setFilterSupplier] = useState('');
 
   useEffect(() => {
-    fetchInventory();
-  }, []);
+    loadInventoryData();
+  }, [business]);
 
-  const fetchInventory = async () => {
+  const loadInventoryData = async () => {
+    if (!business?.id) return;
+
     try {
-      setLoading(true);
-      
-      // In a real app, this would fetch from Supabase via MCP
+      await Promise.all([
+        loadInventoryItems(),
+        loadInventoryStats(),
+      ]);
+    } catch (error) {
+      console.error('Error loading inventory data:', error);
+    }
+  };
+
+  const loadInventoryItems = async () => {
+    try {
       const result = await mcp_supabase_execute_sql({
         query: `
           SELECT 
-            i.*,
-            (i.current_quantity * i.cost_per_unit) as total_value,
+            id, name, current_quantity, unit, low_stock_alert,
+            cost_per_unit, updated_at, product_id, batch_lot_number,
+            expiration_date, description, supplier, location,
+            min_order_quantity, reorder_point, image_url
+          FROM inventory 
+          WHERE business_id = $1
+          ORDER BY 
             CASE 
-              WHEN i.expiration_date < CURRENT_DATE THEN 'expired'
-              WHEN i.current_quantity = 0 THEN 'out_of_stock'
-              WHEN i.current_quantity <= i.low_stock_alert THEN 'low_stock'
-              ELSE 'in_stock'
-            END as status
-          FROM inventory i
-          ORDER BY i.name ASC
+              WHEN low_stock_alert IS NOT NULL AND current_quantity <= low_stock_alert THEN 0
+              ELSE 1 
+            END,
+            name ASC
         `,
-        params: []
+        params: [business?.id]
       });
 
-      if (result.success && result.data) {
-        setInventory(result.data);
-      } else {
-        // Use mock data for development
-        setInventory(mockInventory);
+      if (result.success) {
+        setInventory(result.data || []);
       }
     } catch (error) {
-      console.error('Error fetching inventory:', error);
-      setInventory(mockInventory);
-    } finally {
-      setLoading(false);
+      console.error('Error loading inventory items:', error);
+    }
+  };
+
+  const loadInventoryStats = async () => {
+    try {
+      const result = await mcp_supabase_execute_sql({
+        query: `
+          SELECT 
+            COUNT(*) as total_items,
+            SUM(CASE 
+              WHEN low_stock_alert IS NOT NULL AND current_quantity <= low_stock_alert 
+              THEN 1 ELSE 0 
+            END) as low_stock_items,
+            SUM(current_quantity * cost_per_unit) as total_value,
+            COUNT(CASE 
+              WHEN updated_at > NOW() - INTERVAL '7 days' 
+              THEN 1 
+            END) as recent_updates
+          FROM inventory 
+          WHERE business_id = $1
+        `,
+        params: [business?.id]
+      });
+
+      if (result.success && result.data?.[0]) {
+        setStats({
+          total_items: parseInt(result.data[0].total_items) || 0,
+          low_stock_items: parseInt(result.data[0].low_stock_items) || 0,
+          total_value: parseFloat(result.data[0].total_value) || 0,
+          recent_updates: parseInt(result.data[0].recent_updates) || 0,
+        });
+      }
+    } catch (error) {
+      console.error('Error loading inventory stats:', error);
     }
   };
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchInventory();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    await loadInventoryData();
     setRefreshing(false);
   };
 
-  const handleCreateItem = async (itemData: any) => {
-    try {
-      const newItem: InventoryItem = {
-        id: Date.now().toString(),
-        ...itemData,
-        total_value: itemData.current_quantity * itemData.cost_per_unit,
-        status: itemData.current_quantity <= itemData.low_stock_alert ? 'low_stock' : 'in_stock',
-      };
+  const handleInventoryUpdated = () => {
+    loadInventoryData();
+  };
+
+  const formatCurrency = (amount: number): string => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount);
+  };
+
+  const formatDate = (dateString?: string): string => {
+    if (!dateString) return '';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  const getFilteredInventory = () => {
+    return inventory.filter(item => {
+      const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           item.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           item.supplier?.toLowerCase().includes(searchTerm.toLowerCase());
       
-      setInventory(prev => [newItem, ...prev]);
-      setShowCreateModal(false);
-      Alert.alert('Success', 'Inventory item created successfully');
-    } catch (error) {
-      Alert.alert('Error', 'Failed to create inventory item');
-    }
+      const matchesLocation = !filterLocation || item.location?.includes(filterLocation);
+      const matchesSupplier = !filterSupplier || item.supplier?.includes(filterSupplier);
+      const matchesLowStock = !showLowStockOnly || 
+                             (item.low_stock_alert && item.current_quantity <= item.low_stock_alert);
+
+      return matchesSearch && matchesLocation && matchesSupplier && matchesLowStock;
+    });
   };
 
-  const handleAdjustStock = async (itemId: string, adjustment: number, notes?: string) => {
-    try {
-      setInventory(prev => prev.map(item => {
-        if (item.id === itemId) {
-          const newQuantity = Math.max(0, item.current_quantity + adjustment);
-          return {
-            ...item,
-            current_quantity: newQuantity,
-            total_value: newQuantity * item.cost_per_unit,
-            status: newQuantity === 0 ? 'out_of_stock' : 
-                   newQuantity <= item.low_stock_alert ? 'low_stock' : 'in_stock',
-          };
-        }
-        return item;
-      }));
+  const isLowStock = (item: InventoryItem): boolean => {
+    return item.low_stock_alert ? item.current_quantity <= item.low_stock_alert : false;
+  };
+
+  const renderStatsCard = () => (
+    <Card style={styles.statsCard}>
+      <Text style={styles.cardTitle}>Inventory Overview</Text>
+      <View style={styles.statsGrid}>
+        <View style={styles.statItem}>
+          <Package size={24} color="#a78bfa" />
+          <Text style={styles.statValue}>{stats.total_items}</Text>
+          <Text style={styles.statLabel}>Total Items</Text>
+        </View>
+        
+        <View style={styles.statItem}>
+          <AlertTriangle size={24} color="#ef4444" />
+          <Text style={styles.statValue}>{stats.low_stock_items}</Text>
+          <Text style={styles.statLabel}>Low Stock</Text>
+        </View>
+        
+        <View style={styles.statItem}>
+          <TrendingDown size={24} color="#22c55e" />
+          <Text style={styles.statValue}>{formatCurrency(stats.total_value)}</Text>
+          <Text style={styles.statLabel}>Total Value</Text>
+        </View>
+        
+        <View style={styles.statItem}>
+          <BarChart3 size={24} color="#f59e0b" />
+          <Text style={styles.statValue}>{stats.recent_updates}</Text>
+          <Text style={styles.statLabel}>Recent Updates</Text>
+        </View>
+      </View>
+    </Card>
+  );
+
+  const renderQuickActions = () => (
+    <Card style={styles.actionsCard}>
+      <Text style={styles.cardTitle}>Quick Actions</Text>
+      <View style={styles.actionButtons}>
+        <Button
+          title="Bulk Operations"
+          onPress={() => {
+            setShowBulkOperations(true);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          }}
+          style={styles.actionButton}
+        />
+        <Button
+          title="Add Item"
+          onPress={() => {
+            // Navigate to add item screen
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }}
+          variant="secondary"
+          style={styles.actionButton}
+        />
+      </View>
       
-      setShowAdjustModal(false);
-      setSelectedItem(null);
-      Alert.alert('Success', 'Stock adjusted successfully');
-    } catch (error) {
-      Alert.alert('Error', 'Failed to adjust stock');
-    }
-  };
+      <View style={styles.bulkActionButtons}>
+        <TouchableOpacity
+          style={styles.bulkActionButton}
+          onPress={() => setShowBulkOperations(true)}
+        >
+          <Upload size={20} color="#a78bfa" />
+          <Text style={styles.bulkActionText}>Import</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={styles.bulkActionButton}
+          onPress={() => setShowBulkOperations(true)}
+        >
+          <Download size={20} color="#a78bfa" />
+          <Text style={styles.bulkActionText}>Export</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={styles.bulkActionButton}
+          onPress={() => setShowBulkOperations(true)}
+        >
+          <Edit3 size={20} color="#a78bfa" />
+          <Text style={styles.bulkActionText}>Bulk Edit</Text>
+        </TouchableOpacity>
+      </View>
+    </Card>
+  );
 
-  const handleDeleteItem = (itemId: string, itemName: string) => {
-    Alert.alert(
-      'Delete Item',
-      `Are you sure you want to delete "${itemName}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            setInventory(prev => prev.filter(item => item.id !== itemId));
-            Alert.alert('Success', 'Item deleted successfully');
-          },
-        },
-      ]
-    );
-  };
+  const renderFilters = () => (
+    <Card style={styles.filtersCard}>
+      <View style={styles.filtersHeader}>
+        <Text style={styles.cardTitle}>Filters</Text>
+        <TouchableOpacity
+          onPress={() => setShowFilters(!showFilters)}
+          style={styles.filterToggle}
+        >
+          {showFilters ? <X size={20} color="#a78bfa" /> : <Filter size={20} color="#a78bfa" />}
+        </TouchableOpacity>
+      </View>
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'in_stock': return theme.colors.green[500];
-      case 'low_stock': return theme.colors.yellow[500];
-      case 'out_of_stock': return theme.colors.red[500];
-      case 'expired': return theme.colors.red[700];
-      default: return theme.colors.gray[500];
-    }
-  };
+      <Input
+        value={searchTerm}
+        onChangeText={setSearchTerm}
+        placeholder="Search inventory..."
+        style={styles.searchInput}
+      />
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'in_stock': return Package;
-      case 'low_stock': return TrendingDown;
-      case 'out_of_stock': case 'expired': return AlertTriangle;
-      default: return Package;
-    }
-  };
-
-  const filteredInventory = inventory.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.supplier?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.location?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterStatus === 'all' || item.status === filterStatus;
-    return matchesSearch && matchesFilter;
-  });
-
-  const totalValue = inventory.reduce((sum, item) => sum + item.total_value, 0);
-  const lowStockCount = inventory.filter(item => item.status === 'low_stock' || item.status === 'out_of_stock').length;
-
-  const renderInventoryCard = (item: InventoryItem) => {
-    const StatusIcon = getStatusIcon(item.status);
-    
-    return (
-      <Card key={item.id} style={styles.inventoryCard}>
-        <View style={styles.itemHeader}>
-          <View style={styles.itemInfo}>
-            <Text style={styles.itemName}>{item.name}</Text>
-            <View style={styles.itemDetails}>
-              <Text style={styles.itemQuantity}>
-                {item.current_quantity} {item.unit}
-              </Text>
-              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-                <StatusIcon size={12} color={theme.colors.white} />
-                <Text style={styles.statusText}>{item.status.replace('_', ' ').toUpperCase()}</Text>
-              </View>
+      {showFilters && (
+        <View style={styles.advancedFilters}>
+          <View style={styles.filterRow}>
+            <Input
+              value={filterLocation}
+              onChangeText={setFilterLocation}
+              placeholder="Filter by location"
+              style={styles.halfInput}
+            />
+            <Input
+              value={filterSupplier}
+              onChangeText={setFilterSupplier}
+              placeholder="Filter by supplier"
+              style={styles.halfInput}
+            />
+          </View>
+          
+          <TouchableOpacity
+            style={styles.checkboxRow}
+            onPress={() => {
+              setShowLowStockOnly(!showLowStockOnly);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+          >
+            <View style={[styles.checkbox, showLowStockOnly && styles.checkedCheckbox]}>
+              {showLowStockOnly && <CheckCircle size={16} color="#ffffff" />}
             </View>
-          </View>
-          <View style={styles.itemActions}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => {
-                setSelectedItem(item);
-                setShowAdjustModal(true);
-              }}
-            >
-              <Edit size={16} color={theme.colors.primary[500]} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => handleDeleteItem(item.id, item.name)}
-            >
-              <Trash2 size={16} color={theme.colors.red[500]} />
-            </TouchableOpacity>
-          </View>
+            <Text style={styles.checkboxLabel}>Show only low stock items</Text>
+          </TouchableOpacity>
         </View>
+      )}
+    </Card>
+  );
 
-        <View style={styles.itemMetrics}>
-          <View style={styles.metricItem}>
-            <Text style={styles.metricValue}>${item.cost_per_unit.toFixed(2)}</Text>
-            <Text style={styles.metricLabel}>Cost/Unit</Text>
-          </View>
-          <View style={styles.metricItem}>
-            <Text style={styles.metricValue}>${item.total_value.toFixed(2)}</Text>
-            <Text style={styles.metricLabel}>Total Value</Text>
-          </View>
-          <View style={styles.metricItem}>
-            <Text style={styles.metricValue}>{item.low_stock_alert}</Text>
-            <Text style={styles.metricLabel}>Alert Level</Text>
-          </View>
-        </View>
-
-        {(item.location || item.batch_lot_number || item.expiration_date) && (
-          <View style={styles.itemExtras}>
-            {item.location && (
-              <View style={styles.extraItem}>
-                <MapPin size={14} color={theme.colors.gray[400]} />
-                <Text style={styles.extraText}>{item.location}</Text>
-              </View>
-            )}
-            {item.batch_lot_number && (
-              <Text style={styles.batchText}>Batch: {item.batch_lot_number}</Text>
-            )}
-            {item.expiration_date && (
-              <View style={styles.extraItem}>
-                <Calendar size={14} color={theme.colors.gray[400]} />
-                <Text style={styles.extraText}>
-                  Exp: {new Date(item.expiration_date).toLocaleDateString()}
-                </Text>
-              </View>
-            )}
+  const renderInventoryItem = ({ item }: { item: InventoryItem }) => (
+    <View style={styles.inventoryItemContainer}>
+      <InventoryItemEditor
+        item={item}
+        onUpdate={handleInventoryUpdated}
+        compact={true}
+      />
+      
+      {/* Additional item details */}
+      <View style={styles.itemDetails}>
+        {item.expiration_date && (
+          <View style={styles.itemDetailRow}>
+            <Text style={styles.itemDetailLabel}>Expires:</Text>
+            <Text style={styles.itemDetailValue}>{formatDate(item.expiration_date)}</Text>
           </View>
         )}
-      </Card>
-    );
-  };
+        
+        {item.reorder_point && item.current_quantity <= item.reorder_point && (
+          <View style={styles.reorderAlert}>
+            <AlertTriangle size={14} color="#f59e0b" />
+            <Text style={styles.reorderText}>
+              Reorder recommended (below {item.reorder_point} {item.unit})
+            </Text>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+
+  const filteredInventory = getFilteredInventory();
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Inventory</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => setShowCreateModal(true)}
-        >
-          <Plus size={20} color={theme.colors.white} />
-        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Inventory</Text>
       </View>
 
-      {/* Search and Filters */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchInputContainer}>
-          <Search size={20} color={theme.colors.gray[400]} style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search inventory..."
-            placeholderTextColor={theme.colors.gray[400]}
-            value={searchTerm}
-            onChangeText={setSearchTerm}
-          />
-        </View>
-        <TouchableOpacity style={styles.filterButton}>
-          <Filter size={20} color={theme.colors.primary[500]} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Stats Summary */}
-      <Card style={styles.statsCard}>
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{inventory.length}</Text>
-            <Text style={styles.statLabel}>Total Items</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>${totalValue.toFixed(0)}</Text>
-            <Text style={styles.statLabel}>Total Value</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, lowStockCount > 0 && { color: theme.colors.red[500] }]}>
-              {lowStockCount}
-            </Text>
-            <Text style={styles.statLabel}>Low Stock</Text>
-          </View>
-        </View>
-      </Card>
-
-      {/* Filter Tabs */}
-      <ScrollView horizontal style={styles.filterTabs} showsHorizontalScrollIndicator={false}>
-        {['all', 'in_stock', 'low_stock', 'out_of_stock', 'expired'].map((status) => (
-          <TouchableOpacity
-            key={status}
-            style={[styles.filterTab, filterStatus === status && styles.activeFilterTab]}
-            onPress={() => setFilterStatus(status)}
-          >
-            <Text style={[
-              styles.filterTabText,
-              filterStatus === status && styles.activeFilterTabText
-            ]}>
-              {status === 'all' ? 'All' : status.replace('_', ' ')}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* Inventory List */}
       <ScrollView
-        style={styles.inventoryList}
+        style={styles.content}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={[theme.colors.primary[500]]}
-            tintColor={theme.colors.primary[500]}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
         showsVerticalScrollIndicator={false}
       >
-        {filteredInventory.map(renderInventoryCard)}
-        
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            {filteredInventory.length} of {inventory.length} items
-          </Text>
-        </View>
+        {/* Stats */}
+        {renderStatsCard()}
+
+        {/* Quick Actions */}
+        {renderQuickActions()}
+
+        {/* Filters */}
+        {renderFilters()}
+
+        {/* Inventory List */}
+        <Card style={styles.inventoryCard}>
+          <View style={styles.inventoryHeader}>
+            <Text style={styles.cardTitle}>
+              Inventory Items ({filteredInventory.length})
+            </Text>
+          </View>
+
+          {filteredInventory.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Package size={48} color="#6b7280" />
+              <Text style={styles.emptyStateText}>No inventory items found</Text>
+              <Text style={styles.emptyStateSubtext}>
+                {inventory.length === 0 
+                  ? 'Start by adding your first inventory item or importing from a file'
+                  : 'Try adjusting your search or filter criteria'
+                }
+              </Text>
+              {inventory.length === 0 && (
+                <Button
+                  title="Import from File"
+                  onPress={() => setShowBulkOperations(true)}
+                  style={styles.emptyStateButton}
+                />
+              )}
+            </View>
+          ) : (
+            <FlatList
+              data={filteredInventory}
+              keyExtractor={(item) => item.id}
+              renderItem={renderInventoryItem}
+              scrollEnabled={false}
+              ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
+            />
+          )}
+        </Card>
+
+        <View style={styles.bottomSpacing} />
       </ScrollView>
 
-      {/* Create Item Modal */}
-      <CreateItemModal
-        visible={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onCreate={handleCreateItem}
-      />
-
-      {/* Stock Adjustment Modal */}
-      <StockAdjustModal
-        visible={showAdjustModal}
-        item={selectedItem}
-        onClose={() => {
-          setShowAdjustModal(false);
-          setSelectedItem(null);
-        }}
-        onAdjust={handleAdjustStock}
+      {/* Bulk Operations Modal */}
+      <BulkInventoryOperations
+        visible={showBulkOperations}
+        onClose={() => setShowBulkOperations(false)}
+        onInventoryUpdated={handleInventoryUpdated}
       />
     </SafeAreaView>
   );
 }
 
-// Create Item Modal Component
-const CreateItemModal = ({ visible, onClose, onCreate }: {
-  visible: boolean;
-  onClose: () => void;
-  onCreate: (data: any) => void;
-}) => {
-  const [formData, setFormData] = useState({
-    name: '',
-    current_quantity: '',
-    unit: '',
-    cost_per_unit: '',
-    low_stock_alert: '',
-    batch_lot_number: '',
-    expiration_date: '',
-    location: '',
-    supplier: '',
-    description: '',
-  });
-
-  const handleCreate = () => {
-    if (!formData.name.trim() || !formData.current_quantity || !formData.unit || !formData.cost_per_unit) {
-      Alert.alert('Error', 'Please fill in all required fields');
-      return;
-    }
-
-    onCreate({
-      ...formData,
-      name: formData.name.trim(),
-      current_quantity: parseFloat(formData.current_quantity),
-      cost_per_unit: parseFloat(formData.cost_per_unit),
-      low_stock_alert: parseInt(formData.low_stock_alert) || 0,
-    });
-
-    // Reset form
-    setFormData({
-      name: '',
-      current_quantity: '',
-      unit: '',
-      cost_per_unit: '',
-      low_stock_alert: '',
-      batch_lot_number: '',
-      expiration_date: '',
-      location: '',
-      supplier: '',
-      description: '',
-    });
-  };
-
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
-    >
-      <SafeAreaView style={styles.modalContainer}>
-        <View style={styles.modalHeader}>
-          <TouchableOpacity onPress={onClose}>
-            <Text style={styles.modalCancelButton}>Cancel</Text>
-          </TouchableOpacity>
-          <Text style={styles.modalTitle}>New Item</Text>
-          <TouchableOpacity onPress={handleCreate}>
-            <Text style={styles.modalSaveButton}>Save</Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView style={styles.modalContent}>
-          <Input
-            label="Item Name *"
-            value={formData.name}
-            onChangeText={(text) => setFormData(prev => ({ ...prev, name: text }))}
-            placeholder="Enter item name"
-          />
-          
-          <View style={styles.row}>
-            <Input
-              label="Quantity *"
-              value={formData.current_quantity}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, current_quantity: text }))}
-              placeholder="0"
-              keyboardType="decimal-pad"
-              style={[styles.modalInput, { flex: 1, marginRight: theme.spacing.sm }]}
-            />
-            <Input
-              label="Unit *"
-              value={formData.unit}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, unit: text }))}
-              placeholder="kg, L, pieces"
-              style={[styles.modalInput, { flex: 1, marginLeft: theme.spacing.sm }]}
-            />
-          </View>
-          
-          <View style={styles.row}>
-            <Input
-              label="Cost per Unit *"
-              value={formData.cost_per_unit}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, cost_per_unit: text }))}
-              placeholder="0.00"
-              keyboardType="decimal-pad"
-              style={[styles.modalInput, { flex: 1, marginRight: theme.spacing.sm }]}
-            />
-            <Input
-              label="Low Stock Alert"
-              value={formData.low_stock_alert}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, low_stock_alert: text }))}
-              placeholder="0"
-              keyboardType="numeric"
-              style={[styles.modalInput, { flex: 1, marginLeft: theme.spacing.sm }]}
-            />
-          </View>
-          
-          <Input
-            label="Location"
-            value={formData.location}
-            onChangeText={(text) => setFormData(prev => ({ ...prev, location: text }))}
-            placeholder="Storage location"
-            style={styles.modalInput}
-          />
-          
-          <Input
-            label="Supplier"
-            value={formData.supplier}
-            onChangeText={(text) => setFormData(prev => ({ ...prev, supplier: text }))}
-            placeholder="Supplier name"
-            style={styles.modalInput}
-          />
-          
-          <Input
-            label="Batch/Lot Number"
-            value={formData.batch_lot_number}
-            onChangeText={(text) => setFormData(prev => ({ ...prev, batch_lot_number: text }))}
-            placeholder="Batch or lot number"
-            style={styles.modalInput}
-          />
-          
-          <Input
-            label="Expiration Date"
-            value={formData.expiration_date}
-            onChangeText={(text) => setFormData(prev => ({ ...prev, expiration_date: text }))}
-            placeholder="YYYY-MM-DD"
-            style={styles.modalInput}
-          />
-          
-          <Input
-            label="Description"
-            value={formData.description}
-            onChangeText={(text) => setFormData(prev => ({ ...prev, description: text }))}
-            placeholder="Item description"
-            multiline
-            numberOfLines={3}
-            style={styles.modalInput}
-          />
-        </ScrollView>
-      </SafeAreaView>
-    </Modal>
-  );
-};
-
-// Stock Adjustment Modal Component
-const StockAdjustModal = ({ visible, item, onClose, onAdjust }: {
-  visible: boolean;
-  item: InventoryItem | null;
-  onClose: () => void;
-  onAdjust: (itemId: string, adjustment: number, notes?: string) => void;
-}) => {
-  const [adjustment, setAdjustment] = useState('');
-  const [notes, setNotes] = useState('');
-  const [adjustmentType, setAdjustmentType] = useState<'add' | 'subtract'>('add');
-
-  const handleAdjust = () => {
-    if (!item || !adjustment) {
-      Alert.alert('Error', 'Please enter an adjustment amount');
-      return;
-    }
-
-    const adjustmentValue = parseFloat(adjustment) * (adjustmentType === 'add' ? 1 : -1);
-    onAdjust(item.id, adjustmentValue, notes.trim() || undefined);
-
-    // Reset form
-    setAdjustment('');
-    setNotes('');
-    setAdjustmentType('add');
-  };
-
-  if (!item) return null;
-
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
-    >
-      <SafeAreaView style={styles.modalContainer}>
-        <View style={styles.modalHeader}>
-          <TouchableOpacity onPress={onClose}>
-            <Text style={styles.modalCancelButton}>Cancel</Text>
-          </TouchableOpacity>
-          <Text style={styles.modalTitle}>Adjust Stock</Text>
-          <TouchableOpacity onPress={handleAdjust}>
-            <Text style={styles.modalSaveButton}>Save</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.modalContent}>
-          <Card style={styles.itemSummary}>
-            <Text style={styles.itemSummaryName}>{item.name}</Text>
-            <Text style={styles.itemSummaryStock}>
-              Current Stock: {item.current_quantity} {item.unit}
-            </Text>
-          </Card>
-
-          <View style={styles.adjustmentTypeContainer}>
-            <TouchableOpacity
-              style={[
-                styles.adjustmentTypeButton,
-                adjustmentType === 'add' && styles.activeAdjustmentType
-              ]}
-              onPress={() => setAdjustmentType('add')}
-            >
-              <Text style={[
-                styles.adjustmentTypeText,
-                adjustmentType === 'add' && styles.activeAdjustmentTypeText
-              ]}>
-                Add Stock
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.adjustmentTypeButton,
-                adjustmentType === 'subtract' && styles.activeAdjustmentType
-              ]}
-              onPress={() => setAdjustmentType('subtract')}
-            >
-              <Text style={[
-                styles.adjustmentTypeText,
-                adjustmentType === 'subtract' && styles.activeAdjustmentTypeText
-              ]}>
-                Remove Stock
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <Input
-            label="Adjustment Amount"
-            value={adjustment}
-            onChangeText={setAdjustment}
-            placeholder="Enter amount"
-            keyboardType="decimal-pad"
-            style={styles.modalInput}
-          />
-
-          <Input
-            label="Notes (Optional)"
-            value={notes}
-            onChangeText={setNotes}
-            placeholder="Reason for adjustment"
-            multiline
-            numberOfLines={3}
-            style={styles.modalInput}
-          />
-
-          {adjustment && (
-            <Card style={styles.previewCard}>
-              <Text style={styles.previewLabel}>New Stock Level:</Text>
-              <Text style={styles.previewValue}>
-                {Math.max(0, item.current_quantity + (parseFloat(adjustment) * (adjustmentType === 'add' ? 1 : -1)))} {item.unit}
-              </Text>
-            </Card>
-          )}
-        </View>
-      </SafeAreaView>
-    </Modal>
-  );
-};
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.dark[950],
+    backgroundColor: '#020617',
   },
   header: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1e293b',
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  statsCard: {
+    marginTop: 20,
+    marginBottom: 16,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginBottom: 16,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  statItem: {
+    flex: 1,
+    minWidth: 140,
+    alignItems: 'center',
+    backgroundColor: '#1e293b',
+    padding: 16,
+    borderRadius: 12,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#9ca3af',
+    textAlign: 'center',
+  },
+  actionsCard: {
+    marginBottom: 16,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  actionButton: {
+    flex: 1,
+  },
+  bulkActionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  bulkActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    backgroundColor: '#1e293b',
+    borderRadius: 8,
+    gap: 8,
+  },
+  bulkActionText: {
+    fontSize: 12,
+    color: '#d1d5db',
+    fontWeight: '500',
+  },
+  filtersCard: {
+    marginBottom: 16,
+  },
+  filtersHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
+    marginBottom: 16,
   },
-  title: {
-    fontSize: theme.fontSize['2xl'],
-    fontWeight: theme.fontWeight.bold,
-    color: theme.colors.white,
-  },
-  addButton: {
-    backgroundColor: theme.colors.primary[600],
-    borderRadius: theme.borderRadius.full,
-    padding: theme.spacing.sm,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
-    gap: theme.spacing.sm,
-  },
-  searchInputContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.dark[800],
-    borderRadius: theme.borderRadius.lg,
-    paddingHorizontal: theme.spacing.md,
-  },
-  searchIcon: {
-    marginRight: theme.spacing.sm,
+  filterToggle: {
+    padding: 4,
   },
   searchInput: {
-    flex: 1,
-    color: theme.colors.white,
-    fontSize: theme.fontSize.md,
-    paddingVertical: theme.spacing.sm,
+    marginBottom: 12,
   },
-  filterButton: {
-    backgroundColor: theme.colors.dark[800],
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.sm,
+  advancedFilters: {
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#334155',
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  halfInput: {
+    flex: 1,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#9ca3af',
+    marginRight: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  statsCard: {
-    marginHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
+  checkedCheckbox: {
+    backgroundColor: '#a78bfa',
+    borderColor: '#a78bfa',
   },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: theme.fontSize.xl,
-    fontWeight: theme.fontWeight.bold,
-    color: theme.colors.white,
-  },
-  statLabel: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.gray[400],
-    marginTop: theme.spacing.xs,
-  },
-  filterTabs: {
-    paddingHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
-  },
-  filterTab: {
-    backgroundColor: theme.colors.dark[800],
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.lg,
-    marginRight: theme.spacing.sm,
-  },
-  activeFilterTab: {
-    backgroundColor: theme.colors.primary[600],
-  },
-  filterTabText: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.gray[400],
-    textTransform: 'capitalize',
-  },
-  activeFilterTabText: {
-    color: theme.colors.white,
-  },
-  inventoryList: {
-    flex: 1,
-    paddingHorizontal: theme.spacing.lg,
+  checkboxLabel: {
+    fontSize: 14,
+    color: '#d1d5db',
   },
   inventoryCard: {
-    marginBottom: theme.spacing.md,
+    marginBottom: 16,
   },
-  itemHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: theme.spacing.md,
-  },
-  itemInfo: {
-    flex: 1,
-  },
-  itemName: {
-    fontSize: theme.fontSize.lg,
-    fontWeight: theme.fontWeight.semibold,
-    color: theme.colors.white,
-    marginBottom: theme.spacing.xs,
-  },
-  itemDetails: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-  },
-  itemQuantity: {
-    fontSize: theme.fontSize.md,
-    color: theme.colors.gray[300],
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: theme.borderRadius.full,
-    gap: theme.spacing.xs,
-  },
-  statusText: {
-    fontSize: theme.fontSize.xs,
-    color: theme.colors.white,
-    fontWeight: theme.fontWeight.medium,
-  },
-  itemActions: {
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-  },
-  actionButton: {
-    padding: theme.spacing.sm,
-  },
-  itemMetrics: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: theme.spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.dark[700],
-    marginBottom: theme.spacing.sm,
-  },
-  metricItem: {
-    alignItems: 'center',
-  },
-  metricValue: {
-    fontSize: theme.fontSize.md,
-    fontWeight: theme.fontWeight.semibold,
-    color: theme.colors.white,
-  },
-  metricLabel: {
-    fontSize: theme.fontSize.xs,
-    color: theme.colors.gray[400],
-    marginTop: theme.spacing.xs,
-  },
-  itemExtras: {
-    gap: theme.spacing.xs,
-  },
-  extraItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xs,
-  },
-  extraText: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.gray[400],
-  },
-  batchText: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.gray[400],
-  },
-  footer: {
-    alignItems: 'center',
-    paddingVertical: theme.spacing.xl,
-  },
-  footerText: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.gray[400],
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: theme.colors.dark[950],
-  },
-  modalHeader: {
+  inventoryHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.dark[800],
+    marginBottom: 16,
   },
-  modalCancelButton: {
-    fontSize: theme.fontSize.md,
-    color: theme.colors.gray[400],
+  inventoryItemContainer: {
+    marginBottom: 12,
   },
-  modalTitle: {
-    fontSize: theme.fontSize.lg,
-    fontWeight: theme.fontWeight.semibold,
-    color: theme.colors.white,
+  inventoryItem: {
+    padding: 16,
+    backgroundColor: '#1e293b',
+    borderRadius: 12,
   },
-  modalSaveButton: {
-    fontSize: theme.fontSize.md,
-    color: theme.colors.primary[500],
-    fontWeight: theme.fontWeight.semibold,
+  itemSeparator: {
+    height: 12,
   },
-  modalContent: {
-    flex: 1,
-    padding: theme.spacing.lg,
-  },
-  modalInput: {
-    marginTop: theme.spacing.md,
-  },
-  row: {
+  itemHeader: {
     flexDirection: 'row',
-    marginTop: theme.spacing.md,
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
   },
-  itemSummary: {
-    marginBottom: theme.spacing.lg,
-    padding: theme.spacing.md,
-  },
-  itemSummaryName: {
-    fontSize: theme.fontSize.lg,
-    fontWeight: theme.fontWeight.semibold,
-    color: theme.colors.white,
-    marginBottom: theme.spacing.xs,
-  },
-  itemSummaryStock: {
-    fontSize: theme.fontSize.md,
-    color: theme.colors.gray[300],
-  },
-  adjustmentTypeContainer: {
-    flexDirection: 'row',
-    marginBottom: theme.spacing.lg,
-    backgroundColor: theme.colors.dark[800],
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.xs,
-  },
-  adjustmentTypeButton: {
+  itemNameSection: {
     flex: 1,
-    paddingVertical: theme.spacing.sm,
+  },
+  itemName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginBottom: 4,
+  },
+  batchNumber: {
+    fontSize: 12,
+    color: '#9ca3af',
+  },
+  itemQuantitySection: {
+    alignItems: 'flex-end',
+  },
+  quantityBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: theme.borderRadius.md,
+    backgroundColor: '#334155',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
   },
-  activeAdjustmentType: {
-    backgroundColor: theme.colors.primary[600],
+  lowStockBadge: {
+    backgroundColor: '#ef444420',
   },
-  adjustmentTypeText: {
-    fontSize: theme.fontSize.md,
-    color: theme.colors.gray[400],
+  quantityText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
   },
-  activeAdjustmentTypeText: {
-    color: theme.colors.white,
-    fontWeight: theme.fontWeight.medium,
+  lowStockText: {
+    color: '#ef4444',
   },
-  previewCard: {
-    marginTop: theme.spacing.lg,
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.primary[900],
-    borderColor: theme.colors.primary[700],
+  itemDetails: {
+    gap: 6,
+    marginTop: 8,
   },
-  previewLabel: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.primary[300],
-    marginBottom: theme.spacing.xs,
+  itemDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  previewValue: {
-    fontSize: theme.fontSize.lg,
-    fontWeight: theme.fontWeight.bold,
-    color: theme.colors.primary[100],
+  itemDetailLabel: {
+    fontSize: 12,
+    color: '#9ca3af',
+    flex: 1,
+  },
+  itemDetailValue: {
+    fontSize: 12,
+    color: '#d1d5db',
+    fontWeight: '500',
+    flex: 2,
+    textAlign: 'right',
+  },
+  reorderAlert: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f59e0b20',
+    padding: 8,
+    borderRadius: 6,
+    gap: 6,
+    marginTop: 8,
+  },
+  reorderText: {
+    fontSize: 12,
+    color: '#f59e0b',
+    flex: 1,
+  },
+  itemDescription: {
+    fontSize: 12,
+    color: '#9ca3af',
+    fontStyle: 'italic',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#334155',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#9ca3af',
+    textAlign: 'center',
+    marginBottom: 24,
+    maxWidth: 280,
+  },
+  emptyStateButton: {
+    paddingHorizontal: 32,
+  },
+  bottomSpacing: {
+    height: 20,
   },
 }); 

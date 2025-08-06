@@ -34,6 +34,7 @@ interface AuthState {
   signUp: (email: string, password: string, fullName?: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<void>;
+  refreshProfile: () => Promise<void>;
   selectBusiness: (business: Business) => void;
   clearError: () => void;
 }
@@ -189,6 +190,25 @@ export const useAuthStore = create<AuthState>()(
             loading: false 
           });
           throw error;
+        }
+      },
+
+      refreshProfile: async () => {
+        try {
+          const { token } = get();
+          if (!token) return;
+
+          const response = await mockAuthAPI('GET', '/user', token);
+          if (response.success) {
+            set({
+              user: response.user,
+              business: response.business,
+              error: null,
+            });
+          }
+        } catch (error: any) {
+          console.error('Profile refresh error:', error);
+          set({ error: error.message });
         }
       },
 

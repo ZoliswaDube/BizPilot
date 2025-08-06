@@ -9,137 +9,130 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, TrendingUp, Package, Users, DollarSign } from 'lucide-react-native';
-import { useAuthStore } from '../../src/store/auth';
-import { Card } from '../../src/components/ui/Card';
-import { Button } from '../../src/components/ui/Button';
-import { theme } from '../../src/styles/theme';
 import * as Haptics from 'expo-haptics';
 
 export default function DashboardScreen() {
-  const { user, business } = useAuthStore();
   const [refreshing, setRefreshing] = React.useState(false);
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     
-    // TODO: Refresh dashboard data via MCP server
+    // Simulate data refresh
     setTimeout(() => {
       setRefreshing(false);
     }, 1000);
   }, []);
 
-  const quickActions = [
-    { title: 'New Order', icon: Plus, color: theme.colors.primary[500] },
-    { title: 'Add Customer', icon: Users, color: theme.colors.blue[500] },
-    { title: 'Record Expense', icon: DollarSign, color: theme.colors.warning[500] },
-    { title: 'Check Inventory', icon: Package, color: theme.colors.success[500] },
-  ];
-
-  const metrics = [
-    { title: 'Today\'s Sales', value: '$1,234', change: '+12%', color: theme.colors.success[500] },
-    { title: 'Pending Orders', value: '8', change: '+2', color: theme.colors.primary[500] },
-    { title: 'Low Stock Items', value: '3', change: '-1', color: theme.colors.warning[500] },
-    { title: 'Active Customers', value: '42', change: '+5', color: theme.colors.blue[500] },
-  ];
+  const handleQuickAction = (action: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    console.log(`Quick action: ${action}`);
+    // TODO: Navigate to respective screens
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
         style={styles.scrollView}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
+          <RefreshControl 
+            refreshing={refreshing} 
             onRefresh={onRefresh}
-            tintColor={theme.colors.primary[500]}
-            colors={[theme.colors.primary[500]]}
+            tintColor="#a78bfa"
           />
         }
       >
         {/* Header */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Good morning,</Text>
-            <Text style={styles.userName}>{user?.full_name || 'User'}</Text>
-          </View>
-          <View style={styles.businessInfo}>
-            <Text style={styles.businessName}>{business?.name || 'Business'}</Text>
-          </View>
+          <Text style={styles.greeting}>Welcome back!</Text>
+          <Text style={styles.businessName}>BizPilot Demo Business</Text>
         </View>
 
-        {/* Metrics Cards */}
-        <View style={styles.metricsGrid}>
-          {metrics.map((metric, index) => (
-            <Card key={index} style={styles.metricCard} padding="md">
-              <View style={styles.metricHeader}>
-                <Text style={styles.metricTitle}>{metric.title}</Text>
-                <TrendingUp size={16} color={metric.color} />
-              </View>
-              <Text style={styles.metricValue}>{metric.value}</Text>
-              <Text style={[styles.metricChange, { color: metric.color }]}>
-                {metric.change}
-              </Text>
-            </Card>
-          ))}
+        {/* Quick Stats */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <TrendingUp size={24} color="#22c55e" />
+            <Text style={styles.statValue}>$12,450</Text>
+            <Text style={styles.statLabel}>Revenue</Text>
+          </View>
+          
+          <View style={styles.statCard}>
+            <Package size={24} color="#3b82f6" />
+            <Text style={styles.statValue}>156</Text>
+            <Text style={styles.statLabel}>Orders</Text>
+          </View>
+          
+          <View style={styles.statCard}>
+            <Users size={24} color="#a78bfa" />
+            <Text style={styles.statValue}>89</Text>
+            <Text style={styles.statLabel}>Customers</Text>
+          </View>
+          
+          <View style={styles.statCard}>
+            <DollarSign size={24} color="#f59e0b" />
+            <Text style={styles.statValue}>$2,340</Text>
+            <Text style={styles.statLabel}>Profit</Text>
+          </View>
         </View>
 
         {/* Quick Actions */}
-        <Card style={styles.quickActionsCard}>
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.quickActionsGrid}>
-            {quickActions.map((action, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.quickActionItem}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  // TODO: Navigate to respective screens
-                }}
-              >
-                <View style={[styles.quickActionIcon, { backgroundColor: action.color + '20' }]}>
-                  <action.icon size={24} color={action.color} />
-                </View>
-                <Text style={styles.quickActionText}>{action.title}</Text>
-              </TouchableOpacity>
-            ))}
+          
+          <View style={styles.actionsGrid}>
+            <TouchableOpacity 
+              style={styles.actionCard}
+              onPress={() => handleQuickAction('new-order')}
+            >
+              <Plus size={24} color="#ffffff" />
+              <Text style={styles.actionText}>New Order</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.actionCard}
+              onPress={() => handleQuickAction('add-customer')}
+            >
+              <Users size={24} color="#ffffff" />
+              <Text style={styles.actionText}>Add Customer</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.actionCard}
+              onPress={() => handleQuickAction('add-product')}
+            >
+              <Package size={24} color="#ffffff" />
+              <Text style={styles.actionText}>Add Product</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.actionCard}
+              onPress={() => handleQuickAction('view-reports')}
+            >
+              <TrendingUp size={24} color="#ffffff" />
+              <Text style={styles.actionText}>View Reports</Text>
+            </TouchableOpacity>
           </View>
-        </Card>
+        </View>
 
         {/* Recent Activity */}
-        <Card style={styles.recentActivityCard}>
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Recent Activity</Text>
-          <View style={styles.activityList}>
-            <View style={styles.activityItem}>
-              <View style={styles.activityIcon}>
-                <Package size={16} color={theme.colors.primary[500]} />
-              </View>
-              <View style={styles.activityContent}>
-                <Text style={styles.activityTitle}>New order #ORD-001234</Text>
-                <Text style={styles.activityTime}>2 minutes ago</Text>
-              </View>
-            </View>
-            <View style={styles.activityItem}>
-              <View style={styles.activityIcon}>
-                <Users size={16} color={theme.colors.blue[500]} />
-              </View>
-              <View style={styles.activityContent}>
-                <Text style={styles.activityTitle}>Customer added: John Doe</Text>
-                <Text style={styles.activityTime}>15 minutes ago</Text>
-              </View>
-            </View>
-            <View style={styles.activityItem}>
-              <View style={styles.activityIcon}>
-                <DollarSign size={16} color={theme.colors.success[500]} />
-              </View>
-              <View style={styles.activityContent}>
-                <Text style={styles.activityTitle}>Payment received: $500</Text>
-                <Text style={styles.activityTime}>1 hour ago</Text>
-              </View>
-            </View>
+          
+          <View style={styles.activityCard}>
+            <Text style={styles.activityText}>New order #1234 from John Doe</Text>
+            <Text style={styles.activityTime}>2 hours ago</Text>
           </View>
-        </Card>
-
-        <View style={styles.bottomSpacing} />
+          
+          <View style={styles.activityCard}>
+            <Text style={styles.activityText}>Product "Coffee Beans" low stock</Text>
+            <Text style={styles.activityTime}>4 hours ago</Text>
+          </View>
+          
+          <View style={styles.activityCard}>
+            <Text style={styles.activityText}>Customer payment received: $250</Text>
+            <Text style={styles.activityTime}>1 day ago</Text>
+          </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -148,135 +141,98 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.dark[950],
+    backgroundColor: '#020617',
   },
   scrollView: {
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    padding: theme.spacing.lg,
-    paddingBottom: theme.spacing.md,
+    padding: 20,
+    paddingBottom: 10,
   },
   greeting: {
-    fontSize: theme.fontSize.base,
-    color: theme.colors.gray[400],
-  },
-  userName: {
-    fontSize: theme.fontSize['2xl'],
-    fontWeight: theme.fontWeight.bold,
-    color: theme.colors.gray[100],
-    marginTop: theme.spacing.xs,
-  },
-  businessInfo: {
-    alignItems: 'flex-end',
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#e5e7eb',
+    marginBottom: 4,
   },
   businessName: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.primary[400],
-    fontWeight: theme.fontWeight.medium,
+    fontSize: 16,
+    color: '#9ca3af',
   },
-  metricsGrid: {
+  statsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: theme.spacing.lg,
-    gap: theme.spacing.sm,
+    paddingHorizontal: 20,
+    gap: 12,
   },
-  metricCard: {
-    flex: 1,
-    minWidth: '47%',
-  },
-  metricHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.xs,
-  },
-  metricTitle: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.gray[400],
-  },
-  metricValue: {
-    fontSize: theme.fontSize['2xl'],
-    fontWeight: theme.fontWeight.bold,
-    color: theme.colors.gray[100],
-    marginBottom: theme.spacing.xs,
-  },
-  metricChange: {
-    fontSize: theme.fontSize.sm,
-    fontWeight: theme.fontWeight.medium,
-  },
-  quickActionsCard: {
-    margin: theme.spacing.lg,
-    marginTop: theme.spacing.md,
-  },
-  sectionTitle: {
-    fontSize: theme.fontSize.lg,
-    fontWeight: theme.fontWeight.semibold,
-    color: theme.colors.gray[100],
-    marginBottom: theme.spacing.md,
-  },
-  quickActionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: theme.spacing.md,
-  },
-  quickActionItem: {
+  statCard: {
     flex: 1,
     minWidth: '45%',
+    backgroundColor: '#1e293b',
+    padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
-    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
-  quickActionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: theme.borderRadius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: theme.spacing.sm,
+  statValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#e5e7eb',
+    marginTop: 8,
   },
-  quickActionText: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.gray[300],
-    textAlign: 'center',
-    fontWeight: theme.fontWeight.medium,
+  statLabel: {
+    fontSize: 12,
+    color: '#9ca3af',
+    marginTop: 4,
   },
-  recentActivityCard: {
-    margin: theme.spacing.lg,
-    marginTop: 0,
+  section: {
+    padding: 20,
   },
-  activityList: {
-    gap: theme.spacing.md,
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#e5e7eb',
+    marginBottom: 16,
   },
-  activityItem: {
+  actionsGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
   },
-  activityIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.dark[800],
+  actionCard: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: '#a78bfa',
+    padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: theme.spacing.sm,
+    minHeight: 80,
   },
-  activityContent: {
-    flex: 1,
+  actionText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 8,
+    textAlign: 'center',
   },
-  activityTitle: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.gray[200],
-    fontWeight: theme.fontWeight.medium,
+  activityCard: {
+    backgroundColor: '#1e293b',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  activityText: {
+    color: '#e5e7eb',
+    fontSize: 14,
+    marginBottom: 4,
   },
   activityTime: {
-    fontSize: theme.fontSize.xs,
-    color: theme.colors.gray[500],
-    marginTop: 2,
-  },
-  bottomSpacing: {
-    height: theme.spacing.xl,
+    color: '#9ca3af',
+    fontSize: 12,
   },
 }); 

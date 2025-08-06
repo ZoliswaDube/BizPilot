@@ -8,7 +8,7 @@ import {
   TextStyle,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { theme, componentStyles } from '../../styles/theme';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface ButtonProps {
   title: string;
@@ -43,7 +43,6 @@ export function Button({
 
   const buttonStyle = [
     styles.base,
-    styles[variant],
     styles[size],
     disabled && styles.disabled,
     style,
@@ -51,137 +50,177 @@ export function Button({
 
   const textStyleCombined = [
     styles.text,
-    styles[`${variant}Text`],
     styles[`${size}Text`],
     disabled && styles.disabledText,
     textStyle,
   ];
 
-  return (
-    <TouchableOpacity
-      style={buttonStyle}
-      onPress={handlePress}
-      disabled={disabled || loading}
-      activeOpacity={0.8}
-    >
+  const getTextColor = () => {
+    if (disabled) return '#9ca3af';
+    switch (variant) {
+      case 'primary': return '#ffffff';
+      case 'secondary': return '#e5e7eb';
+      case 'danger': return '#ffffff';
+      case 'ghost': return '#a78bfa';
+      default: return '#ffffff';
+    }
+  };
+
+  const renderContent = () => (
+    <>
       {loading && (
         <ActivityIndicator
           size="small"
-          color={variant === 'primary' ? theme.colors.white : theme.colors.gray[400]}
+          color={getTextColor()}
           style={styles.loader}
         />
       )}
       {icon && !loading && icon}
-      <Text style={textStyleCombined}>{title}</Text>
+      <Text style={[textStyleCombined, { color: getTextColor() }]}>{title}</Text>
+    </>
+  );
+
+  if (variant === 'primary') {
+    return (
+      <TouchableOpacity
+        style={[buttonStyle, styles.primaryContainer]}
+        onPress={handlePress}
+        disabled={disabled || loading}
+        activeOpacity={0.8}
+      >
+        <LinearGradient
+          colors={disabled ? ['#4b5563', '#4b5563'] : ['#a78bfa', '#9333ea']}
+          style={[styles.primaryGradient, styles[size]]}
+        >
+          {renderContent()}
+        </LinearGradient>
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <TouchableOpacity
+      style={[buttonStyle, styles[variant]]}
+      onPress={handlePress}
+      disabled={disabled || loading}
+      activeOpacity={0.8}
+    >
+      {renderContent()}
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   base: {
+    borderRadius: 12,
+    shadowColor: '#a78bfa',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  
+  primaryContainer: {
+    shadowColor: '#a78bfa',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  
+  primaryGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: theme.borderRadius.full,
-    gap: theme.spacing.xs + 2, // 6px gap
-    ...componentStyles.button.primary,
-  },
-  
-  // Variants matching web app classes
-  primary: {
-    backgroundColor: theme.colors.primary[600],
-    ...theme.shadows.primary,
+    borderRadius: 12,
   },
   
   secondary: {
-    backgroundColor: theme.colors.dark[800] + '80',
+    backgroundColor: '#1e293b80',
     borderWidth: 1,
-    borderColor: theme.colors.dark[600],
-    shadowColor: theme.colors.dark[500],
+    borderColor: '#475569',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#334155',
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   
   danger: {
-    backgroundColor: theme.colors.danger[600],
-    shadowColor: theme.colors.danger[500],
+    backgroundColor: '#dc2626',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#dc2626',
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   
   ghost: {
     backgroundColor: 'transparent',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     shadowOpacity: 0,
     elevation: 0,
   },
   
   // Sizes
   sm: {
-    paddingHorizontal: theme.spacing.sm + 4, // 12px
-    paddingVertical: theme.spacing.xs + 2, // 6px
-    borderRadius: theme.borderRadius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
   
   md: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   
   lg: {
-    paddingHorizontal: theme.spacing.xl,
-    paddingVertical: theme.spacing.sm + 3, // 11px
-    borderRadius: theme.borderRadius.md,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderRadius: 8,
   },
   
   // Disabled state
   disabled: {
-    backgroundColor: theme.colors.gray[600],
+    opacity: 0.6,
     shadowOpacity: 0,
     elevation: 0,
   },
   
   // Text styles
   text: {
-    fontWeight: theme.fontWeight.medium,
-    fontSize: theme.fontSize.sm,
-    lineHeight: theme.lineHeight.sm,
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   
-  primaryText: {
-    color: theme.colors.white,
-  },
-  
-  secondaryText: {
-    color: theme.colors.gray[300],
-  },
-  
-  dangerText: {
-    color: theme.colors.white,
-  },
-  
-  ghostText: {
-    color: theme.colors.gray[400],
-  },
-  
-  disabledText: {
-    color: theme.colors.gray[500],
-  },
-  
-  // Size-specific text
+  // Size text styles
   smText: {
-    fontSize: theme.fontSize.xs,
-    lineHeight: theme.lineHeight.xs,
+    fontSize: 14,
   },
   
   mdText: {
-    fontSize: theme.fontSize.sm,
-    lineHeight: theme.lineHeight.sm,
+    fontSize: 16,
   },
   
   lgText: {
-    fontSize: theme.fontSize.base,
-    lineHeight: theme.lineHeight.base,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  
+  disabledText: {
+    color: '#9ca3af',
   },
   
   loader: {
-    marginRight: theme.spacing.xs,
+    marginRight: 8,
   },
 }); 

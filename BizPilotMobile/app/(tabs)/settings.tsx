@@ -83,7 +83,7 @@ export default function SettingsScreen() {
       title: 'Business Settings',
       subtitle: business?.name || 'Manage your business',
       icon: <Building size={24} color={theme.colors.primary[500]} />,
-      action: () => Alert.alert('Business', 'Business settings coming soon'),
+      action: () => router.push('/business-profile'),
       showChevron: true,
     },
   ];
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: theme.fontSize['2xl'],
-    fontWeight: theme.fontWeight.bold,
+    fontWeight: 'bold',
     color: theme.colors.white,
   },
   content: {
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
   },
   profileName: {
     fontSize: theme.fontSize.lg,
-    fontWeight: theme.fontWeight.semibold,
+    fontWeight: '600',
     color: theme.colors.white,
     marginBottom: 2,
   },
@@ -348,13 +348,12 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.lg,
   },
   sectionTitle: {
-    fontSize: theme.fontSize.sm,
-    fontWeight: theme.fontWeight.semibold,
-    color: theme.colors.gray[400],
-    marginBottom: theme.spacing.sm,
-    marginLeft: theme.spacing.sm,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    fontSize: 18,
+    fontWeight: '600' as any,
+    color: '#ffffff',
+    marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingTop: 8,
   },
   sectionCard: {
     padding: 0,
@@ -374,7 +373,7 @@ const styles = StyleSheet.create({
   },
   settingTitle: {
     fontSize: theme.fontSize.md,
-    fontWeight: theme.fontWeight.medium,
+    fontWeight: '500',
     color: theme.colors.white,
     marginBottom: 2,
   },
@@ -400,7 +399,7 @@ const styles = StyleSheet.create({
   },
   appName: {
     fontSize: theme.fontSize.lg,
-    fontWeight: theme.fontWeight.semibold,
+    fontWeight: '600',
     color: theme.colors.white,
     marginBottom: 4,
   },

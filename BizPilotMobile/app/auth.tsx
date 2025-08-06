@@ -7,28 +7,31 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { ArrowLeft, Loader2, AlertCircle } from 'lucide-react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthStore } from '../src/store/auth';
 import { Button } from '../src/components/ui/Button';
 import { Input } from '../src/components/ui/Input';
 import { Card } from '../src/components/ui/Card';
-import { theme } from '../src/styles/theme';
 
 export default function AuthScreen() {
   const router = useRouter();
   const { signIn, signUp, loading } = useAuthStore();
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleAuth = async () => {
     try {
-      if (isSignUp) {
+      if (mode === 'signup') {
         if (password !== confirmPassword) {
           Alert.alert('Error', 'Passwords do not match');
           return;
@@ -37,180 +40,399 @@ export default function AuthScreen() {
       } else {
         await signIn(email, password);
       }
+      
       router.replace('/(tabs)');
-    } catch (error: any) {
-      Alert.alert('Authentication Error', error.message);
+    } catch (error) {
+      Alert.alert('Authentication Error', error instanceof Error ? error.message : 'An error occurred');
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    try {
+      // Simulate Google OAuth flow
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      router.replace('/(tabs)');
+    } catch (error) {
+      Alert.alert('Google Sign In Error', 'Failed to sign in with Google');
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
   const handleBiometricAuth = async () => {
     try {
-      const hasHardware = await LocalAuthentication.hasHardwareAsync();
-      if (!hasHardware) {
-        Alert.alert('Error', 'Biometric authentication not available');
-        return;
-      }
-
-      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-      if (!isEnrolled) {
-        Alert.alert('Error', 'No biometric data enrolled');
-        return;
-      }
-
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: 'Authenticate with biometrics',
-        fallbackLabel: 'Use password',
+        disallowDeviceCredential: false,
       });
-
+      
       if (result.success) {
-        // In a real app, you'd retrieve stored credentials
-        Alert.alert('Success', 'Biometric authentication successful');
+        router.replace('/(tabs)');
       }
     } catch (error) {
-      Alert.alert('Error', 'Biometric authentication failed');
+      Alert.alert('Biometric Error', 'Could not authenticate with biometrics');
     }
+  };
+
+  const getTitle = () => {
+    return mode === 'signup' ? 'Create your account' : 'Welcome back';
+  };
+
+  const getSubtitle = () => {
+    return mode === 'signup' 
+      ? 'Start your journey with BizPilot today' 
+      : 'Sign in to your BizPilot account';
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
-        style={styles.content}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      <LinearGradient
+        colors={['#020617', '#0f172a']}
+        style={styles.background}
       >
-        <View style={styles.header}>
-          <Text style={styles.title}>BizPilot</Text>
-          <Text style={styles.subtitle}>Business Management on Mobile</Text>
-        </View>
+        <KeyboardAvoidingView 
+          style={styles.keyboardView}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <ScrollView contentContainerStyle={styles.scrollContent}>
+            {/* Header with back button */}
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={() => router.back()}
+            >
+              <ArrowLeft size={24} color="#a78bfa" />
+              <Text style={styles.backText}>Back</Text>
+            </TouchableOpacity>
 
-        <Card style={styles.authCard}>
-          <Text style={styles.authTitle}>
-            {isSignUp ? 'Create Account' : 'Welcome Back'}
-          </Text>
+            {/* Logo and Title */}
+            <View style={styles.header}>
+              <View style={styles.logo}>
+                <Text style={styles.logoText}>BP</Text>
+              </View>
+              <Text style={styles.title}>{getTitle()}</Text>
+              <Text style={styles.subtitle}>{getSubtitle()}</Text>
+            </View>
 
-          {isSignUp && (
-            <Input
-              label="Full Name"
-              value={fullName}
-              onChangeText={setFullName}
-              containerStyle={styles.input}
-              placeholder="Enter your full name"
-              autoCapitalize="words"
-            />
-          )}
+            {/* Auth Form Card */}
+            <View style={styles.formContainer}>
+              <View style={styles.formCard}>
+                {/* Auth Mode Tabs */}
+                <View style={styles.tabs}>
+                  <TouchableOpacity
+                    style={[styles.tab, mode === 'signin' && styles.activeTab]}
+                    onPress={() => setMode('signin')}
+                  >
+                    <Text style={[styles.tabText, mode === 'signin' && styles.activeTabText]}>
+                      Sign In
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.tab, mode === 'signup' && styles.activeTab]}
+                    onPress={() => setMode('signup')}
+                  >
+                    <Text style={[styles.tabText, mode === 'signup' && styles.activeTabText]}>
+                      Sign Up
+                    </Text>
+                  </TouchableOpacity>
+                </View>
 
-          <Input
-            label="Email"
-            value={email}
-            onChangeText={setEmail}
-            containerStyle={styles.input}
-            placeholder="Enter your email"
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
+                {/* Google OAuth Button */}
+                <TouchableOpacity
+                  style={styles.googleButton}
+                  onPress={handleGoogleSignIn}
+                  disabled={googleLoading || loading}
+                >
+                  {googleLoading ? (
+                    <Loader2 size={20} color="#9ca3af" />
+                  ) : (
+                    <GoogleIcon />
+                  )}
+                  <Text style={styles.googleButtonText}>
+                    {googleLoading ? 'Connecting...' : 'Continue with Google'}
+                  </Text>
+                </TouchableOpacity>
 
-          <Input
-            label="Password"
-            value={password}
-            onChangeText={setPassword}
-            containerStyle={styles.input}
-            placeholder="Enter your password"
-            secureTextEntry
-          />
+                {/* Divider */}
+                <View style={styles.divider}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>or</Text>
+                  <View style={styles.dividerLine} />
+                </View>
 
-          {isSignUp && (
-            <Input
-              label="Confirm Password"
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              containerStyle={styles.input}
-              placeholder="Confirm your password"
-              secureTextEntry
-            />
-          )}
+                {/* Email Form */}
+                <View style={styles.form}>
+                  {mode === 'signup' && (
+                    <Input
+                      value={fullName}
+                      onChangeText={setFullName}
+                      placeholder="Full Name"
+                      style={styles.input}
+                    />
+                  )}
+                  
+                  <Input
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="Email address"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    style={styles.input}
+                  />
+                  
+                  <Input
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="Password"
+                    secureTextEntry
+                    style={styles.input}
+                  />
+                  
+                  {mode === 'signup' && (
+                    <Input
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                      placeholder="Confirm Password"
+                      secureTextEntry
+                      style={styles.input}
+                    />
+                  )}
 
-          <Button
-            title={isSignUp ? 'Create Account' : 'Sign In'}
-            onPress={handleAuth}
-            loading={loading}
-            style={styles.authButton}
-          />
+                  <Button
+                    title={mode === 'signup' ? 'Create Account' : 'Sign In'}
+                    onPress={handleAuth}
+                    loading={loading}
+                    style={styles.submitButton}
+                  />
 
-          {!isSignUp && (
-            <Button
-              title="Use Biometric Authentication"
-              onPress={handleBiometricAuth}
-              variant="secondary"
-              style={styles.biometricButton}
-            />
-          )}
+                  {mode === 'signin' && (
+                    <TouchableOpacity style={styles.forgotPassword}>
+                      <Text style={styles.forgotPasswordText}>
+                        Forgot your password?
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
 
-          <TouchableOpacity
-            onPress={() => setIsSignUp(!isSignUp)}
-            style={styles.switchAuth}
-          >
-            <Text style={styles.switchAuthText}>
-              {isSignUp 
-                ? 'Already have an account? Sign in' 
-                : "Don't have an account? Sign up"
-              }
-            </Text>
-          </TouchableOpacity>
-        </Card>
-      </KeyboardAvoidingView>
+                {/* Biometric Auth */}
+                <TouchableOpacity
+                  style={styles.biometricButton}
+                  onPress={handleBiometricAuth}
+                >
+                  <Text style={styles.biometricText}>Use Biometric Authentication</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Demo Access */}
+              <TouchableOpacity 
+                style={styles.demoButton}
+                onPress={() => router.replace('/(tabs)')}
+              >
+                <Text style={styles.demoText}>Continue as Demo User</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </LinearGradient>
     </SafeAreaView>
   );
 }
 
+// Google Icon Component
+const GoogleIcon = () => (
+  <View style={styles.googleIcon}>
+    <Text style={styles.googleIconText}>G</Text>
+  </View>
+);
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.dark[950],
   },
-  content: {
+  background: {
     flex: 1,
-    justifyContent: 'center',
-    padding: theme.spacing.lg,
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 20,
+    paddingBottom: 20,
+  },
+  backText: {
+    color: '#a78bfa',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   header: {
     alignItems: 'center',
-    marginBottom: theme.spacing.xl,
+    marginBottom: 32,
+  },
+  logo: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#a78bfa',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+    shadowColor: '#a78bfa',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  logoText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#ffffff',
   },
   title: {
-    fontSize: theme.fontSize['4xl'],
-    fontWeight: theme.fontWeight.bold,
-    color: theme.colors.gray[100],
-    marginBottom: theme.spacing.sm,
+    fontSize: 30,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    marginBottom: 8,
+    textAlign: 'center',
   },
   subtitle: {
-    fontSize: theme.fontSize.lg,
-    color: theme.colors.gray[400],
+    fontSize: 16,
+    color: '#9ca3af',
     textAlign: 'center',
   },
-  authCard: {
-    padding: theme.spacing.xl,
+  formContainer: {
+    flex: 1,
+    maxWidth: 400,
+    width: '100%',
+    alignSelf: 'center',
   },
-  authTitle: {
-    fontSize: theme.fontSize['2xl'],
-    fontWeight: theme.fontWeight.bold,
-    color: theme.colors.gray[100],
-    textAlign: 'center',
-    marginBottom: theme.spacing.lg,
+  formCard: {
+    backgroundColor: '#1e293b',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
+    padding: 32,
+    shadowColor: '#a78bfa',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 16,
   },
-  input: {
-    marginBottom: theme.spacing.md,
+  tabs: {
+    flexDirection: 'row',
+    backgroundColor: '#0f172a',
+    borderRadius: 8,
+    padding: 4,
+    marginBottom: 24,
   },
-  authButton: {
-    marginTop: theme.spacing.lg,
-  },
-  biometricButton: {
-    marginTop: theme.spacing.md,
-  },
-  switchAuth: {
-    marginTop: theme.spacing.lg,
+  tab: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
     alignItems: 'center',
   },
-  switchAuthText: {
-    color: theme.colors.primary[500],
-    fontSize: theme.fontSize.sm,
+  activeTab: {
+    backgroundColor: '#a78bfa',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#9ca3af',
+  },
+  activeTabText: {
+    color: '#ffffff',
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#475569',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 24,
+  },
+  googleIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  googleIconText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#4285f4',
+  },
+  googleButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#e5e7eb',
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 24,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#475569',
+  },
+  dividerText: {
+    fontSize: 14,
+    color: '#9ca3af',
+    marginHorizontal: 16,
+  },
+  form: {
+    gap: 16,
+  },
+  input: {
+    marginBottom: 0,
+  },
+  submitButton: {
+    marginTop: 8,
+  },
+  forgotPassword: {
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  forgotPasswordText: {
+    color: '#a78bfa',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  biometricButton: {
+    alignItems: 'center',
+    marginTop: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#0f172a',
+  },
+  biometricText: {
+    color: '#9ca3af',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  demoButton: {
+    alignItems: 'center',
+    marginTop: 20,
+    paddingVertical: 16,
+  },
+  demoText: {
+    color: '#6b7280',
+    fontSize: 14,
+    textDecorationLine: 'underline',
   },
 }); 
