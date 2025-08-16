@@ -4,7 +4,8 @@ import { BusinessForm } from '../components/business/BusinessForm';
 describe('BusinessForm', () => {
   it('should render without crashing', () => {
     render(<BusinessForm />);
-    // TODO: Add more specific tests for business form fields and logic
-    expect(screen.getByRole('form')).toBeInTheDocument();
+    // Assert main heading and a key input are present
+    expect(screen.getByRole('heading', { name: /edit business/i })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/enter business name/i)).toBeInTheDocument();
   });
 }); 
