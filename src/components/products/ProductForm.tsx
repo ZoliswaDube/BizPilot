@@ -16,6 +16,7 @@ import {
 import { Database } from '../../lib/supabase'
 import { ManualNumberInput } from '../ui/manual-number-input'
 import { UnitSelect } from '../ui/unit-select'
+import { ImageInput } from '../ui/image-input'
 
 type ProductInsert = Database['public']['Tables']['products']['Insert']
 type ProductUpdate = Database['public']['Tables']['products']['Update']
@@ -517,17 +518,15 @@ export function ProductForm() {
                 
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Image URL
+                    Product Image
                   </label>
-                  <motion.input
-                    type="url"
-                    name="imageUrl"
+                  <ImageInput
                     value={formData.imageUrl}
-                    onChange={handleProductFieldChange}
-                    className="input-field"
-                    placeholder="Product image URL"
-                    whileFocus={{ scale: 1.02 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                    onChange={(value: string) => setFormData(prev => ({ ...prev, imageUrl: value }))}
+                    onError={(error: string) => console.warn('Image error:', error)}
+                    placeholder="Add product image..."
+                    maxSize={5}
+                    accept="image/*"
                   />
                 </div>
               </motion.div>

@@ -29,71 +29,123 @@ export function useAIChat() {
   useEffect(() => {
     if (user) {
       fetchConversations()
+    } else {
+      // Clear data when user logs out
+      setConversations([])
+      setCurrentConversation(null)
+      setMessages([])
+      setError(null)
     }
   }, [user])
 
   useEffect(() => {
-    if (currentConversation) {
+    if (currentConversation && user) {
       fetchMessages(currentConversation.id)
+    } else {
+      setMessages([])
     }
-  }, [currentConversation])
+  }, [currentConversation, user])
+
+  // Enhanced privacy validation
+  const validateUserAccess = () => {
+    if (!user) {
+      throw new Error('User must be authenticated to access AI chat')
+    }
+    return true
+  }
 
   const fetchConversations = async () => {
-    if (!user) return
-
     try {
+      validateUserAccess()
       setError(null)
+      
       const { data, error } = await supabase
         .from('ai_conversations')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', user!.id) // Double validation
         .order('updated_at', { ascending: false })
 
-      if (error) throw error
-      setConversations(data || [])
+      if (error) {
+        console.error('Fetch conversations error:', error)
+        throw new Error(`Database error: ${error.message}`)
+      }
+
+      // Additional client-side validation
+      const validatedData = (data || []).filter(conv => conv.user_id === user!.id)
+      setConversations(validatedData)
       
       // If no current conversation, create a new one
-      if (!currentConversation && data && data.length === 0) {
+      if (!currentConversation && validatedData.length === 0) {
         await createNewConversation()
-      } else if (!currentConversation && data && data.length > 0) {
-        setCurrentConversation(data[0])
+      } else if (!currentConversation && validatedData.length > 0) {
+        setCurrentConversation(validatedData[0])
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch conversations')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch conversations'
+      setError(errorMessage)
+      console.error('Privacy Error - Fetch Conversations:', err)
     }
   }
 
   const fetchMessages = async (conversationId: string) => {
     try {
+      validateUserAccess()
       setError(null)
+      
+      // First validate the conversation belongs to the user
+      const { data: conversationCheck, error: convError } = await supabase
+        .from('ai_conversations')
+        .select('user_id')
+        .eq('id', conversationId)
+        .eq('user_id', user!.id)
+        .single()
+
+      if (convError || !conversationCheck) {
+        throw new Error('Access denied: Conversation not found or access unauthorized')
+      }
+
       const { data, error } = await supabase
         .from('ai_messages')
         .select('*')
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true })
 
-      if (error) throw error
+      if (error) {
+        console.error('Fetch messages error:', error)
+        throw new Error(`Database error: ${error.message}`)
+      }
+
       setMessages(data || [])
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch messages')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch messages'
+      setError(errorMessage)
+      console.error('Privacy Error - Fetch Messages:', err)
     }
   }
 
   const createNewConversation = async (title?: string) => {
-    if (!user) return null
-
     try {
+      validateUserAccess()
       setError(null)
+      
       const { data, error } = await supabase
         .from('ai_conversations')
         .insert({
-          user_id: user.id,
+          user_id: user!.id,
           title: title || 'New Conversation'
         })
         .select()
         .single()
 
-      if (error) throw error
+      if (error) {
+        console.error('Create conversation error:', error)
+        throw new Error(`Failed to create conversation: ${error.message}`)
+      }
+      
+      // Additional validation - ensure the returned data belongs to current user
+      if (data.user_id !== user!.id) {
+        throw new Error('Privacy violation: Created conversation user_id mismatch')
+      }
       
       setConversations(prev => [data, ...prev])
       setCurrentConversation(data)
@@ -106,13 +158,29 @@ export function useAIChat() {
       
       return data
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create conversation')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create conversation'
+      setError(errorMessage)
+      console.error('Privacy Error - Create Conversation:', err)
       return null
     }
   }
 
   const addMessage = async (conversationId: string, content: string, isUser: boolean) => {
     try {
+      validateUserAccess()
+      
+      // Validate conversation ownership before adding message
+      const { data: conversationCheck, error: convError } = await supabase
+        .from('ai_conversations')
+        .select('user_id')
+        .eq('id', conversationId)
+        .eq('user_id', user!.id)
+        .single()
+
+      if (convError || !conversationCheck) {
+        throw new Error('Access denied: Cannot add message to unauthorized conversation')
+      }
+
       setError(null)
       const { data, error } = await supabase
         .from('ai_messages')
@@ -124,7 +192,10 @@ export function useAIChat() {
         .select()
         .single()
 
-      if (error) throw error
+      if (error) {
+        console.error('Add message error:', error)
+        throw new Error(`Failed to add message: ${error.message}`)
+      }
       
       setMessages(prev => [...prev, data])
       
@@ -133,16 +204,21 @@ export function useAIChat() {
         .from('ai_conversations')
         .update({ updated_at: new Date().toISOString() })
         .eq('id', conversationId)
+        .eq('user_id', user!.id) // Additional security check
       
       return data
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add message')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to add message'
+      setError(errorMessage)
+      console.error('Privacy Error - Add Message:', err)
       return null
     }
   }
 
   const getBusinessContext = async (): Promise<BusinessContext> => {
-    if (!user) {
+    try {
+      validateUserAccess()
+    } catch {
       return {
         totalProducts: 0,
         totalInventoryItems: 0,
@@ -154,13 +230,13 @@ export function useAIChat() {
     }
 
     try {
-      // Get user's business first
+      // Get user's business first with additional security check
       const { data: businessUser } = await supabase
         .from('business_users')
         .select(`
           business:businesses(id, name)
         `)
-        .eq('user_id', user.id)
+        .eq('user_id', user!.id)
         .eq('is_active', true)
         .single()
 
@@ -179,13 +255,13 @@ export function useAIChat() {
         }
       }
 
-      // Fetch products by business_id
+      // Fetch products by business_id with user validation
       const { data: products } = await supabase
         .from('products')
         .select('profit_margin')
         .eq('business_id', businessId)
 
-      // Fetch inventory by business_id
+      // Fetch inventory by business_id with user validation
       const { data: inventory } = await supabase
         .from('inventory')
         .select('current_quantity, low_stock_alert')
@@ -223,11 +299,20 @@ export function useAIChat() {
   }
 
   const sendMessage = async (content: string) => {
-    if (!currentConversation || !user) return
-
-    setLoading(true)
-    
     try {
+      validateUserAccess()
+      
+      if (!currentConversation) {
+        throw new Error('No active conversation')
+      }
+
+      // Additional validation that current conversation belongs to user
+      if (currentConversation.user_id !== user!.id) {
+        throw new Error('Privacy violation: Current conversation does not belong to user')
+      }
+
+      setLoading(true)
+      
       // Add user message to UI immediately
       await addMessage(currentConversation.id, content, true)
       
@@ -254,8 +339,12 @@ export function useAIChat() {
       
     } catch (err) {
       console.error('Error sending message:', err)
-      await addMessage(currentConversation.id, "Sorry, I encountered an error processing your request. Please try again.", false)
-      setError(err instanceof Error ? err.message : 'Failed to send message')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to send message'
+      
+      if (currentConversation) {
+        await addMessage(currentConversation.id, `Sorry, I encountered an error: ${errorMessage}. Please try again.`, false)
+      }
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -263,10 +352,13 @@ export function useAIChat() {
 
   const updateConversationTitle = async (conversationId: string, title: string) => {
     try {
+      validateUserAccess()
+      
       const { error } = await supabase
         .from('ai_conversations')
         .update({ title })
         .eq('id', conversationId)
+        .eq('user_id', user!.id) // Additional security check
 
       if (error) throw error
       
@@ -287,11 +379,26 @@ export function useAIChat() {
 
   const deleteConversation = async (conversationId: string) => {
     try {
+      validateUserAccess()
       setError(null)
+      
+      // Additional validation - ensure conversation belongs to user
+      const { data: conversationCheck, error: convError } = await supabase
+        .from('ai_conversations')
+        .select('user_id')
+        .eq('id', conversationId)
+        .eq('user_id', user!.id)
+        .single()
+
+      if (convError || !conversationCheck) {
+        throw new Error('Access denied: Cannot delete unauthorized conversation')
+      }
+      
       const { error } = await supabase
         .from('ai_conversations')
         .delete()
         .eq('id', conversationId)
+        .eq('user_id', user!.id) // Double security check
 
       if (error) throw error
       
@@ -307,7 +414,9 @@ export function useAIChat() {
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete conversation')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete conversation'
+      setError(errorMessage)
+      console.error('Privacy Error - Delete Conversation:', err)
     }
   }
 

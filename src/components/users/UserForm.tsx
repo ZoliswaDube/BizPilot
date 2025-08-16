@@ -13,10 +13,25 @@ interface UserRole {
   }>
 }
 
+interface BusinessUser {
+  id: string
+  user_id: string
+  role: string
+  is_active: boolean
+  email?: string
+  full_name?: string
+  created_at: string
+  user_profiles?: {
+    email: string
+    full_name: string
+  }
+}
+
 interface UserFormProps {
   onClose: () => void
   onSubmit: (email: string, password: string, fullName: string, role: string, permissions: string[]) => void
   userRoles: UserRole[]
+  editingUser?: BusinessUser | null
 }
 
 const AVAILABLE_PERMISSIONS = {
@@ -30,25 +45,27 @@ const AVAILABLE_PERMISSIONS = {
   users: ['create', 'read', 'update', 'delete']
 }
 
-export function UserForm({ onClose, onSubmit, userRoles }: UserFormProps) {
-  const [email, setEmail] = useState('')
+export function UserForm({ onClose, onSubmit, userRoles, editingUser }: UserFormProps) {
+  const isEditing = !!editingUser
+  const [email, setEmail] = useState(editingUser?.user_profiles?.email || '')
   const [password, setPassword] = useState('')
-  const [fullName, setFullName] = useState('')
-  const [selectedRole, setSelectedRole] = useState('')
+  const [fullName, setFullName] = useState(editingUser?.user_profiles?.full_name || '')
+  const [selectedRole, setSelectedRole] = useState(editingUser?.role || '')
   const [customPermissions, setCustomPermissions] = useState<string[]>([])
   const [showCustomPermissions, setShowCustomPermissions] = useState(false)
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email || !password || !fullName || !selectedRole) return
+    // Password is only required when creating a new user
+    if (!email || (!isEditing && !password) || !fullName || !selectedRole) return
 
     setLoading(true)
     try {
       const permissions = showCustomPermissions ? customPermissions : []
       await onSubmit(email, password, fullName, selectedRole, permissions)
     } catch (err) {
-      console.error('Error creating user:', err)
+      console.error('Error creating/updating user:', err)
     } finally {
       setLoading(false)
     }
@@ -85,7 +102,7 @@ export function UserForm({ onClose, onSubmit, userRoles }: UserFormProps) {
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.1 }}
             >
-              Create User
+              {isEditing ? 'Edit User' : 'Create User'}
             </motion.h2>
             <button
               onClick={onClose}
@@ -138,16 +155,16 @@ export function UserForm({ onClose, onSubmit, userRoles }: UserFormProps) {
               transition={{ delay: 0.3 }}
             >
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Password *
+                Password {!isEditing ? '*' : '(optional)'}
               </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 bg-dark-800 border border-dark-600 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="Enter user's password"
+                placeholder={isEditing ? "Leave empty to keep current password" : "Enter user's password"}
                 minLength={6}
-                required
+                required={!isEditing}
               />
             </motion.div>
 

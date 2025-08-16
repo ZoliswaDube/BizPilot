@@ -11,6 +11,7 @@ export function Logo({ width = 32, height = 32, className = '' }: LogoProps) {
 
   return (
     <svg 
+      data-testid="svg"
       width={width} 
       height={height} 
       viewBox="0 0 80 80" 

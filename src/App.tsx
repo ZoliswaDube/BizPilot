@@ -25,6 +25,9 @@ import { ContactForm } from './components/contact/ContactForm' // New import
 import { BusinessForm } from './components/business/BusinessForm' // New import
 import { BusinessOnboarding } from './components/business/BusinessOnboarding' // New import
 import { UserManagement } from './components/users/UserManagement' // New import
+import { OrderList } from './components/orders/OrderList' // New import
+import { OrderForm } from './components/orders/OrderForm' // New import
+import { OrderDetail } from './components/orders/OrderDetail' // New import
 
 function App() {
   return (
@@ -179,6 +182,39 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <ContactForm />
+                </Layout>
+              </ProtectedRoute>
+            } />
+
+            {/* Order management routes */}
+            <Route path="/orders" element={
+              <ProtectedRoute>
+                <Layout>
+                  <OrderList />
+                </Layout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/orders/new" element={
+              <ProtectedRoute>
+                <Layout>
+                  <OrderForm />
+                </Layout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/orders/edit/:id" element={
+              <ProtectedRoute>
+                <Layout>
+                  <OrderForm />
+                </Layout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/orders/:id" element={
+              <ProtectedRoute>
+                <Layout>
+                  <OrderDetail />
                 </Layout>
               </ProtectedRoute>
             } />

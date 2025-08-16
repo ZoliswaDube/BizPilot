@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Edit, Trash2, Loader2, Plus, X } from 'lucide-react'
+import { Edit, Trash2, Loader2, Plus, X, Grid3X3, List } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSuppliers } from '../../hooks/useSuppliers'
 import { Database } from '../../lib/supabase'
@@ -19,6 +19,7 @@ export function SupplierManagement() {
   const [submitLoading, setSubmitLoading] = useState(false)
   const [formError, setFormError] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -106,13 +107,41 @@ export function SupplierManagement() {
           <h1 className="text-2xl font-bold text-gray-100">Supplier Management</h1>
           <p className="text-gray-400">Manage your product suppliers.</p>
         </div>
-        <button
-          onClick={() => openModal()}
-          className="btn-primary flex items-center space-x-2"
-        >
-          <Plus size={20} />
-          <span>Add Supplier</span>
-        </button>
+        <div className="flex items-center space-x-3">
+          {/* View Toggle */}
+          <div className="flex items-center bg-dark-800 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-2 rounded-md transition-colors ${
+                viewMode === 'grid'
+                  ? 'bg-primary-600 text-white'
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
+              title="Grid view"
+            >
+              <Grid3X3 size={16} />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-2 rounded-md transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-primary-600 text-white'
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
+              title="List view"
+            >
+              <List size={16} />
+            </button>
+          </div>
+          
+          <button
+            onClick={() => openModal()}
+            className="btn-primary flex items-center space-x-2"
+          >
+            <Plus size={20} />
+            <span>Add Supplier</span>
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -136,53 +165,160 @@ export function SupplierManagement() {
             </button>
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {suppliers.map((supplier) => (
-              <div key={supplier.id} className="bg-dark-800 rounded-lg p-4 border border-dark-700">
-                <div className="flex items-start justify-between mb-3">
-                  <h3 className="text-gray-200 font-medium text-lg">{supplier.name}</h3>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => openModal(supplier)}
-                      className="text-primary-400 hover:text-primary-300 transition-colors"
-                      title="Edit supplier"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteSupplier(supplier.id, supplier.name)}
-                      className="text-red-400 hover:text-red-300 transition-colors"
-                      title="Delete supplier"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  {supplier.contact_person && (
-                    <p className="text-sm text-gray-400">
-                      <span className="font-medium">Contact:</span> {supplier.contact_person}
-                    </p>
-                  )}
-                  {supplier.email && (
-                    <p className="text-sm text-gray-400">
-                      <span className="font-medium">Email:</span> {supplier.email}
-                    </p>
-                  )}
-                  {supplier.phone && (
-                    <p className="text-sm text-gray-400">
-                      <span className="font-medium">Phone:</span> {supplier.phone}
-                    </p>
-                  )}
-                  {supplier.address && (
-                    <p className="text-sm text-gray-400">
-                      <span className="font-medium">Address:</span> {supplier.address}
-                    </p>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+          <>
+            {/* Grid View */}
+            {viewMode === 'grid' && (
+              <motion.div 
+                className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3 }}
+              >
+                {suppliers.map((supplier) => (
+                  <motion.div 
+                    key={supplier.id} 
+                    className="bg-dark-800 rounded-lg p-4 border border-dark-700 hover:border-dark-600 transition-colors"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    whileHover={{ scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <h3 className="text-gray-200 font-medium text-lg">{supplier.name}</h3>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => openModal(supplier)}
+                          className="text-primary-400 hover:text-primary-300 transition-colors"
+                          title="Edit supplier"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSupplier(supplier.id, supplier.name)}
+                          className="text-red-400 hover:text-red-300 transition-colors"
+                          title="Delete supplier"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      {supplier.contact_person && (
+                        <p className="text-sm text-gray-400">
+                          <span className="font-medium">Contact:</span> {supplier.contact_person}
+                        </p>
+                      )}
+                      {supplier.email && (
+                        <p className="text-sm text-gray-400">
+                          <span className="font-medium">Email:</span> {supplier.email}
+                        </p>
+                      )}
+                      {supplier.phone && (
+                        <p className="text-sm text-gray-400">
+                          <span className="font-medium">Phone:</span> {supplier.phone}
+                        </p>
+                      )}
+                      {supplier.address && (
+                        <p className="text-sm text-gray-400">
+                          <span className="font-medium">Address:</span> {supplier.address}
+                        </p>
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
+              </motion.div>
+            )}
+
+            {/* List View */}
+            {viewMode === 'list' && (
+              <motion.div 
+                className="space-y-3"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3 }}
+              >
+                {suppliers.map((supplier) => (
+                  <motion.div 
+                    key={supplier.id} 
+                    className="bg-dark-800 rounded-lg p-4 border border-dark-700 hover:border-dark-600 transition-colors"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-6">
+                          <div className="min-w-0">
+                            <h3 className="text-gray-200 font-medium text-lg truncate">{supplier.name}</h3>
+                            {supplier.contact_person && (
+                              <p className="text-sm text-gray-400 truncate">{supplier.contact_person}</p>
+                            )}
+                          </div>
+                          
+                          <div className="hidden sm:flex items-center space-x-6 text-sm text-gray-400">
+                            {supplier.email && (
+                              <div className="min-w-0">
+                                <span className="font-medium text-gray-300">Email:</span>
+                                <p className="truncate">{supplier.email}</p>
+                              </div>
+                            )}
+                            {supplier.phone && (
+                              <div className="min-w-0">
+                                <span className="font-medium text-gray-300">Phone:</span>
+                                <p className="truncate">{supplier.phone}</p>
+                              </div>
+                            )}
+                            {supplier.address && (
+                              <div className="min-w-0 max-w-xs">
+                                <span className="font-medium text-gray-300">Address:</span>
+                                <p className="truncate">{supplier.address}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Mobile details */}
+                        <div className="mt-3 sm:hidden space-y-1">
+                          {supplier.email && (
+                            <p className="text-sm text-gray-400">
+                              <span className="font-medium">Email:</span> {supplier.email}
+                            </p>
+                          )}
+                          {supplier.phone && (
+                            <p className="text-sm text-gray-400">
+                              <span className="font-medium">Phone:</span> {supplier.phone}
+                            </p>
+                          )}
+                          {supplier.address && (
+                            <p className="text-sm text-gray-400">
+                              <span className="font-medium">Address:</span> {supplier.address}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="flex space-x-2 ml-4">
+                        <button
+                          onClick={() => openModal(supplier)}
+                          className="text-primary-400 hover:text-primary-300 transition-colors"
+                          title="Edit supplier"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSupplier(supplier.id, supplier.name)}
+                          className="text-red-400 hover:text-red-300 transition-colors"
+                          title="Delete supplier"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </motion.div>
+            )}
+          </>
         )}
       </div>
 

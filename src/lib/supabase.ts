@@ -7,7 +7,278 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables')
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Enhanced Supabase client configuration with automatic token refresh
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    // Automatically refresh tokens when they're about to expire
+    autoRefreshToken: true,
+    // Persist session in localStorage
+    persistSession: true,
+    // Storage configuration
+    storage: window.localStorage,
+    // Set custom storage key
+    storageKey: 'bizpilot-auth-token',
+    // Detect sessions in other tabs and sync
+    detectSessionInUrl: true,
+    // Advanced auth settings
+    flowType: 'pkce',
+    // Custom debug logging for auth
+    debug: false,
+  },
+  // Global request settings
+  global: {
+    headers: {
+      'x-application-name': 'BizPilot',
+    },
+  },
+  // Database settings
+  db: {
+    schema: 'public',
+  },
+  // Realtime settings
+  realtime: {
+    params: {
+      eventsPerSecond: 2, // Reduce realtime event frequency to prevent overload
+    },
+  },
+})
+
+// Session validation and refresh utilities
+export class SessionManager {
+  private static refreshPromise: Promise<any> | null = null
+  private static isRefreshing = false
+  private static lastActivity = Date.now()
+  private static activityTimer: NodeJS.Timeout | null = null
+  
+  /**
+   * Initialize session management with activity tracking
+   */
+  static initialize() {
+    console.log('🔐 SessionManager: Initializing session management')
+    
+    // Track user activity
+    this.setupActivityTracking()
+    
+    // Set up periodic session validation
+    this.setupPeriodicValidation()
+    
+    // Set up visibility change handling
+    this.setupVisibilityHandler()
+    
+    console.log('🔐 SessionManager: Session management initialized')
+  }
+  
+  /**
+   * Track user activity to detect when user returns
+   */
+  private static setupActivityTracking() {
+    const activities = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click']
+    
+    const updateActivity = () => {
+      this.lastActivity = Date.now()
+    }
+    
+    activities.forEach(event => {
+      document.addEventListener(event, updateActivity, { passive: true })
+    })
+  }
+  
+  /**
+   * Set up periodic session validation (every 5 minutes)
+   */
+  private static setupPeriodicValidation() {
+    setInterval(async () => {
+      const session = await supabase.auth.getSession()
+      if (session.data.session) {
+        await this.validateAndRefreshSession()
+      }
+    }, 5 * 60 * 1000) // 5 minutes
+  }
+  
+  /**
+   * Handle page visibility changes (when user switches tabs)
+   */
+  private static setupVisibilityHandler() {
+    document.addEventListener('visibilitychange', async () => {
+      if (!document.hidden) {
+        // User is back, validate session
+        console.log('🔐 SessionManager: User returned to tab, validating session')
+        await this.validateAndRefreshSession()
+      }
+    })
+  }
+  
+  /**
+   * Validate current session and refresh if needed
+   */
+  static async validateAndRefreshSession(): Promise<boolean> {
+    try {
+      console.log('🔐 SessionManager: Validating session...')
+      
+      const { data: { session }, error } = await supabase.auth.getSession()
+      
+      if (error) {
+        console.error('🔐 SessionManager: Error getting session:', error)
+        return false
+      }
+      
+      if (!session) {
+        console.log('🔐 SessionManager: No session found')
+        return false
+      }
+      
+             // Check if token is close to expiring (within 5 minutes)
+       const expiresAt = session.expires_at
+       if (!expiresAt) {
+         console.warn('🔐 SessionManager: Session has no expiration time')
+         return true // Assume valid if no expiration
+       }
+       
+       const now = Math.floor(Date.now() / 1000)
+       const timeUntilExpiry = expiresAt - now
+       
+       console.log('🔐 SessionManager: Session status', {
+         expiresAt: new Date(expiresAt * 1000).toISOString(),
+         timeUntilExpiry: `${Math.floor(timeUntilExpiry / 60)} minutes`,
+         needsRefresh: timeUntilExpiry < 300
+       })
+      
+      if (timeUntilExpiry < 300) { // Less than 5 minutes
+        console.log('🔐 SessionManager: Token expires soon, refreshing...')
+        return await this.refreshSession()
+      }
+      
+      return true
+    } catch (error) {
+      console.error('🔐 SessionManager: Error validating session:', error)
+      return false
+    }
+  }
+  
+  /**
+   * Refresh the current session
+   */
+  static async refreshSession(): Promise<boolean> {
+    // Prevent multiple simultaneous refresh attempts
+    if (this.isRefreshing) {
+      console.log('🔐 SessionManager: Refresh already in progress, waiting...')
+      if (this.refreshPromise) {
+        return await this.refreshPromise
+      }
+      return false
+    }
+    
+    this.isRefreshing = true
+    
+    this.refreshPromise = (async () => {
+      try {
+        console.log('🔐 SessionManager: Refreshing session...')
+        
+        const { data, error } = await supabase.auth.refreshSession()
+        
+        if (error) {
+          console.error('🔐 SessionManager: Error refreshing session:', error)
+          // If refresh fails, the user needs to re-authenticate
+          await supabase.auth.signOut()
+          return false
+        }
+        
+        if (data.session) {
+          console.log('🔐 SessionManager: Session refreshed successfully')
+          return true
+        }
+        
+        console.warn('🔐 SessionManager: No session returned from refresh')
+        return false
+      } catch (error) {
+        console.error('🔐 SessionManager: Unexpected error during refresh:', error)
+        return false
+      } finally {
+        this.isRefreshing = false
+        this.refreshPromise = null
+      }
+    })()
+    
+    return await this.refreshPromise
+  }
+  
+  /**
+   * Check if user has been inactive for a long time
+   */
+  static isInactive(): boolean {
+    const inactiveThreshold = 30 * 60 * 1000 // 30 minutes
+    return Date.now() - this.lastActivity > inactiveThreshold
+  }
+  
+  /**
+   * Force session validation (useful when user performs an action after inactivity)
+   */
+  static async forceValidation(): Promise<boolean> {
+    console.log('🔐 SessionManager: Force validation requested')
+    return await this.validateAndRefreshSession()
+  }
+}
+
+// Enhanced request wrapper with automatic retry on auth errors
+export async function supabaseRequest<T>(
+  requestFn: () => Promise<T>,
+  retryCount = 1
+): Promise<T> {
+  try {
+    const result = await requestFn()
+    return result
+  } catch (error: any) {
+    console.log('🔐 supabaseRequest: Request failed', { error: error?.message, retryCount })
+    
+    // Check if it's an auth error
+    if (error?.message?.includes('JWT') || 
+        error?.message?.includes('expired') || 
+        error?.message?.includes('invalid') ||
+        error?.code === 'PGRST301') {
+      
+      if (retryCount > 0) {
+        console.log('🔐 supabaseRequest: Auth error detected, attempting session refresh')
+        
+        const refreshed = await SessionManager.refreshSession()
+        if (refreshed) {
+          console.log('🔐 supabaseRequest: Session refreshed, retrying request')
+          return await supabaseRequest(requestFn, retryCount - 1)
+        } else {
+          console.error('🔐 supabaseRequest: Failed to refresh session')
+          throw new Error('Session expired. Please sign in again.')
+        }
+      }
+    }
+    
+    throw error
+  }
+}
+
+// Helper function to handle common Supabase operations with retry
+export async function supabaseQuery<T>(
+  tableName: string,
+  queryFn: (table: any) => any,
+  options: { retryOnAuth?: boolean } = {}
+) {
+  const { retryOnAuth = true } = options
+  
+  const execute = async () => {
+    const query = queryFn(supabase.from(tableName))
+    const { data, error } = await query
+    
+    if (error) {
+      throw error
+    }
+    
+    return data as T
+  }
+  
+  if (retryOnAuth) {
+    return await supabaseRequest(execute)
+  } else {
+    return await execute()
+  }
+}
 
 export type Json =
   | string

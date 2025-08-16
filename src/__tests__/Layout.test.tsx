@@ -17,6 +17,6 @@ describe('Layout', () => {
         <div>Content</div>
       </Layout>
     );
-    expect(container.firstChild).toHaveClass(''); // Add expected class if any
+    expect(container.textContent).toContain('Content');
   });
 }); 
