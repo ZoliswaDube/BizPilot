@@ -14,6 +14,40 @@ import { vi } from 'vitest'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ;(window as any).scrollTo = vi.fn()
 
+// Mock HTMLCanvasElement.getContext to silence Chart.js warnings in JSDOM
+if (typeof HTMLCanvasElement !== 'undefined') {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(HTMLCanvasElement.prototype as any).getContext = vi.fn(() => ({
+    clearRect: vi.fn(),
+    fillRect: vi.fn(),
+    getImageData: vi.fn(() => ({ data: [] })),
+    putImageData: vi.fn(),
+    createImageData: vi.fn(),
+    setTransform: vi.fn(),
+    drawImage: vi.fn(),
+    save: vi.fn(),
+    fillText: vi.fn(),
+    restore: vi.fn(),
+    beginPath: vi.fn(),
+    moveTo: vi.fn(),
+    lineTo: vi.fn(),
+    closePath: vi.fn(),
+    stroke: vi.fn(),
+    translate: vi.fn(),
+    scale: vi.fn(),
+    rotate: vi.fn(),
+    arc: vi.fn(),
+    fill: vi.fn(),
+    measureText: vi.fn(() => ({ width: 0 })),
+    canvas: (() => {
+      const c = document.createElement('canvas')
+      c.width = 100
+      c.height = 100
+      return c
+    })(),
+  }))
+}
+
 // Mock react-router-dom hooks/components to avoid requiring a Router in unit tests
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<any>('react-router-dom')

@@ -189,7 +189,7 @@ export function CustomerDetailsModal({ isOpen, onClose, customer: initialCustome
                   
                   <div className="space-y-2">
                     {customer.address && (
-                      <p className="font-medium">{customer.address}</p>
+                      <p className="font-medium">{typeof customer.address === 'string' ? customer.address : ''}</p>
                     )}
                     {(customer.city || customer.state || customer.postal_code) && (
                       <p className="text-gray-700">

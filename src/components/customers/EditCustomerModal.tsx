@@ -16,7 +16,7 @@ export function EditCustomerModal({ isOpen, onClose, customer, onSuccess }: Edit
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
-  const [customerType, setCustomerType] = useState<Customer['customer_type']>('individual')
+  const [customerType, setCustomerType] = useState<'individual' | 'business'>('individual')
   const [taxNumber, setTaxNumber] = useState('')
   const [address, setAddress] = useState('')
   const [city, setCity] = useState('')
@@ -33,13 +33,13 @@ export function EditCustomerModal({ isOpen, onClose, customer, onSuccess }: Edit
       setName(customer.name)
       setEmail(customer.email || '')
       setPhone(customer.phone || '')
-      setCustomerType(customer.customer_type)
-      setTaxNumber(customer.tax_number || '')
-      setAddress(customer.address || '')
-      setCity(customer.city || '')
-      setState(customer.state || '')
-      setPostalCode(customer.postal_code || '')
-      setCountry(customer.country || 'South Africa')
+      setCustomerType((customer as any).customer_type || 'individual')
+      setTaxNumber((customer as any).tax_number || '')
+      setAddress((customer.address as any) || '')
+      setCity((customer as any).city || '')
+      setState((customer as any).state || '')
+      setPostalCode((customer as any).postal_code || '')
+      setCountry((customer as any).country || 'South Africa')
       setNotes(customer.notes || '')
     }
   }, [customer])
@@ -56,7 +56,7 @@ export function EditCustomerModal({ isOpen, onClose, customer, onSuccess }: Edit
         throw new Error('Customer name is required')
       }
 
-      const updates: UpdateCustomerData = {
+      const updates = {
         name: name.trim(),
         email: email.trim() || undefined,
         phone: phone.trim() || undefined,
@@ -128,7 +128,7 @@ export function EditCustomerModal({ isOpen, onClose, customer, onSuccess }: Edit
                   </label>
                   <select
                     value={customerType}
-                    onChange={(e) => setCustomerType(e.target.value as Customer['customer_type'])}
+                    onChange={(e) => setCustomerType((e.target.value as 'individual' | 'business'))}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="individual">Individual</option>
@@ -218,7 +218,7 @@ export function EditCustomerModal({ isOpen, onClose, customer, onSuccess }: Edit
                   />
                   {customer.address && (
                     <p className="mt-1 text-sm text-gray-500">
-                      Current: {customer.address}
+                      Current: {typeof customer.address === 'string' ? customer.address : ''}
                     </p>
                   )}
                 </div>

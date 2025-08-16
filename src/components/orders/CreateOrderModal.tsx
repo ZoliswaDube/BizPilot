@@ -264,7 +264,7 @@ export function CreateOrderModal({ isOpen, onClose, onSuccess }: CreateOrderModa
                             <option value="">Select from inventory</option>
                             {inventory.map((inv) => (
                               <option key={inv.id} value={inv.id}>
-                                {inv.product?.name || inv.name} (Stock: {inv.quantity_in_stock})
+                                {inv.name} (Stock: {inv.current_quantity})
                               </option>
                             ))}
                           </select>

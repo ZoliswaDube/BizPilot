@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { useOrders } from '../../hooks/useOrders'
-import type { Order } from '../../types/orders'
+import type { Order, UpdateOrderRequest } from '../../types/orders'
 const ORDER_STATUS_LABELS: Record<Order['status'], string> = {
   pending: 'Pending',
   confirmed: 'Confirmed',
@@ -53,11 +53,11 @@ export function EditOrderModal({ isOpen, onClose, order, onSuccess }: EditOrderM
     setError(null)
 
     try {
-      const updates: UpdateOrderData = {
+      const updates: UpdateOrderRequest = {
         status,
         payment_status: paymentStatus,
         notes: notes.trim() || undefined,
-        delivery_date: deliveryDate || undefined
+        estimated_delivery_date: deliveryDate || undefined
       }
 
       const success = await updateOrder(order.id, updates)

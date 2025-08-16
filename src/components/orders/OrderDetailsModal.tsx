@@ -230,9 +230,9 @@ export function OrderDetailsModal({ isOpen, onClose, order: initialOrder }: Orde
                               <div className="text-sm font-medium text-gray-900">
                                 {item.product_name}
                               </div>
-                              {item.product?.description && (
+                              {(item as any).product?.description && (
                                 <div className="text-sm text-gray-500">
-                                  {item.product.description}
+                                  {(item as any).product.description}
                                 </div>
                               )}
                             </div>

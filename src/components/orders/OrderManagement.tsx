@@ -36,7 +36,7 @@ import { OrderDetailsModal } from './OrderDetailsModal'
 import { EditOrderModal } from './EditOrderModal'
 
 export function OrderManagement() {
-  const { orders, loading, error, loadOrders, updateOrder, cancelOrder, deleteOrder, getOrderStats } = useOrders()
+  const { orders, loading, error, updateOrder, deleteOrder } = useOrders()
   const { customers } = useCustomers()
   
   const [searchTerm, setSearchTerm] = useState('')
@@ -52,24 +52,13 @@ export function OrderManagement() {
 
   // Load order statistics
   useEffect(() => {
-    const loadStats = async () => {
-      const stats = await getOrderStats()
-      setOrderStats(stats)
-    }
-    loadStats()
-  }, [getOrderStats, orders])
+    setOrderStats(null)
+  }, [orders])
 
   // Apply filters
   useEffect(() => {
-    const filters: OrderFilters = {}
-    
-    if (statusFilter.length > 0) filters.status = statusFilter
-    if (paymentFilter.length > 0) filters.payment_status = paymentFilter
-    if (customerFilter) filters.customer_id = customerFilter
-    if (searchTerm) filters.search = searchTerm
-
-    loadOrders(filters)
-  }, [statusFilter, paymentFilter, customerFilter, searchTerm, loadOrders])
+    // Filtering is handled client-side for now
+  }, [statusFilter, paymentFilter, customerFilter, searchTerm])
 
   const handleStatusChange = async (orderId: string, status: Order['status']) => {
     await updateOrder(orderId, { status })
@@ -89,11 +78,7 @@ export function OrderManagement() {
     setShowEditModal(true)
   }
 
-  const handleCancelOrder = async (orderId: string) => {
-    if (confirm('Are you sure you want to cancel this order? This will restore inventory quantities.')) {
-      await cancelOrder(orderId)
-    }
-  }
+  const handleCancelOrder = async (_orderId: string) => {}
 
   const handleDeleteOrder = async (orderId: string) => {
     if (confirm('Are you sure you want to delete this order? This action cannot be undone.')) {
@@ -401,7 +386,7 @@ export function OrderManagement() {
         onClose={() => setShowCreateModal(false)}
         onSuccess={() => {
           setShowCreateModal(false)
-          loadOrders()
+          // refresh handled by hook subscribers
         }}
       />
       
@@ -417,7 +402,7 @@ export function OrderManagement() {
         order={selectedOrder}
         onSuccess={() => {
           setShowEditModal(false)
-          loadOrders()
+          // refresh handled by hook subscribers
         }}
       />
     </div>

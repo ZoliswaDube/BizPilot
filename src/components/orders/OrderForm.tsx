@@ -90,8 +90,8 @@ export function OrderForm({ orderId, onSave, onCancel }: OrderFormProps) {
         customer_id: order.customer_id,
         items: [], // Will be loaded separately
         notes: order.notes || '',
-        shipping_address: order.shipping_address ? JSON.parse(order.shipping_address) : undefined,
-        billing_address: order.billing_address ? JSON.parse(order.billing_address) : undefined,
+        shipping_address: order.shipping_address,
+        billing_address: order.billing_address,
         estimated_delivery_date: order.estimated_delivery_date || '',
         payment_method: order.payment_method || '',
         discount_amount: order.discount_amount || 0
@@ -121,7 +121,7 @@ export function OrderForm({ orderId, onSave, onCancel }: OrderFormProps) {
 
   // Filter products and inventory for search
   const searchableItems = useMemo(() => {
-    const items: Array<{ type: 'product' | 'inventory', item: Product | InventoryItem }> = []
+    const items: Array<{ type: 'product' | 'inventory', item: Product | InventoryItem | Record<string, any> }> = []
     
     products.forEach(product => {
       items.push({ type: 'product', item: product })
@@ -136,8 +136,8 @@ export function OrderForm({ orderId, onSave, onCancel }: OrderFormProps) {
     const term = productSearchTerm.toLowerCase()
     return items.filter(({ item }) =>
       item.name.toLowerCase().includes(term) ||
-      ('sku' in item && item.sku?.toLowerCase().includes(term)) ||
-      ('barcode' in item && item.barcode?.toLowerCase().includes(term))
+      (('sku' in item) && typeof (item as any).sku === 'string' && (item as any).sku.toLowerCase().includes(term)) ||
+      (('barcode' in item) && typeof (item as any).barcode === 'string' && (item as any).barcode.toLowerCase().includes(term))
     ).slice(0, 10)
   }, [products, inventory, productSearchTerm])
 
@@ -513,7 +513,7 @@ export function OrderForm({ orderId, onSave, onCancel }: OrderFormProps) {
                   <button
                     key={`${type}-${item.id}`}
                     type="button"
-                    onClick={() => handleAddItem(type, item)}
+                    onClick={() => handleAddItem(type, item as Product | InventoryItem)}
                     className="w-full p-3 text-left hover:bg-dark-700 transition-colors rounded-lg border border-dark-600"
                   >
                     <div className="flex items-center justify-between">
@@ -521,7 +521,7 @@ export function OrderForm({ orderId, onSave, onCancel }: OrderFormProps) {
                         <p className="font-medium text-gray-100">{item.name}</p>
                         <div className="flex items-center space-x-4 text-sm text-gray-400">
                           <span className="capitalize">{type}</span>
-                          {'sku' in item && item.sku && <span>SKU: {item.sku}</span>}
+                          {('sku' in item) && (item as any).sku && <span>SKU: {(item as any).sku}</span>}
                           {type === 'inventory' && (
                             <span>Stock: {(item as InventoryItem).current_quantity}</span>
                           )}
