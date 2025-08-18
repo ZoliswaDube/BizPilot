@@ -25,7 +25,7 @@ export function AuthInitializer() {
     // Set a timeout to ensure loading never gets stuck indefinitely
     const loadingTimeout = setTimeout(() => {
       setLoading(false)
-    }, 10000) // 10 second timeout
+    }, 6000)
     
     // Get initial session
     supabase.auth.getSession().then(async ({ data: { session } }) => {

@@ -18,10 +18,14 @@ import { useAuthStore } from '../src/store/auth';
 import { Button } from '../src/components/ui/Button';
 import { Input } from '../src/components/ui/Input';
 import { Card } from '../src/components/ui/Card';
+import { demoAuth } from '../src/lib/demoAuth';
+
+// Check if we're in demo mode
+const isDemoMode = !process.env.EXPO_PUBLIC_SUPABASE_URL || !process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 export default function AuthScreen() {
   const router = useRouter();
-  const { signIn, signUp, loading } = useAuthStore();
+  const { signIn, signUp, loading, error, clearError } = useAuthStore();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,11 +33,22 @@ export default function AuthScreen() {
   const [fullName, setFullName] = useState('');
   const [googleLoading, setGoogleLoading] = useState(false);
 
+  // Clear errors when switching modes
+  React.useEffect(() => {
+    clearError();
+  }, [mode, clearError]);
+
   const handleAuth = async () => {
     try {
+      clearError();
+      
       if (mode === 'signup') {
         if (password !== confirmPassword) {
           Alert.alert('Error', 'Passwords do not match');
+          return;
+        }
+        if (password.length < 6) {
+          Alert.alert('Error', 'Password must be at least 6 characters long');
           return;
         }
         await signUp(email, password, fullName);
@@ -41,9 +56,11 @@ export default function AuthScreen() {
         await signIn(email, password);
       }
       
-      router.replace('/(tabs)');
+      // Don't redirect immediately - let the auth store handle navigation
+      // The index page will handle redirecting based on auth state
     } catch (error) {
-      Alert.alert('Authentication Error', error instanceof Error ? error.message : 'An error occurred');
+      // Error is already handled by the auth store
+      console.error('Auth error:', error);
     }
   };
 
@@ -205,7 +222,27 @@ export default function AuthScreen() {
                     style={styles.submitButton}
                   />
 
-                  {mode === 'signin' && (
+                  {/* Demo Credentials */}
+                  {isDemoMode && mode === 'signin' && (
+                    <Card style={styles.demoCredentials}>
+                      <Text style={styles.demoCredentialsTitle}>Demo Credentials</Text>
+                      {demoAuth.getDemoCredentials().map((cred, index) => (
+                        <TouchableOpacity
+                          key={index}
+                          style={styles.demoCredentialItem}
+                          onPress={() => {
+                            setEmail(cred.email);
+                            setPassword(cred.password);
+                          }}
+                        >
+                          <Text style={styles.demoCredentialEmail}>{cred.email}</Text>
+                          <Text style={styles.demoCredentialDesc}>{cred.description}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </Card>
+                  )}
+
+                  {mode === 'signin' && !isDemoMode && (
                     <TouchableOpacity style={styles.forgotPassword}>
                       <Text style={styles.forgotPasswordText}>
                         Forgot your password?
@@ -434,5 +471,35 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     fontSize: 14,
     textDecorationLine: 'underline',
+  },
+  demoCredentials: {
+    marginTop: 16,
+    backgroundColor: '#0f172a',
+    borderColor: '#a78bfa',
+    borderWidth: 1,
+  },
+  demoCredentialsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#a78bfa',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  demoCredentialItem: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#1e293b',
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  demoCredentialEmail: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  demoCredentialDesc: {
+    fontSize: 12,
+    color: '#9ca3af',
+    marginTop: 2,
   },
 }); 

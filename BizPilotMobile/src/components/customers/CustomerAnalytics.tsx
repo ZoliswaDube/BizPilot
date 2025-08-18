@@ -28,6 +28,7 @@ import { Button } from '../ui/Button';
 import { mcp_supabase_execute_sql } from '../../services/mcpClient';
 import { useAuthStore } from '../../store/auth';
 import * as Haptics from 'expo-haptics';
+import { Platform } from 'react-native';
 
 interface Customer {
   id: string;
@@ -304,7 +305,9 @@ export default function CustomerAnalytics({ dateRange }: CustomerAnalyticsProps)
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (Platform.OS !== 'web' && (Haptics as any)?.impactAsync) {
+      try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
+    }
     await loadCustomerAnalytics();
     setRefreshing(false);
   };
@@ -582,7 +585,9 @@ export default function CustomerAnalytics({ dateRange }: CustomerAnalyticsProps)
             style={[styles.tab, activeTab === key && styles.activeTab]}
             onPress={() => {
               setActiveTab(key as any);
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              if (Platform.OS !== 'web' && (Haptics as any)?.impactAsync) {
+                try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
+              }
             }}
           >
             <Icon size={20} color={activeTab === key ? '#a78bfa' : '#9ca3af'} />

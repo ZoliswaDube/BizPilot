@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { useAuthStore } from '../../store/auth'
+import { SessionManager } from '../../lib/supabase'
 
 interface ProtectedRouteProps {
   children: ReactNode
@@ -12,7 +13,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const navigate = useNavigate()
   const [loadingTimeout, setLoadingTimeout] = useState(false)
 
-  // Handle stuck loading state
+  // Handle stuck loading state and trigger background validation
   useEffect(() => {
     if (loading) {
       const timer = setTimeout(() => {
@@ -34,12 +35,15 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
           }
         }
         
-        // If no user after timeout, redirect to auth error
-        if (!user) {
-          signOut().then(() => {
-            navigate('/auth/error?error=Authentication%20Failed&error_description=Unable%20to%20verify%20your%20authentication.%20Please%20sign%20in%20again.')
-          })
-        }
+        // Proactively validate/refresh session
+        SessionManager.validateAndRefreshSession().finally(() => {
+          // If no user after timeout, redirect to auth error
+          if (!user) {
+            signOut().then(() => {
+              navigate('/auth/error?error=Authentication%20Failed&error_description=Unable%20to%20verify%20your%20authentication.%20Please%20sign%20in%20again.')
+            })
+          }
+        })
       }, 15000) // 15 second timeout
 
       return () => clearTimeout(timer)
