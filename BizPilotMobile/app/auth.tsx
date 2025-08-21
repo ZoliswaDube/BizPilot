@@ -18,10 +18,6 @@ import { useAuthStore } from '../src/store/auth';
 import { Button } from '../src/components/ui/Button';
 import { Input } from '../src/components/ui/Input';
 import { Card } from '../src/components/ui/Card';
-import { demoAuth } from '../src/lib/demoAuth';
-
-// Check if we're in demo mode
-const isDemoMode = !process.env.EXPO_PUBLIC_SUPABASE_URL || !process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -222,27 +218,7 @@ export default function AuthScreen() {
                     style={styles.submitButton}
                   />
 
-                  {/* Demo Credentials */}
-                  {isDemoMode && mode === 'signin' && (
-                    <Card style={styles.demoCredentials}>
-                      <Text style={styles.demoCredentialsTitle}>Demo Credentials</Text>
-                      {demoAuth.getDemoCredentials().map((cred, index) => (
-                        <TouchableOpacity
-                          key={index}
-                          style={styles.demoCredentialItem}
-                          onPress={() => {
-                            setEmail(cred.email);
-                            setPassword(cred.password);
-                          }}
-                        >
-                          <Text style={styles.demoCredentialEmail}>{cred.email}</Text>
-                          <Text style={styles.demoCredentialDesc}>{cred.description}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </Card>
-                  )}
-
-                  {mode === 'signin' && !isDemoMode && (
+                  {mode === 'signin' && (
                     <TouchableOpacity style={styles.forgotPassword}>
                       <Text style={styles.forgotPasswordText}>
                         Forgot your password?

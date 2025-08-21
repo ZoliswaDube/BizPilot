@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,28 +6,189 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, TrendingUp, Package, Users, DollarSign } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { useAuthStore } from '../../src/store/auth';
+import { mcp_supabase_execute_sql } from '../../src/services/mcpClient';
 import * as Haptics from 'expo-haptics';
 
+interface DashboardStats {
+  total_revenue: number;
+  total_orders: number;
+  total_customers: number;
+  profit: number;
+}
+
+interface ActivityItem {
+  id: string;
+  description: string;
+  timestamp: string;
+  type: 'order' | 'inventory' | 'payment' | 'customer';
+}
+
 export default function DashboardScreen() {
-  const [refreshing, setRefreshing] = React.useState(false);
+  const router = useRouter();
+  const { user, business } = useAuthStore();
+  const [refreshing, setRefreshing] = useState(false);
+  const [stats, setStats] = useState<DashboardStats>({
+    total_revenue: 0,
+    total_orders: 0,
+    total_customers: 0,
+    profit: 0,
+  });
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [business]);
+
+  const loadDashboardData = async () => {
+    if (!business?.id) return;
+
+    try {
+      await Promise.all([
+        loadStats(),
+        loadRecentActivities(),
+      ]);
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadStats = async () => {
+    try {
+      const result = await mcp_supabase_execute_sql({
+        query: `
+          SELECT 
+            COALESCE(SUM(o.total_amount), 0) as total_revenue,
+            COUNT(o.id) as total_orders,
+            (SELECT COUNT(*) FROM customers WHERE business_id = $1) as total_customers,
+            COALESCE(SUM(o.total_amount - o.subtotal), 0) as profit
+          FROM orders o
+          WHERE o.business_id = $1
+            AND o.status != 'cancelled'
+            AND o.order_date >= DATE_TRUNC('month', CURRENT_DATE)
+        `,
+        params: [business?.id]
+      });
+
+      if (result.success && result.data?.[0]) {
+        setStats({
+          total_revenue: parseFloat(result.data[0].total_revenue) || 0,
+          total_orders: parseInt(result.data[0].total_orders) || 0,
+          total_customers: parseInt(result.data[0].total_customers) || 0,
+          profit: parseFloat(result.data[0].profit) || 0,
+        });
+      }
+    } catch (error) {
+      console.error('Error loading stats:', error);
+    }
+  };
+
+  const loadRecentActivities = async () => {
+    try {
+      const result = await mcp_supabase_execute_sql({
+        query: `
+          (
+            SELECT 
+              'order' as type,
+              o.id,
+              'New order #' || o.order_number || ' from ' || COALESCE(c.name, 'Walk-in Customer') as description,
+              o.created_at as timestamp
+            FROM orders o
+            LEFT JOIN customers c ON o.customer_id = c.id
+            WHERE o.business_id = $1
+            ORDER BY o.created_at DESC
+            LIMIT 3
+          )
+          UNION ALL
+          (
+            SELECT 
+              'inventory' as type,
+              it.id,
+              'Inventory updated: ' || it.product_name as description,
+              it.created_at as timestamp
+            FROM inventory_transactions it
+            WHERE it.business_id = $1
+            ORDER BY it.created_at DESC
+            LIMIT 2
+          )
+          ORDER BY timestamp DESC
+          LIMIT 5
+        `,
+        params: [business?.id]
+      });
+
+      if (result.success) {
+        setActivities(result.data || []);
+      }
+    } catch (error) {
+      console.error('Error loading activities:', error);
+    }
+  };
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
     
-    // Simulate data refresh
-    setTimeout(() => {
+    loadDashboardData().finally(() => {
       setRefreshing(false);
-    }, 1000);
-  }, []);
+    });
+  }, [business]);
 
   const handleQuickAction = (action: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    console.log(`Quick action: ${action}`);
-    // TODO: Navigate to respective screens
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    
+    switch (action) {
+      case 'new-order':
+        router.push('/orders');
+        break;
+      case 'add-customer':
+        router.push('/customers');
+        break;
+      case 'add-product':
+        router.push('/products');
+        break;
+      case 'view-reports':
+        router.push('/financial');
+        break;
+      default:
+        console.log(`Unknown quick action: ${action}`);
+    }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount);
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const days = Math.floor(hours / 24);
+
+    if (hours < 1) return 'Just now';
+    if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+    if (days < 7) return `${days} day${days === 1 ? '' : 's'} ago`;
+    
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    });
   };
 
   return (
@@ -44,34 +205,34 @@ export default function DashboardScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.greeting}>Welcome back!</Text>
-          <Text style={styles.businessName}>BizPilot Demo Business</Text>
+          <Text style={styles.greeting}>Welcome back{user?.full_name ? `, ${user.full_name.split(' ')[0]}` : ''}!</Text>
+          <Text style={styles.businessName}>{business?.name || 'BizPilot Business'}</Text>
         </View>
 
         {/* Quick Stats */}
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
             <TrendingUp size={24} color="#22c55e" />
-            <Text style={styles.statValue}>$12,450</Text>
-            <Text style={styles.statLabel}>Revenue</Text>
+            <Text style={styles.statValue}>{formatCurrency(stats.total_revenue)}</Text>
+            <Text style={styles.statLabel}>Revenue (MTD)</Text>
           </View>
           
           <View style={styles.statCard}>
             <Package size={24} color="#3b82f6" />
-            <Text style={styles.statValue}>156</Text>
+            <Text style={styles.statValue}>{stats.total_orders}</Text>
             <Text style={styles.statLabel}>Orders</Text>
           </View>
           
           <View style={styles.statCard}>
             <Users size={24} color="#a78bfa" />
-            <Text style={styles.statValue}>89</Text>
+            <Text style={styles.statValue}>{stats.total_customers}</Text>
             <Text style={styles.statLabel}>Customers</Text>
           </View>
           
           <View style={styles.statCard}>
             <DollarSign size={24} color="#f59e0b" />
-            <Text style={styles.statValue}>$2,340</Text>
-            <Text style={styles.statLabel}>Profit</Text>
+            <Text style={styles.statValue}>{formatCurrency(stats.profit)}</Text>
+            <Text style={styles.statLabel}>Profit (MTD)</Text>
           </View>
         </View>
 
@@ -118,20 +279,23 @@ export default function DashboardScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Recent Activity</Text>
           
-          <View style={styles.activityCard}>
-            <Text style={styles.activityText}>New order #1234 from John Doe</Text>
-            <Text style={styles.activityTime}>2 hours ago</Text>
-          </View>
-          
-          <View style={styles.activityCard}>
-            <Text style={styles.activityText}>Product "Coffee Beans" low stock</Text>
-            <Text style={styles.activityTime}>4 hours ago</Text>
-          </View>
-          
-          <View style={styles.activityCard}>
-            <Text style={styles.activityText}>Customer payment received: $250</Text>
-            <Text style={styles.activityTime}>1 day ago</Text>
-          </View>
+          {loading ? (
+            <View style={styles.activityCard}>
+              <Text style={styles.activityText}>Loading recent activity...</Text>
+            </View>
+          ) : activities.length === 0 ? (
+            <View style={styles.activityCard}>
+              <Text style={styles.activityText}>No recent activity</Text>
+              <Text style={styles.activityTime}>Start by creating your first order</Text>
+            </View>
+          ) : (
+            activities.map((activity) => (
+              <View key={activity.id} style={styles.activityCard}>
+                <Text style={styles.activityText}>{activity.description}</Text>
+                <Text style={styles.activityTime}>{formatDate(activity.timestamp)}</Text>
+              </View>
+            ))
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>

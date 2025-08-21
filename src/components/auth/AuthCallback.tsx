@@ -14,6 +14,7 @@ export function AuthCallback() {
   const [showRetry, setShowRetry] = useState(false)
   const timeoutRef = useRef<NodeJS.Timeout>()
   const retryTimeoutRef = useRef<NodeJS.Timeout>()
+  const isNavigatingRef = useRef(false)
 
   // Clear timeouts on unmount
   useEffect(() => {
@@ -24,14 +25,22 @@ export function AuthCallback() {
   }, [])
 
   const handleTimeout = () => {
-    console.log('🔐 AuthCallback: Timeout reached, showing retry option')
+    console.log(' AuthCallback: Timeout reached, showing retry option')
     setStatus('timeout')
     setMessage('Authentication is taking longer than expected.')
     setShowRetry(true)
+    // Clear stale OAuth loading flag and auto-redirect to avoid hanging UI
+    try { window.localStorage.removeItem('oauth_loading_time') } catch {}
+    setTimeout(() => {
+      if (!isNavigatingRef.current) {
+        isNavigatingRef.current = true
+        navigate('/auth/error?error=Authentication%20Timeout&error_description=Authentication%20took%20too%20long.%20Please%20try%20again.')
+      }
+    }, 4000)
   }
 
   const handleRetry = () => {
-    console.log('🔐 AuthCallback: Retrying authentication')
+    console.log(' AuthCallback: Retrying authentication')
     setStatus('loading')
     setMessage('')
     setShowRetry(false)
