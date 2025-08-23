@@ -8,8 +8,13 @@ import { useAuthStore } from '../src/store/auth';
 
 export default function Index() {
   const router = useRouter();
-  const { user, business, loading } = useAuthStore();
+  const { user, business, loading, initialize } = useAuthStore();
   const [checkingBusiness, setCheckingBusiness] = useState(true);
+
+  useEffect(() => {
+    // Initialize auth on app start
+    initialize();
+  }, [initialize]);
 
   useEffect(() => {
     const checkBusinessStatus = async () => {

@@ -86,7 +86,9 @@ const EditableField: React.FC<EditableFieldProps> = ({
   const handleStartEdit = () => {
     setEditValue(value?.toString() || '');
     setIsEditing(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (Platform.OS !== 'web' && (Haptics as any)?.impactAsync) {
+      try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
+    }
   };
 
   const handleCancelEdit = () => {
@@ -124,7 +126,9 @@ const EditableField: React.FC<EditableFieldProps> = ({
 
       await onUpdate(fieldKey, processedValue);
       setIsEditing(false);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS !== 'web' && (Haptics as any)?.notificationAsync) {
+        try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
+      }
     } catch (error) {
       console.error('Error updating field:', error);
       Alert.alert('Error', 'Failed to update field');

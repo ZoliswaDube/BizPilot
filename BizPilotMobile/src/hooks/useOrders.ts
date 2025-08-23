@@ -174,6 +174,14 @@ export function useOrders() {
       for (const item of orderData.items) {
         const totalPrice = item.quantity * item.unit_price;
 
+        // Get product name
+        const productResult = await mcp_supabase_execute_sql({
+          query: 'SELECT name FROM products WHERE id = $1',
+          params: [item.product_id]
+        });
+
+        const productName = productResult.success && productResult.data?.[0]?.name || 'Unknown Product';
+
         await mcp_supabase_execute_sql({
           query: `
             INSERT INTO order_items (
@@ -181,7 +189,7 @@ export function useOrders() {
               quantity, unit_price, total_price
             ) VALUES ($1, $2, $3, $4, $5, $6)
           `,
-          params: [orderId, item.product_id, 'Product Name', item.quantity, item.unit_price, totalPrice]
+          params: [orderId, item.product_id, productName, item.quantity, item.unit_price, totalPrice]
         });
 
         // Update inventory

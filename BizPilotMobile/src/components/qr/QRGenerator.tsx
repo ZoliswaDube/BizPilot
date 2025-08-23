@@ -40,6 +40,7 @@ import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import { theme } from '../../styles/theme';
 import * as Haptics from 'expo-haptics';
+import { Platform } from 'react-native';
 
 const { width: screenWidth } = Dimensions.get('window');
 const QR_SIZE = Math.min(screenWidth - 80, 280);
@@ -291,7 +292,9 @@ export function QRGenerator() {
     }
 
     setGeneratedQRCode(content);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    if (Platform.OS !== 'web' && (Haptics as any)?.impactAsync) {
+      try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); } catch {}
+    }
   };
 
   const handleSaveQR = async () => {
@@ -323,7 +326,9 @@ export function QRGenerator() {
       if (result.success) {
         await fetchSavedQRCodes();
         setQRTitle('');
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        if (Platform.OS !== 'web' && (Haptics as any)?.impactAsync) {
+          try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); } catch {}
+        }
         Alert.alert('Success', 'QR code saved successfully!');
       } else {
         Alert.alert('Error', 'Failed to save QR code');
@@ -363,7 +368,9 @@ export function QRGenerator() {
   const handleBarCodeScanned = ({ type, data }: { type: string; data: string }) => {
     setScannedData(data);
     setShowScanner(false);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    if (Platform.OS !== 'web' && (Haptics as any)?.impactAsync) {
+      try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); } catch {}
+    }
     
     Alert.alert(
       'QR Code Scanned',
@@ -389,7 +396,9 @@ export function QRGenerator() {
               setSelectedTemplate(template);
               setFormData({});
               setGeneratedQRCode(null);
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              if (Platform.OS !== 'web' && (Haptics as any)?.impactAsync) {
+                try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
+              }
             }}
           >
             <IconComponent 
@@ -453,7 +462,9 @@ export function QRGenerator() {
               ]}
               onPress={() => {
                 setQRColor(color);
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                if (Platform.OS !== 'web' && (Haptics as any)?.impactAsync) {
+                  try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
+                }
               }}
             />
           ))}

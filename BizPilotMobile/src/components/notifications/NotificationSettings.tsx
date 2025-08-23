@@ -32,6 +32,7 @@ import { Input } from '../ui/Input';
 import { notificationService, NotificationPreferences } from '../../services/notificationService';
 import { useAuthStore } from '../../store/auth';
 import * as Haptics from 'expo-haptics';
+import { Platform } from 'react-native';
 
 interface NotificationCategory {
   id: keyof NotificationPreferences;
@@ -84,7 +85,9 @@ export default function NotificationSettings() {
       // Update through notification service
       await notificationService.updateNotificationPreferences(newPreferences);
       
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (Platform.OS !== 'web' && (Haptics as any)?.impactAsync) {
+        try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
+      }
     } catch (error) {
       console.error('Error updating preference:', error);
       Alert.alert('Error', 'Failed to update notification preferences');
@@ -103,7 +106,9 @@ export default function NotificationSettings() {
       await notificationService.updateNotificationPreferences(newPreferences);
       
       setShowQuietHoursModal(false);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS !== 'web' && (Haptics as any)?.notificationAsync) {
+        try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
+      }
     } catch (error) {
       console.error('Error saving quiet hours:', error);
       Alert.alert('Error', 'Failed to save quiet hours settings');
@@ -119,7 +124,9 @@ export default function NotificationSettings() {
         priority: 'normal',
       });
       
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS !== 'web' && (Haptics as any)?.notificationAsync) {
+        try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
+      }
       Alert.alert('Test Sent', 'A test notification has been sent. You should see it shortly.');
     } catch (error) {
       console.error('Error sending test notification:', error);

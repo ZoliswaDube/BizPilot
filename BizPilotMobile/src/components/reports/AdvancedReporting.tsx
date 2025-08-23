@@ -488,7 +488,9 @@ export default function AdvancedReporting() {
         });
       }
 
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS !== 'web' && (Haptics as any)?.notificationAsync) {
+        try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
+      }
       Alert.alert('Success', `Report exported as ${fileName}`);
     } catch (error) {
       console.error('Error generating Excel report:', error);
@@ -533,7 +535,9 @@ export default function AdvancedReporting() {
         });
       }
 
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS !== 'web' && (Haptics as any)?.notificationAsync) {
+        try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
+      }
       Alert.alert('Success', `Report exported as ${fileName}`);
     } catch (error) {
       console.error('Error generating CSV report:', error);
@@ -581,7 +585,9 @@ export default function AdvancedReporting() {
               ]}
               onPress={() => {
                 setReportConfig(prev => ({ ...prev, dateRange: range }));
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                if (Platform.OS !== 'web' && (Haptics as any)?.impactAsync) {
+                  try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
+                }
               }}
             >
               <Text style={[
@@ -682,7 +688,9 @@ export default function AdvancedReporting() {
                 ]}
                 onPress={() => {
                   setReportConfig(prev => ({ ...prev, type: key as any }));
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  if (Platform.OS !== 'web' && (Haptics as any)?.impactAsync) {
+                    try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
+                  }
                 }}
               >
                 <Icon size={20} color={reportConfig.type === key ? '#a78bfa' : '#9ca3af'} />
@@ -713,7 +721,9 @@ export default function AdvancedReporting() {
                 onPress={() => {
                   if (key !== 'pdf') {
                     setReportConfig(prev => ({ ...prev, format: key as any }));
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    if (Platform.OS !== 'web' && (Haptics as any)?.impactAsync) {
+                      try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
+                    }
                   }
                 }}
                 disabled={key === 'pdf'}

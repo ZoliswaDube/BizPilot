@@ -8,6 +8,8 @@ import {
   RefreshControl,
   StyleSheet,
   FlatList,
+  Modal,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { 
@@ -75,6 +77,7 @@ export default function InventoryScreen() {
   const [showFilters, setShowFilters] = useState(false);
   const [filterLocation, setFilterLocation] = useState('');
   const [filterSupplier, setFilterSupplier] = useState('');
+  const [showAddItemModal, setShowAddItemModal] = useState(false);
 
   useEffect(() => {
     loadInventoryData();
@@ -158,7 +161,9 @@ export default function InventoryScreen() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
     await loadInventoryData();
     setRefreshing(false);
   };
@@ -240,15 +245,19 @@ export default function InventoryScreen() {
           title="Bulk Operations"
           onPress={() => {
             setShowBulkOperations(true);
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            if (Platform.OS !== 'web') {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            }
           }}
           style={styles.actionButton}
         />
         <Button
           title="Add Item"
           onPress={() => {
-            // Navigate to add item screen
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setShowAddItemModal(true);
+            if (Platform.OS !== 'web') {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
           }}
           variant="secondary"
           style={styles.actionButton}
@@ -323,7 +332,9 @@ export default function InventoryScreen() {
             style={styles.checkboxRow}
             onPress={() => {
               setShowLowStockOnly(!showLowStockOnly);
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              if (Platform.OS !== 'web') {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }
             }}
           >
             <View style={[styles.checkbox, showLowStockOnly && styles.checkedCheckbox]}>
@@ -436,9 +447,215 @@ export default function InventoryScreen() {
         onClose={() => setShowBulkOperations(false)}
         onInventoryUpdated={handleInventoryUpdated}
       />
+
+      {/* Add Item Modal */}
+      <AddInventoryItemModal
+        visible={showAddItemModal}
+        onClose={() => setShowAddItemModal(false)}
+        onInventoryUpdated={handleInventoryUpdated}
+      />
     </SafeAreaView>
   );
 }
+
+// Add Inventory Item Modal Component
+const AddInventoryItemModal = ({ visible, onClose, onInventoryUpdated }: {
+  visible: boolean;
+  onClose: () => void;
+  onInventoryUpdated: () => void;
+}) => {
+  const { business, user } = useAuthStore();
+  const [name, setName] = useState('');
+  const [currentQuantity, setCurrentQuantity] = useState('');
+  const [unit, setUnit] = useState('');
+  const [costPerUnit, setCostPerUnit] = useState('');
+  const [lowStockAlert, setLowStockAlert] = useState('');
+  const [description, setDescription] = useState('');
+  const [location, setLocation] = useState('');
+  const [supplier, setSupplier] = useState('');
+  const [batchLotNumber, setBatchLotNumber] = useState('');
+  const [expirationDate, setExpirationDate] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleCreate = async () => {
+    if (!name.trim() || !currentQuantity || !unit.trim()) {
+      Alert.alert('Error', 'Please fill in required fields (name, quantity, unit)');
+      return;
+    }
+
+    if (!business?.id || !user?.id) {
+      Alert.alert('Error', 'Missing business or user information');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await mcp_supabase_execute_sql({
+        query: `
+          INSERT INTO inventory (
+            business_id, name, current_quantity, unit, cost_per_unit,
+            low_stock_alert, description, location, supplier, 
+            batch_lot_number, expiration_date, created_by
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          RETURNING id
+        `,
+        params: [
+          business.id,
+          name.trim(),
+          parseFloat(currentQuantity),
+          unit.trim(),
+          costPerUnit ? parseFloat(costPerUnit) : null,
+          lowStockAlert ? parseFloat(lowStockAlert) : null,
+          description.trim() || null,
+          location.trim() || null,
+          supplier.trim() || null,
+          batchLotNumber.trim() || null,
+          expirationDate || null,
+          user.id
+        ]
+      });
+
+      if (result.success) {
+        Alert.alert('Success', 'Inventory item added successfully');
+        onClose();
+        onInventoryUpdated();
+        
+        // Reset form
+        setName('');
+        setCurrentQuantity('');
+        setUnit('');
+        setCostPerUnit('');
+        setLowStockAlert('');
+        setDescription('');
+        setLocation('');
+        setSupplier('');
+        setBatchLotNumber('');
+        setExpirationDate('');
+      } else {
+        throw new Error(result.error || 'Failed to add inventory item');
+      }
+    } catch (error) {
+      console.error('Error adding inventory item:', error);
+      Alert.alert('Error', 'Failed to add inventory item. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
+      <SafeAreaView style={styles.modalContainer}>
+        <View style={styles.modalHeader}>
+          <TouchableOpacity onPress={onClose}>
+            <X size={24} color="#9ca3af" />
+          </TouchableOpacity>
+          <Text style={styles.modalTitle}>Add Inventory Item</Text>
+          <View style={styles.headerPlaceholder} />
+        </View>
+
+        <ScrollView style={styles.modalContent}>
+          <Input
+            value={name}
+            onChangeText={setName}
+            placeholder="Item name *"
+            style={styles.modalInput}
+          />
+
+          <View style={styles.inputRow}>
+            <Input
+              value={currentQuantity}
+              onChangeText={setCurrentQuantity}
+              placeholder="Quantity *"
+              keyboardType="decimal-pad"
+              style={[styles.modalInput, styles.halfInput]}
+            />
+            <Input
+              value={unit}
+              onChangeText={setUnit}
+              placeholder="Unit (kg, pcs) *"
+              style={[styles.modalInput, styles.halfInput]}
+            />
+          </View>
+
+          <View style={styles.inputRow}>
+            <Input
+              value={costPerUnit}
+              onChangeText={setCostPerUnit}
+              placeholder="Cost per unit"
+              keyboardType="decimal-pad"
+              style={[styles.modalInput, styles.halfInput]}
+            />
+            <Input
+              value={lowStockAlert}
+              onChangeText={setLowStockAlert}
+              placeholder="Low stock alert"
+              keyboardType="decimal-pad"
+              style={[styles.modalInput, styles.halfInput]}
+            />
+          </View>
+
+          <Input
+            value={location}
+            onChangeText={setLocation}
+            placeholder="Storage location"
+            style={styles.modalInput}
+          />
+
+          <Input
+            value={supplier}
+            onChangeText={setSupplier}
+            placeholder="Supplier"
+            style={styles.modalInput}
+          />
+
+          <Input
+            value={batchLotNumber}
+            onChangeText={setBatchLotNumber}
+            placeholder="Batch/Lot number"
+            style={styles.modalInput}
+          />
+
+          <Input
+            value={expirationDate}
+            onChangeText={setExpirationDate}
+            placeholder="Expiration date (YYYY-MM-DD)"
+            style={styles.modalInput}
+          />
+
+          <Input
+            value={description}
+            onChangeText={setDescription}
+            placeholder="Description"
+            multiline
+            numberOfLines={3}
+            style={styles.modalInput}
+          />
+        </ScrollView>
+
+        <View style={styles.modalActions}>
+          <Button
+            title="Cancel"
+            variant="secondary"
+            onPress={onClose}
+            style={styles.modalCancelButton}
+          />
+          <Button
+            title="Add Item"
+            onPress={handleCreate}
+            loading={loading}
+            disabled={!name.trim() || !currentQuantity || !unit.trim()}
+            style={styles.modalAddButton}
+          />
+        </View>
+      </SafeAreaView>
+    </Modal>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -704,5 +921,55 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 20,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#020617',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1e293b',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  headerPlaceholder: {
+    width: 24,
+  },
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  modalInput: {
+    marginBottom: 16,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  halfInput: {
+    flex: 1,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#1e293b',
+  },
+  modalCancelButton: {
+    flex: 1,
+  },
+  modalAddButton: {
+    flex: 1,
   },
 }); 

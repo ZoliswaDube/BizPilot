@@ -4,166 +4,306 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
+  Alert,
   RefreshControl,
   StyleSheet,
+  Modal,
   FlatList,
-  Alert,
+  Linking,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  Users,
-  UserPlus,
-  Search,
-  Filter,
-  BarChart3,
-  Star,
-  Phone,
-  Mail,
+import { 
+  Plus, 
+  Search, 
+  Filter, 
+  User, 
+  Phone, 
+  Mail, 
+  MapPin,
   Calendar,
   DollarSign,
-  ShoppingCart,
+  ShoppingBag,
+  Edit3,
+  Trash2,
+  X,
+  Users,
   TrendingUp,
-  Target,
 } from 'lucide-react-native';
 import { Card } from '../../src/components/ui/Card';
 import { Button } from '../../src/components/ui/Button';
 import { Input } from '../../src/components/ui/Input';
-import CustomerAnalytics from '../../src/components/customers/CustomerAnalytics';
 import { mcp_supabase_execute_sql } from '../../src/services/mcpClient';
 import { useAuthStore } from '../../src/store/auth';
 import * as Haptics from 'expo-haptics';
+import * as Contacts from 'expo-contacts';
 
 interface Customer {
   id: string;
   name: string;
   email?: string;
   phone?: string;
+  address?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    country?: string;
+  };
+  notes?: string;
   total_orders: number;
   total_spent: number;
   last_order_date?: string;
   customer_since: string;
   is_active: boolean;
-  segment: 'VIP' | 'Loyal' | 'Regular' | 'New' | 'At Risk' | 'Churned';
+  tags?: string[];
+  average_order_value: number;
+  preferred_contact_method: 'email' | 'phone' | 'sms';
+  company?: string;
 }
 
 interface CustomerStats {
   total_customers: number;
   active_customers: number;
-  new_this_month: number;
   total_revenue: number;
   average_order_value: number;
-  repeat_rate: number;
 }
 
 export default function CustomersScreen() {
-  const { business } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<'customers' | 'analytics'>('customers');
+  const { business, user } = useAuthStore();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [stats, setStats] = useState<CustomerStats>({
     total_customers: 0,
     active_customers: 0,
-    new_this_month: 0,
     total_revenue: 0,
     average_order_value: 0,
-    repeat_rate: 0,
   });
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSegment, setSelectedSegment] = useState<string>('all');
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [filterActive, setFilterActive] = useState<boolean | null>(null);
+  const [sortBy, setSortBy] = useState<'name' | 'total_spent' | 'last_order' | 'customer_since'>('name');
 
   useEffect(() => {
-    loadCustomerData();
+    fetchCustomers();
+    fetchStats();
   }, [business]);
 
-  const loadCustomerData = async () => {
+  const fetchCustomers = async () => {
     if (!business?.id) return;
 
     try {
-      await Promise.all([
-        loadCustomers(),
-        loadCustomerStats(),
-      ]);
-    } catch (error) {
-      console.error('Error loading customer data:', error);
-    }
-  };
-
-  const loadCustomers = async () => {
-    try {
+      setLoading(true);
+      
       const result = await mcp_supabase_execute_sql({
         query: `
-          WITH customer_segments AS (
-            SELECT 
-              c.*,
-              CASE 
-                WHEN c.total_spent > 5000 AND c.total_orders > 10 THEN 'VIP'
-                WHEN c.total_spent > 2000 AND c.total_orders > 5 THEN 'Loyal'
-                WHEN EXTRACT(days FROM NOW() - c.last_order_date) > 90 THEN 'At Risk'
-                WHEN EXTRACT(days FROM NOW() - c.last_order_date) > 180 THEN 'Churned'
-                WHEN c.total_orders = 0 THEN 'New'
-                ELSE 'Regular'
-              END as segment
-            FROM customers c
-            WHERE c.business_id = $1
-          )
-          SELECT * FROM customer_segments
-          ORDER BY total_spent DESC, name ASC
+          SELECT 
+            c.*,
+            COALESCE(c.total_orders, 0) as total_orders,
+            COALESCE(c.total_spent, 0) as total_spent,
+            COALESCE(c.average_order_value, 0) as average_order_value,
+            c.last_order_date,
+            c.customer_since,
+            c.is_active,
+            c.tags,
+            c.preferred_contact_method,
+            c.company
+          FROM customers c
+          WHERE c.business_id = $1
+          ORDER BY 
+            CASE 
+              WHEN $2 = 'name' THEN c.name
+              WHEN $2 = 'customer_since' THEN c.customer_since::text
+              ELSE c.name
+            END ASC,
+            CASE 
+              WHEN $2 = 'total_spent' THEN c.total_spent
+              WHEN $2 = 'last_order' THEN EXTRACT(EPOCH FROM c.last_order_date)
+              ELSE 0
+            END DESC
         `,
-        params: [business?.id]
+        params: [business.id, sortBy]
       });
 
       if (result.success) {
-        setCustomers(result.data || []);
+        const processedCustomers = result.data.map(customer => ({
+          ...customer,
+          address: customer.address ? (typeof customer.address === 'string' ? JSON.parse(customer.address) : customer.address) : null,
+          tags: customer.tags || [],
+        }));
+        setCustomers(processedCustomers);
+      } else {
+        throw new Error(result.error || 'Failed to fetch customers');
       }
     } catch (error) {
-      console.error('Error loading customers:', error);
+      console.error('Error fetching customers:', error);
+      Alert.alert('Error', 'Failed to load customers. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const loadCustomerStats = async () => {
+  const fetchStats = async () => {
+    if (!business?.id) return;
+
     try {
       const result = await mcp_supabase_execute_sql({
         query: `
           SELECT 
-            COUNT(*)::integer as total_customers,
-            COUNT(CASE WHEN is_active = true THEN 1 END)::integer as active_customers,
-            COUNT(CASE 
-              WHEN customer_since >= DATE_TRUNC('month', CURRENT_DATE) 
-              THEN 1 
-            END)::integer as new_this_month,
+            COUNT(*) as total_customers,
+            COUNT(CASE WHEN is_active = true THEN 1 END) as active_customers,
             COALESCE(SUM(total_spent), 0) as total_revenue,
-            COALESCE(AVG(
-              CASE 
-                WHEN total_orders > 0 
-                THEN total_spent / total_orders 
-                ELSE 0 
-              END
-            ), 0) as average_order_value,
-            COALESCE(
-              COUNT(CASE WHEN total_orders > 1 THEN 1 END)::float / 
-              NULLIF(COUNT(*)::float, 0) * 100, 
-              0
-            ) as repeat_rate
-          FROM customers
+            COALESCE(AVG(average_order_value), 0) as average_order_value
+          FROM customers 
           WHERE business_id = $1
         `,
-        params: [business?.id]
+        params: [business.id]
       });
 
       if (result.success && result.data?.[0]) {
-        setStats(result.data[0]);
+        setStats({
+          total_customers: parseInt(result.data[0].total_customers) || 0,
+          active_customers: parseInt(result.data[0].active_customers) || 0,
+          total_revenue: parseFloat(result.data[0].total_revenue) || 0,
+          average_order_value: parseFloat(result.data[0].average_order_value) || 0,
+        });
       }
     } catch (error) {
-      console.error('Error loading customer stats:', error);
+      console.error('Error fetching customer stats:', error);
     }
   };
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await loadCustomerData();
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    await Promise.all([fetchCustomers(), fetchStats()]);
     setRefreshing(false);
+  };
+
+  const handleCreateCustomer = async (customerData: Partial<Customer>) => {
+    if (!business?.id || !user?.id) {
+      Alert.alert('Error', 'Missing business or user information');
+      return;
+    }
+
+    try {
+      const result = await mcp_supabase_execute_sql({
+        query: `
+          INSERT INTO customers (
+            business_id, name, email, phone, address, notes, 
+            company, preferred_contact_method, is_active, created_by
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, $9)
+          RETURNING id
+        `,
+        params: [
+          business.id,
+          customerData.name,
+          customerData.email || null,
+          customerData.phone || null,
+          customerData.address ? JSON.stringify(customerData.address) : null,
+          customerData.notes || null,
+          customerData.company || null,
+          customerData.preferred_contact_method || 'email',
+          user.id
+        ]
+      });
+
+      if (result.success) {
+        Alert.alert('Success', 'Customer created successfully');
+        setShowCreateModal(false);
+        await fetchCustomers();
+        await fetchStats();
+      } else {
+        throw new Error(result.error || 'Failed to create customer');
+      }
+    } catch (error) {
+      console.error('Error creating customer:', error);
+      Alert.alert('Error', 'Failed to create customer. Please try again.');
+    }
+  };
+
+  const handleDeleteCustomer = async (customerId: string, customerName: string) => {
+    Alert.alert(
+      'Delete Customer',
+      `Are you sure you want to delete "${customerName}"? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const result = await mcp_supabase_execute_sql({
+                query: 'UPDATE customers SET is_active = false WHERE id = $1 AND business_id = $2',
+                params: [customerId, business?.id]
+              });
+
+              if (result.success) {
+                Alert.alert('Success', 'Customer deleted successfully');
+                await fetchCustomers();
+                await fetchStats();
+              } else {
+                throw new Error('Failed to delete customer');
+              }
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete customer');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleContactCustomer = (customer: Customer, method: 'phone' | 'email') => {
+    if (method === 'phone' && customer.phone) {
+      Linking.openURL(`tel:${customer.phone}`);
+    } else if (method === 'email' && customer.email) {
+      Linking.openURL(`mailto:${customer.email}`);
+    } else {
+      Alert.alert('Contact Info Missing', `No ${method} available for this customer`);
+    }
+  };
+
+  const importFromContacts = async () => {
+    try {
+      const { status } = await Contacts.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please allow access to contacts to import customers');
+        return;
+      }
+
+      const { data } = await Contacts.getContactsAsync({
+        fields: [Contacts.Fields.Name, Contacts.Fields.PhoneNumbers, Contacts.Fields.Emails],
+      });
+
+      if (data.length > 0) {
+        // Show contact selection modal (simplified for now)
+        Alert.alert(
+          'Import Contacts',
+          `Found ${data.length} contacts. This feature will be enhanced to allow selective import.`,
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to access contacts');
+    }
+  };
+
+  const getFilteredCustomers = () => {
+    return customers.filter(customer => {
+      const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           customer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           customer.phone?.includes(searchTerm) ||
+                           customer.company?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesActiveFilter = filterActive === null || customer.is_active === filterActive;
+
+      return matchesSearch && matchesActiveFilter;
+    });
   };
 
   const formatCurrency = (amount: number): string => {
@@ -182,50 +322,6 @@ export default function CustomersScreen() {
     });
   };
 
-  const getSegmentColor = (segment: string): string => {
-    switch (segment) {
-      case 'VIP':
-        return '#f59e0b';
-      case 'Loyal':
-        return '#3b82f6';
-      case 'Regular':
-        return '#22c55e';
-      case 'New':
-        return '#a78bfa';
-      case 'At Risk':
-        return '#ef4444';
-      case 'Churned':
-        return '#6b7280';
-      default:
-        return '#9ca3af';
-    }
-  };
-
-  const getSegmentIcon = (segment: string) => {
-    switch (segment) {
-      case 'VIP':
-        return <Star size={14} color="#f59e0b" />;
-      case 'Loyal':
-        return <Target size={14} color="#3b82f6" />;
-      case 'At Risk':
-        return <TrendingUp size={14} color="#ef4444" />;
-      default:
-        return <Users size={14} color="#6b7280" />;
-    }
-  };
-
-  const getFilteredCustomers = () => {
-    return customers.filter(customer => {
-      const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           customer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           customer.phone?.includes(searchTerm);
-      
-      const matchesSegment = selectedSegment === 'all' || customer.segment === selectedSegment;
-
-      return matchesSearch && matchesSegment;
-    });
-  };
-
   const renderStatsCard = () => (
     <Card style={styles.statsCard}>
       <Text style={styles.cardTitle}>Customer Overview</Text>
@@ -233,259 +329,374 @@ export default function CustomersScreen() {
         <View style={styles.statItem}>
           <Users size={24} color="#a78bfa" />
           <Text style={styles.statValue}>{stats.total_customers}</Text>
-          <Text style={styles.statLabel}>Total Customers</Text>
+          <Text style={styles.statLabel}>Total</Text>
         </View>
         
         <View style={styles.statItem}>
-          <DollarSign size={24} color="#22c55e" />
+          <User size={24} color="#22c55e" />
+          <Text style={styles.statValue}>{stats.active_customers}</Text>
+          <Text style={styles.statLabel}>Active</Text>
+        </View>
+        
+        <View style={styles.statItem}>
+          <DollarSign size={24} color="#f59e0b" />
           <Text style={styles.statValue}>{formatCurrency(stats.total_revenue)}</Text>
-          <Text style={styles.statLabel}>Total Revenue</Text>
+          <Text style={styles.statLabel}>Revenue</Text>
         </View>
         
         <View style={styles.statItem}>
-          <ShoppingCart size={24} color="#3b82f6" />
+          <TrendingUp size={24} color="#3b82f6" />
           <Text style={styles.statValue}>{formatCurrency(stats.average_order_value)}</Text>
-          <Text style={styles.statLabel}>Avg Order Value</Text>
-        </View>
-        
-        <View style={styles.statItem}>
-          <TrendingUp size={24} color="#f59e0b" />
-          <Text style={styles.statValue}>{stats.repeat_rate.toFixed(1)}%</Text>
-          <Text style={styles.statLabel}>Repeat Rate</Text>
+          <Text style={styles.statLabel}>Avg Order</Text>
         </View>
       </View>
     </Card>
   );
 
-  const renderFilters = () => (
-    <Card style={styles.filtersCard}>
-      <View style={styles.filtersHeader}>
-        <Text style={styles.cardTitle}>Filters</Text>
-        <TouchableOpacity
-          onPress={() => setShowFilters(!showFilters)}
-          style={styles.filterToggle}
-        >
-          <Filter size={20} color="#a78bfa" />
-        </TouchableOpacity>
-      </View>
-
-      <Input
-        value={searchTerm}
-        onChangeText={setSearchTerm}
-        placeholder="Search customers..."
-        style={styles.searchInput}
-      />
-
-      {showFilters && (
-        <View style={styles.segmentFilters}>
-          <Text style={styles.filterLabel}>Customer Segment:</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.segmentButtons}>
-              {['all', 'VIP', 'Loyal', 'Regular', 'New', 'At Risk', 'Churned'].map((segment) => (
-                <TouchableOpacity
-                  key={segment}
-                  style={[
-                    styles.segmentButton,
-                    selectedSegment === segment && styles.activeSegmentButton,
-                    segment !== 'all' && { backgroundColor: getSegmentColor(segment) + '20' }
-                  ]}
-                  onPress={() => {
-                    setSelectedSegment(segment);
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }}
-                >
-                  <Text style={[
-                    styles.segmentButtonText,
-                    selectedSegment === segment && styles.activeSegmentButtonText,
-                    segment !== 'all' && { color: getSegmentColor(segment) }
-                  ]}>
-                    {segment === 'all' ? 'All' : segment}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
-        </View>
-      )}
-    </Card>
-  );
-
-  const renderCustomerItem = ({ item }: { item: Customer }) => (
-    <TouchableOpacity style={styles.customerItem}>
+  const renderCustomerCard = (customer: Customer) => (
+    <Card key={customer.id} style={styles.customerCard}>
       <View style={styles.customerHeader}>
-        <View style={styles.customerInfo}>
-          <Text style={styles.customerName}>{item.name}</Text>
-          <View style={styles.customerContact}>
-            {item.email && (
-              <View style={styles.contactItem}>
-                <Mail size={12} color="#9ca3af" />
-                <Text style={styles.contactText}>{item.email}</Text>
-              </View>
-            )}
-            {item.phone && (
-              <View style={styles.contactItem}>
-                <Phone size={12} color="#9ca3af" />
-                <Text style={styles.contactText}>{item.phone}</Text>
-              </View>
-            )}
-          </View>
+        <View style={styles.customerAvatar}>
+          <User size={24} color="#a78bfa" />
         </View>
-        
-        <View style={styles.customerSegmentBadge}>
-          <View style={[
-            styles.segmentBadge,
-            { backgroundColor: getSegmentColor(item.segment) + '20' }
-          ]}>
-            {getSegmentIcon(item.segment)}
-            <Text style={[
-              styles.segmentBadgeText,
-              { color: getSegmentColor(item.segment) }
-            ]}>
-              {item.segment}
-            </Text>
-          </View>
+        <View style={styles.customerInfo}>
+          <Text style={styles.customerName}>{customer.name}</Text>
+          {customer.company && (
+            <Text style={styles.customerCompany}>{customer.company}</Text>
+          )}
+          <Text style={styles.customerSince}>
+            Customer since {formatDate(customer.customer_since)}
+          </Text>
+        </View>
+        <View style={styles.customerActions}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => handleContactCustomer(customer, 'phone')}
+          >
+            <Phone size={16} color="#22c55e" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => handleContactCustomer(customer, 'email')}
+          >
+            <Mail size={16} color="#3b82f6" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => handleDeleteCustomer(customer.id, customer.name)}
+          >
+            <Trash2 size={16} color="#ef4444" />
+          </TouchableOpacity>
         </View>
       </View>
 
       <View style={styles.customerMetrics}>
         <View style={styles.metricItem}>
-          <Text style={styles.metricValue}>{formatCurrency(item.total_spent)}</Text>
-          <Text style={styles.metricLabel}>Total Spent</Text>
-        </View>
-        
-        <View style={styles.metricItem}>
-          <Text style={styles.metricValue}>{item.total_orders}</Text>
+          <ShoppingBag size={16} color="#a78bfa" />
+          <Text style={styles.metricValue}>{customer.total_orders}</Text>
           <Text style={styles.metricLabel}>Orders</Text>
         </View>
-        
         <View style={styles.metricItem}>
-          <Text style={styles.metricValue}>{formatDate(item.last_order_date)}</Text>
+          <DollarSign size={16} color="#22c55e" />
+          <Text style={styles.metricValue}>{formatCurrency(customer.total_spent)}</Text>
+          <Text style={styles.metricLabel}>Total Spent</Text>
+        </View>
+        <View style={styles.metricItem}>
+          <Calendar size={16} color="#f59e0b" />
+          <Text style={styles.metricValue}>{formatDate(customer.last_order_date)}</Text>
           <Text style={styles.metricLabel}>Last Order</Text>
         </View>
       </View>
 
-      <View style={styles.customerFooter}>
-        <View style={styles.customerSince}>
-          <Calendar size={12} color="#6b7280" />
-          <Text style={styles.customerSinceText}>
-            Customer since {formatDate(item.customer_since)}
-          </Text>
-        </View>
-        
-        <View style={[
-          styles.statusIndicator,
-          item.is_active ? styles.activeStatus : styles.inactiveStatus
-        ]}>
-          <Text style={[
-            styles.statusText,
-            item.is_active ? styles.activeStatusText : styles.inactiveStatusText
-          ]}>
-            {item.is_active ? 'Active' : 'Inactive'}
-          </Text>
-        </View>
-      </View>
-    </TouchableOpacity>
+      {customer.notes && (
+        <Text style={styles.customerNotes}>{customer.notes}</Text>
+      )}
+    </Card>
   );
 
-  const renderCustomersTab = () => (
-    <ScrollView
-      style={styles.content}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-      }
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Stats */}
-      {renderStatsCard()}
-
-      {/* Filters */}
-      {renderFilters()}
-
-      {/* Customer List */}
-      <Card style={styles.customersCard}>
-        <View style={styles.customersHeader}>
-          <Text style={styles.cardTitle}>
-            Customers ({getFilteredCustomers().length})
-          </Text>
-          <TouchableOpacity style={styles.addButton}>
-            <UserPlus size={20} color="#ffffff" />
-          </TouchableOpacity>
-        </View>
-
-        <FlatList
-          data={getFilteredCustomers()}
-          keyExtractor={(item) => item.id}
-          renderItem={renderCustomerItem}
-          scrollEnabled={false}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          ListEmptyComponent={() => (
-            <View style={styles.emptyState}>
-              <Users size={48} color="#6b7280" />
-              <Text style={styles.emptyStateText}>No customers found</Text>
-              <Text style={styles.emptyStateSubtext}>
-                {customers.length === 0 
-                  ? 'Add your first customer to get started'
-                  : 'Try adjusting your search or filters'
-                }
-              </Text>
-            </View>
-          )}
-        />
-      </Card>
-    </ScrollView>
-  );
-
-  const renderAnalyticsTab = () => (
-    <CustomerAnalytics />
-  );
+  const filteredCustomers = getFilteredCustomers();
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Customers</Text>
-      </View>
-
-      {/* Tab Navigation */}
-      <View style={styles.tabContainer}>
+        <Text style={styles.title}>Customers</Text>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'customers' && styles.activeTab]}
-          onPress={() => {
-            setActiveTab('customers');
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          }}
+          style={styles.addButton}
+          onPress={() => setShowCreateModal(true)}
         >
-          <Users size={20} color={activeTab === 'customers' ? '#a78bfa' : '#9ca3af'} />
-          <Text style={[
-            styles.tabText,
-            activeTab === 'customers' && styles.activeTabText
-          ]}>
-            Customers
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'analytics' && styles.activeTab]}
-          onPress={() => {
-            setActiveTab('analytics');
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          }}
-        >
-          <BarChart3 size={20} color={activeTab === 'analytics' ? '#a78bfa' : '#9ca3af'} />
-          <Text style={[
-            styles.tabText,
-            activeTab === 'analytics' && styles.activeTabText
-          ]}>
-            Analytics
-          </Text>
+          <Plus size={20} color="#ffffff" />
         </TouchableOpacity>
       </View>
 
-      {/* Tab Content */}
-      {activeTab === 'customers' ? renderCustomersTab() : renderAnalyticsTab()}
+      {/* Search and Filters */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchInputContainer}>
+          <Search size={20} color="#9ca3af" style={styles.searchIcon} />
+          <Input
+            value={searchTerm}
+            onChangeText={setSearchTerm}
+            placeholder="Search customers..."
+            style={styles.searchInput}
+          />
+        </View>
+        <TouchableOpacity
+          style={styles.filterButton}
+          onPress={() => setShowFilters(!showFilters)}
+        >
+          <Filter size={20} color="#a78bfa" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Filters */}
+      {showFilters && (
+        <Card style={styles.filtersCard}>
+          <View style={styles.filterRow}>
+            <TouchableOpacity
+              style={[styles.filterChip, filterActive === null && styles.activeFilterChip]}
+              onPress={() => setFilterActive(null)}
+            >
+              <Text style={[styles.filterChipText, filterActive === null && styles.activeFilterChipText]}>
+                All
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.filterChip, filterActive === true && styles.activeFilterChip]}
+              onPress={() => setFilterActive(true)}
+            >
+              <Text style={[styles.filterChipText, filterActive === true && styles.activeFilterChipText]}>
+                Active
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.filterChip, filterActive === false && styles.activeFilterChip]}
+              onPress={() => setFilterActive(false)}
+            >
+              <Text style={[styles.filterChipText, filterActive === false && styles.activeFilterChipText]}>
+                Inactive
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </Card>
+      )}
+
+      <ScrollView
+        style={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Stats */}
+        {renderStatsCard()}
+
+        {/* Quick Actions */}
+        <Card style={styles.actionsCard}>
+          <Text style={styles.cardTitle}>Quick Actions</Text>
+          <View style={styles.actionButtons}>
+            <Button
+              title="Import Contacts"
+              onPress={importFromContacts}
+              style={styles.actionButtonStyle}
+            />
+            <Button
+              title="Export List"
+              variant="secondary"
+              onPress={() => Alert.alert('Export', 'Export functionality coming soon')}
+              style={styles.actionButtonStyle}
+            />
+          </View>
+        </Card>
+
+        {/* Customers List */}
+        <View style={styles.customersSection}>
+          <Text style={styles.sectionTitle}>
+            Customers ({filteredCustomers.length})
+          </Text>
+          
+          {loading ? (
+            <Card style={styles.loadingCard}>
+              <Text style={styles.loadingText}>Loading customers...</Text>
+            </Card>
+          ) : filteredCustomers.length === 0 ? (
+            <Card style={styles.emptyState}>
+              <Users size={48} color="#6b7280" />
+              <Text style={styles.emptyStateTitle}>No customers found</Text>
+              <Text style={styles.emptyStateText}>
+                {customers.length === 0 
+                  ? 'Start by adding your first customer'
+                  : 'Try adjusting your search or filter criteria'
+                }
+              </Text>
+              {customers.length === 0 && (
+                <Button
+                  title="Add Customer"
+                  onPress={() => setShowCreateModal(true)}
+                  style={styles.emptyStateButton}
+                />
+              )}
+            </Card>
+          ) : (
+            filteredCustomers.map(renderCustomerCard)
+          )}
+        </View>
+
+        <View style={styles.bottomSpacing} />
+      </ScrollView>
+
+      {/* Create Customer Modal */}
+      <CreateCustomerModal
+        visible={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onCreate={handleCreateCustomer}
+      />
     </SafeAreaView>
   );
 }
+
+// Create Customer Modal Component
+const CreateCustomerModal = ({ visible, onClose, onCreate }: {
+  visible: boolean;
+  onClose: () => void;
+  onCreate: (data: Partial<Customer>) => void;
+}) => {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [company, setCompany] = useState('');
+  const [notes, setNotes] = useState('');
+  const [preferredContact, setPreferredContact] = useState<'email' | 'phone' | 'sms'>('email');
+  const [loading, setLoading] = useState(false);
+
+  const handleCreate = async () => {
+    if (!name.trim()) {
+      Alert.alert('Error', 'Please enter a customer name');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await onCreate({
+        name: name.trim(),
+        email: email.trim() || undefined,
+        phone: phone.trim() || undefined,
+        company: company.trim() || undefined,
+        notes: notes.trim() || undefined,
+        preferred_contact_method: preferredContact,
+      });
+
+      // Reset form
+      setName('');
+      setEmail('');
+      setPhone('');
+      setCompany('');
+      setNotes('');
+      setPreferredContact('email');
+    } catch (error) {
+      console.error('Error creating customer:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
+      <SafeAreaView style={styles.modalContainer}>
+        <View style={styles.modalHeader}>
+          <TouchableOpacity onPress={onClose}>
+            <X size={24} color="#9ca3af" />
+          </TouchableOpacity>
+          <Text style={styles.modalTitle}>Add Customer</Text>
+          <View style={styles.headerPlaceholder} />
+        </View>
+
+        <ScrollView style={styles.modalContent}>
+          <Input
+            value={name}
+            onChangeText={setName}
+            placeholder="Customer name *"
+            style={styles.modalInput}
+          />
+
+          <Input
+            value={email}
+            onChangeText={setEmail}
+            placeholder="Email address"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            style={styles.modalInput}
+          />
+
+          <Input
+            value={phone}
+            onChangeText={setPhone}
+            placeholder="Phone number"
+            keyboardType="phone-pad"
+            style={styles.modalInput}
+          />
+
+          <Input
+            value={company}
+            onChangeText={setCompany}
+            placeholder="Company (optional)"
+            style={styles.modalInput}
+          />
+
+          <Input
+            value={notes}
+            onChangeText={setNotes}
+            placeholder="Notes (optional)"
+            multiline
+            numberOfLines={3}
+            style={styles.modalInput}
+          />
+
+          <Text style={styles.inputLabel}>Preferred Contact Method</Text>
+          <View style={styles.contactMethodRow}>
+            {(['email', 'phone', 'sms'] as const).map((method) => (
+              <TouchableOpacity
+                key={method}
+                style={[
+                  styles.contactMethodChip,
+                  preferredContact === method && styles.activeContactMethodChip
+                ]}
+                onPress={() => setPreferredContact(method)}
+              >
+                <Text style={[
+                  styles.contactMethodText,
+                  preferredContact === method && styles.activeContactMethodText
+                ]}>
+                  {method.charAt(0).toUpperCase() + method.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+
+        <View style={styles.modalActions}>
+          <Button
+            title="Cancel"
+            variant="secondary"
+            onPress={onClose}
+            style={styles.modalCancelButton}
+          />
+          <Button
+            title="Add Customer"
+            onPress={handleCreate}
+            loading={loading}
+            disabled={!name.trim()}
+            style={styles.modalAddButton}
+          />
+        </View>
+      </SafeAreaView>
+    </Modal>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -493,42 +704,81 @@ const styles = StyleSheet.create({
     backgroundColor: '#020617',
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1e293b',
   },
-  headerTitle: {
+  title: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#ffffff',
   },
-  tabContainer: {
+  addButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#a78bfa',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchContainer: {
     flexDirection: 'row',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    marginBottom: 16,
+    gap: 12,
   },
-  tab: {
+  searchInputContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    marginHorizontal: 4,
-  },
-  activeTab: {
     backgroundColor: '#1e293b',
+    borderRadius: 12,
+    paddingHorizontal: 16,
   },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '500',
+  searchIcon: {
+    marginRight: 12,
+  },
+  searchInput: {
+    flex: 1,
+    color: '#ffffff',
+    fontSize: 16,
+  },
+  filterButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#1e293b',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filtersCard: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  activeFilterChip: {
+    backgroundColor: '#a78bfa',
+    borderColor: '#a78bfa',
+  },
+  filterChipText: {
+    fontSize: 12,
     color: '#9ca3af',
-    marginLeft: 8,
   },
-  activeTabText: {
-    color: '#a78bfa',
+  activeFilterChipText: {
+    color: '#ffffff',
   },
   content: {
     flex: 1,
@@ -545,16 +795,11 @@ const styles = StyleSheet.create({
   },
   statsGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
+    justifyContent: 'space-between',
   },
   statItem: {
-    flex: 1,
-    minWidth: 140,
     alignItems: 'center',
-    backgroundColor: '#1e293b',
-    padding: 16,
-    borderRadius: 12,
+    flex: 1,
   },
   statValue: {
     fontSize: 16,
@@ -562,87 +807,46 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     marginTop: 8,
     marginBottom: 4,
-    textAlign: 'center',
   },
   statLabel: {
     fontSize: 12,
     color: '#9ca3af',
-    textAlign: 'center',
   },
-  filtersCard: {
+  actionsCard: {
     marginBottom: 16,
   },
-  filtersHeader: {
+  actionButtons: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    gap: 12,
+  },
+  actionButtonStyle: {
+    flex: 1,
+  },
+  customersSection: {
     marginBottom: 16,
   },
-  filterToggle: {
-    padding: 4,
-  },
-  searchInput: {
-    marginBottom: 12,
-  },
-  segmentFilters: {
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#334155',
-  },
-  filterLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#d1d5db',
-    marginBottom: 12,
-  },
-  segmentButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  segmentButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#334155',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  activeSegmentButton: {
-    backgroundColor: '#a78bfa',
-    borderColor: '#a78bfa',
-  },
-  segmentButtonText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#9ca3af',
-  },
-  activeSegmentButtonText: {
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
     color: '#ffffff',
-  },
-  customersCard: {
     marginBottom: 16,
   },
-  customersHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  customerCard: {
     marginBottom: 16,
-  },
-  addButton: {
-    backgroundColor: '#a78bfa',
-    borderRadius: 8,
-    padding: 8,
-  },
-  customerItem: {
-    backgroundColor: '#1e293b',
-    borderRadius: 12,
-    padding: 16,
   },
   customerHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  customerAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#1e293b',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   customerInfo: {
     flex: 1,
@@ -651,108 +855,163 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#ffffff',
-    marginBottom: 8,
+    marginBottom: 2,
   },
-  customerContact: {
-    gap: 4,
+  customerCompany: {
+    fontSize: 14,
+    color: '#a78bfa',
+    marginBottom: 2,
   },
-  contactItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  contactText: {
+  customerSince: {
     fontSize: 12,
     color: '#9ca3af',
   },
-  customerSegmentBadge: {
-    marginLeft: 12,
-  },
-  segmentBadge: {
+  customerActions: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
+    gap: 8,
   },
-  segmentBadgeText: {
-    fontSize: 12,
-    fontWeight: '500',
+  actionButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#1e293b',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   customerMetrics: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#334155',
     marginBottom: 12,
   },
   metricItem: {
     alignItems: 'center',
+    flex: 1,
   },
   metricValue: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#ffffff',
+    marginTop: 4,
     marginBottom: 2,
   },
   metricLabel: {
     fontSize: 10,
     color: '#9ca3af',
   },
-  customerFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 12,
+  customerNotes: {
+    fontSize: 12,
+    color: '#9ca3af',
+    fontStyle: 'italic',
+    paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: '#334155',
   },
-  customerSince: {
-    flexDirection: 'row',
+  loadingCard: {
     alignItems: 'center',
-    gap: 4,
+    paddingVertical: 40,
   },
-  customerSinceText: {
-    fontSize: 12,
-    color: '#6b7280',
-  },
-  statusIndicator: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  activeStatus: {
-    backgroundColor: '#22c55e20',
-  },
-  inactiveStatus: {
-    backgroundColor: '#ef444420',
-  },
-  statusText: {
-    fontSize: 10,
-    fontWeight: '500',
-  },
-  activeStatusText: {
-    color: '#22c55e',
-  },
-  inactiveStatusText: {
-    color: '#ef4444',
-  },
-  separator: {
-    height: 12,
+  loadingText: {
+    fontSize: 16,
+    color: '#9ca3af',
   },
   emptyState: {
     alignItems: 'center',
     paddingVertical: 40,
   },
-  emptyStateText: {
+  emptyStateTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#ffffff',
     marginTop: 16,
     marginBottom: 8,
   },
-  emptyStateSubtext: {
+  emptyStateText: {
     fontSize: 14,
     color: '#9ca3af',
     textAlign: 'center',
+    marginBottom: 24,
+    maxWidth: 280,
   },
-}); 
+  emptyStateButton: {
+    paddingHorizontal: 32,
+  },
+  bottomSpacing: {
+    height: 20,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#020617',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1e293b',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  headerPlaceholder: {
+    width: 24,
+  },
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  modalInput: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#d1d5db',
+    marginBottom: 8,
+  },
+  contactMethodRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  contactMethodChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  activeContactMethodChip: {
+    backgroundColor: '#a78bfa',
+    borderColor: '#a78bfa',
+  },
+  contactMethodText: {
+    fontSize: 12,
+    color: '#9ca3af',
+  },
+  activeContactMethodText: {
+    color: '#ffffff',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#1e293b',
+  },
+  modalCancelButton: {
+    flex: 1,
+  },
+  modalAddButton: {
+    flex: 1,
+  },
+});

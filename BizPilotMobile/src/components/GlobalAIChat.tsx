@@ -117,7 +117,9 @@ export function GlobalAIChat() {
           style={styles.toggleButton}
           onPress={() => {
             setIsOpen(true);
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            if (Platform.OS !== 'web' && (Haptics as any)?.impactAsync) {
+              try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
+            }
           }}
           activeOpacity={0.8}
         >
@@ -162,7 +164,9 @@ export function GlobalAIChat() {
                   <TouchableOpacity
                     onPress={() => {
                       setIsMinimized(!isMinimized);
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      if (Platform.OS !== 'web' && (Haptics as any)?.impactAsync) {
+                        try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
+                      }
                     }}
                     style={styles.headerButton}
                   >

@@ -244,7 +244,6 @@ export default function OrdersScreen() {
   };
 
   const renderOrderCard = (order: Order) => {
-    const { subtotal, tax, total } = calculateOrderTotal();
     
     return (
       <Card key={order.id} style={styles.orderCard}>
@@ -575,15 +574,7 @@ export default function OrdersScreen() {
         </SafeAreaView>
       </Modal>
 
-      {/* Enhanced Order Creation Modal */}
-      <OrderCreationModal
-        visible={showOrderModal}
-        onClose={() => setShowOrderModal(false)}
-        onOrderCreated={() => {
-          setShowOrderModal(false);
-          refreshOrders();
-        }}
-      />
+
     </SafeAreaView>
   );
 }

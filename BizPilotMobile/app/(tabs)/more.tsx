@@ -47,7 +47,7 @@ interface SettingItem {
 
 export default function MoreScreen() {
   const router = useRouter();
-  const { user, business, logout } = useAuthStore();
+  const { user, business, signOut } = useAuthStore();
 
   const handleLogout = () => {
     Alert.alert(

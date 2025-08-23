@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { User, Session, AuthError, Provider } from '@supabase/supabase-js'
 import * as Sentry from '@sentry/react'
 import { supabase, getURL } from '../lib/supabase'
+import { ensureUserProfile } from '../lib/mcp'
 import type { Database } from '../lib/supabase'
 
 type UserProfile = Database['public']['Tables']['user_profiles']['Row']
@@ -199,6 +200,21 @@ export const useAuthStore = create<AuthState>()(
           error: result.error?.message 
         })
         
+        // If user is created, persist profile via MCP (or fallback)
+        try {
+          const createdUser = result.data?.user
+          if (createdUser) {
+            await ensureUserProfile(
+              createdUser.id,
+              createdUser.email ?? email,
+              metadata?.full_name ?? createdUser.user_metadata?.full_name ?? null,
+              createdUser.app_metadata?.provider ?? 'email'
+            )
+          }
+        } catch (profileErr) {
+          console.warn('Failed to upsert user profile after signup:', profileErr)
+        }
+
         set({ loading: false })
         return { error: result.error }
       },
