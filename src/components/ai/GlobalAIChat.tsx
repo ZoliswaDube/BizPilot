@@ -23,10 +23,10 @@ export const GlobalAIChat: React.FC = () => {
   
   const { user } = useAuth()
 
-  // Don't show on /ai page or if user is not logged in
-  if (location.pathname === '/ai' || !user) {
-    return null
-  }
+  // Important: Avoid returning before all hooks run (rules of hooks).
+  // We compute the visibility flag but defer the conditional return
+  // until after hooks have been registered for this render.
+  const shouldHide = location.pathname === '/ai' || !user
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -54,6 +54,9 @@ export const GlobalAIChat: React.FC = () => {
       handleSendMessage()
     }
   }
+
+  // Hide widget if on /ai page or user is not logged in
+  if (shouldHide) return null
 
   return (
     <>

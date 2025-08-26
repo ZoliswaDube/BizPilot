@@ -7,6 +7,7 @@ import {
   Alert,
   RefreshControl,
   StyleSheet,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { 
@@ -141,7 +142,9 @@ export default function FinancialScreen() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
     await loadFinancialData();
     setRefreshing(false);
   };
@@ -149,13 +152,17 @@ export default function FinancialScreen() {
   const handleAddExpense = () => {
     setSelectedExpense(null);
     setShowExpenseModal(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
   };
 
   const handleEditExpense = (expense: Expense) => {
     setSelectedExpense(expense);
     setShowExpenseModal(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
   };
 
   const handleExpenseCreated = () => {
@@ -313,7 +320,9 @@ export default function FinancialScreen() {
           style={[styles.tab, activeTab === 'overview' && styles.activeTab]}
           onPress={() => {
             setActiveTab('overview');
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            if (Platform.OS !== 'web') {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
           }}
         >
           <DollarSign size={20} color={activeTab === 'overview' ? '#a78bfa' : '#9ca3af'} />
@@ -329,7 +338,9 @@ export default function FinancialScreen() {
           style={[styles.tab, activeTab === 'reports' && styles.activeTab]}
           onPress={() => {
             setActiveTab('reports');
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            if (Platform.OS !== 'web') {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
           }}
         >
           <BarChart3 size={20} color={activeTab === 'reports' ? '#a78bfa' : '#9ca3af'} />

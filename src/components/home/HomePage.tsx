@@ -15,7 +15,9 @@ import {
   Shield,
   TrendingUp,
   Menu,
-  X
+  X,
+  Receipt,
+  DollarSign
 } from 'lucide-react'
 
 export function HomePage() {
@@ -36,6 +38,11 @@ export function HomePage() {
       description: 'Add products with ingredients and auto-calculate costs'
     },
     {
+      icon: Receipt,
+      title: 'Order Management',
+      description: 'Create and track orders with status history and customer details'
+    },
+    {
       icon: BarChart3,
       title: 'Smart Pricing',
       description: 'Get optimal pricing with profit margin calculations'
@@ -44,6 +51,11 @@ export function HomePage() {
       icon: Warehouse,
       title: 'Inventory Tracking',
       description: 'Track stock levels with low inventory alerts'
+    },
+    {
+      icon: DollarSign,
+      title: 'Financial Reporting & Expenses',
+      description: 'Record expenses and view automated profit & cash flow reports'
     },
     {
       icon: MessageSquare,
@@ -67,7 +79,8 @@ export function HomePage() {
     'Optimize your pricing strategy',
     'Never run out of stock again',
     'Make data-driven decisions',
-    'Increase profit margins'
+    'Increase profit margins',
+    'Your data is stored securely in Supabase with RLS policies'
   ]
 
   return (

@@ -32,7 +32,7 @@ export function RoleForm({ onClose, onSubmit, role }: RoleFormProps) {
   const [name, setName] = useState(role?.name || '')
   const [description, setDescription] = useState(role?.description || '')
   const [permissions, setPermissions] = useState<string[]>(
-    role?.permissions.map(p => `${p.resource}:${p.action}`) || []
+    role?.permissions?.map(p => `${p.resource}:${p.action}`) || []
   )
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)

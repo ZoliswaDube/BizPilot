@@ -31,6 +31,7 @@ import { Input } from '../ui/Input';
 import { mcp_supabase_execute_sql } from '../../services/mcpClient';
 import { useAuthStore } from '../../store/auth';
 import * as Haptics from 'expo-haptics';
+import { Platform } from 'react-native';
 
 interface BusinessUser {
   id: string;
@@ -254,7 +255,9 @@ export default function UserManagement() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (Platform.OS !== 'web' && (Haptics as any)?.impactAsync) {
+      try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
+    }
     await loadData();
     setRefreshing(false);
   };
@@ -285,7 +288,9 @@ export default function UserManagement() {
       });
 
       if (result.success) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        if (Platform.OS !== 'web' && (Haptics as any)?.notificationAsync) {
+          try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
+        }
         Alert.alert('Success', 'User invitation sent successfully');
         
         setShowUserModal(false);
@@ -313,7 +318,9 @@ export default function UserManagement() {
         params: [newRole, new Date().toISOString(), userId, business?.id]
       });
 
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS !== 'web' && (Haptics as any)?.notificationAsync) {
+        try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
+      }
       Alert.alert('Success', 'User role updated successfully');
       loadBusinessUsers();
     } catch (error) {
@@ -338,7 +345,9 @@ export default function UserManagement() {
                 params: [userId, business?.id]
               });
 
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              if (Platform.OS !== 'web' && (Haptics as any)?.notificationAsync) {
+                try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
+              }
               Alert.alert('Success', 'User removed successfully');
               loadBusinessUsers();
             } catch (error) {
@@ -386,7 +395,9 @@ export default function UserManagement() {
         }
       }
 
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS !== 'web' && (Haptics as any)?.notificationAsync) {
+        try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
+      }
       Alert.alert('Success', 'Role created successfully');
       
       setShowRoleModal(false);
@@ -664,7 +675,9 @@ export default function UserManagement() {
           style={[styles.tab, activeTab === 'users' && styles.activeTab]}
           onPress={() => {
             setActiveTab('users');
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            if (Platform.OS !== 'web' && (Haptics as any)?.impactAsync) {
+              try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
+            }
           }}
         >
           <Users size={20} color={activeTab === 'users' ? '#a78bfa' : '#9ca3af'} />
@@ -680,7 +693,9 @@ export default function UserManagement() {
           style={[styles.tab, activeTab === 'roles' && styles.activeTab]}
           onPress={() => {
             setActiveTab('roles');
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            if (Platform.OS !== 'web' && (Haptics as any)?.impactAsync) {
+              try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
+            }
           }}
         >
           <Shield size={20} color={activeTab === 'roles' ? '#a78bfa' : '#9ca3af'} />

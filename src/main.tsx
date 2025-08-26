@@ -4,6 +4,7 @@ import * as Sentry from '@sentry/react'
 import App from './App.tsx'
 import './index.css'
 import './components/charts/ChartRegistry' // Initialize Chart.js
+import { SessionManager } from './lib/supabase'
 
 // Initialize Sentry
 Sentry.init({
@@ -32,6 +33,9 @@ Sentry.init({
     return event
   },
 })
+
+// Initialize session watchdog to avoid stuck auth states after inactivity
+SessionManager.initialize()
 
 // Create the Sentry-wrapped App component
 const SentryApp = Sentry.withErrorBoundary(App, {

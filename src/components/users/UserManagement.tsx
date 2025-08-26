@@ -88,6 +88,10 @@ export function UserManagement() {
   const [roleCreationLoading, setRoleCreationLoading] = useState(false)
 
   const businessId = business?.id
+  // Determine if current user is an admin for this business
+  const isAdmin = businessUsers.some(
+    (bu) => bu.user_id === user?.id && bu.role === 'admin'
+  )
 
   // Load data on component mount and when businessId changes
   useEffect(() => {
@@ -344,6 +348,11 @@ export function UserManagement() {
       return
     }
 
+    if (!isAdmin) {
+      showToast('Only admins can create roles', 'error')
+      return
+    }
+
     setRoleCreationLoading(true)
     try {
       // Create role using RPC function
@@ -403,7 +412,10 @@ export function UserManagement() {
       console.log('✅ Role created and UI refreshed')
     } catch (err) {
       console.error('Error creating role:', err)
-      const errorMessage = err instanceof Error ? err.message : 'Failed to create role'
+      const rawMessage = err instanceof Error ? err.message : 'Failed to create role'
+      const errorMessage = /row[- ]level security|violates row-level security|42501/i.test(rawMessage)
+        ? 'Insufficient permissions to create roles. Only business admins can create roles. If you are an admin, update your Supabase RLS to allow inserts into user_roles (e.g., via a SECURITY DEFINER function or a policy for admins).'
+        : rawMessage
       showToast(errorMessage, 'error')
     } finally {
       setRoleCreationLoading(false)
@@ -615,7 +627,7 @@ export function UserManagement() {
                     setEditingRole(null)
                     setShowRoleForm(true)
                   }}
-                  disabled={roleCreationLoading}
+                  disabled={!isAdmin || roleCreationLoading}
                   className="bg-primary-600 hover:bg-primary-700 disabled:bg-primary-800 text-white px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
                 >
                   {roleCreationLoading ? (

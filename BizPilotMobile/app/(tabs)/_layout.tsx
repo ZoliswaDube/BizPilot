@@ -2,10 +2,12 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { Home, ShoppingCart, Users, TrendingUp, Settings, Package, Layers, MoreHorizontal } from 'lucide-react-native';
 import { theme } from '../../src/styles/theme';
+import AuthGuard from '../../src/components/auth/AuthGuard';
 
 export default function TabLayout() {
   return (
-    <Tabs
+    <AuthGuard requireBusiness={true}>
+      <Tabs
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
@@ -60,5 +62,6 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+    </AuthGuard>
   );
 } 
