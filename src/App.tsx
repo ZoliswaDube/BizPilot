@@ -1,6 +1,8 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import { AuthInitializer } from './components/AuthInitializer'
+import { InactivityWarningModal } from './components/InactivityWarningModal'
+import { useAuthStore } from './store/auth'
 import { HomePage } from './components/home/HomePage'
 import { AuthForm } from './components/auth/AuthForm'
 import { AuthCallback } from './components/auth/AuthCallback'
@@ -30,9 +32,22 @@ import { OrderForm } from './components/orders/OrderForm' // New import
 import { OrderDetail } from './components/orders/OrderDetail' // New import
 
 function App() {
+  const { 
+    showInactivityWarning, 
+    inactivityTimeRemaining, 
+    extendSession, 
+    handleInactivityTimeout 
+  } = useAuthStore()
+
   return (
     <>
       <AuthInitializer />
+      <InactivityWarningModal
+        isOpen={showInactivityWarning}
+        timeRemaining={inactivityTimeRemaining}
+        onExtendSession={extendSession}
+        onLogout={handleInactivityTimeout}
+      />
       <Router>
         <AnimatePresence mode="wait">
           <Routes>

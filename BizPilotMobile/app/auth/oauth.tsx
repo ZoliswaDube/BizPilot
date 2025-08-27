@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import * as AuthSession from 'expo-auth-session';
 import { 
   ArrowLeft, 
   Shield,
@@ -26,14 +25,6 @@ import { theme } from '../../src/styles/theme';
 import * as Haptics from 'expo-haptics';
 
 WebBrowser.maybeCompleteAuthSession();
-
-interface OAuthConfig {
-  provider: string;
-  authorizationEndpoint: string;
-  tokenEndpoint: string;
-  clientId: string;
-  scopes: string[];
-}
 
 export default function OAuthScreen() {
   const router = useRouter();
@@ -53,37 +44,6 @@ export default function OAuthScreen() {
     }
   }, [params.provider]);
 
-  const getOAuthConfig = (providerId: string): OAuthConfig | null => {
-    switch (providerId) {
-      case 'google':
-        return {
-          provider: 'google',
-          authorizationEndpoint: 'https://accounts.google.com/oauth/authorize',
-          tokenEndpoint: 'https://oauth2.googleapis.com/token',
-          clientId: 'your-google-client-id', // Replace with actual client ID
-          scopes: ['openid', 'profile', 'email'],
-        };
-      case 'apple':
-        return {
-          provider: 'apple',
-          authorizationEndpoint: 'https://appleid.apple.com/auth/authorize',
-          tokenEndpoint: 'https://appleid.apple.com/auth/token',
-          clientId: 'your-apple-client-id', // Replace with actual client ID
-          scopes: ['name', 'email'],
-        };
-      case 'facebook':
-        return {
-          provider: 'facebook',
-          authorizationEndpoint: 'https://www.facebook.com/v18.0/dialog/oauth',
-          tokenEndpoint: 'https://graph.facebook.com/v18.0/oauth/access_token',
-          clientId: 'your-facebook-app-id', // Replace with actual app ID
-          scopes: ['public_profile', 'email'],
-        };
-      default:
-        return null;
-    }
-  };
-
   const handleOAuthSignIn = async () => {
     if (!provider) return;
 
@@ -92,37 +52,19 @@ export default function OAuthScreen() {
       setError(null);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-      const config = getOAuthConfig(provider.id);
-      if (!config) {
-        throw new Error(`OAuth configuration not found for ${provider.name}`);
+      // Delegate full OAuth flow to authService (uses env vars, PKCE, and Expo proxy)
+      const { session, error } = await authService.signInWithOAuth(provider.id);
+
+      if (error) {
+        throw new Error(error.message);
       }
 
-      // Generate redirect URI
-      const redirectUri = deepLinkingService.generateOAuthRedirectUrl(provider.id);
-
-      // Create OAuth request
-      const request = new AuthSession.AuthRequest({
-        clientId: config.clientId,
-        scopes: config.scopes,
-        redirectUri,
-        responseType: AuthSession.ResponseType.Code,
-        state: AuthSession.AuthRequest.makeRandomState(),
-        extraParams: {},
-      });
-
-      // Start OAuth flow
-      const result = await request.promptAsync({
-        authorizationEndpoint: config.authorizationEndpoint,
-        useProxy: true,
-      });
-
-      if (result.type === 'success') {
-        // Handle successful OAuth response
-        await processOAuthResult(result, config);
-      } else if (result.type === 'cancel') {
-        setError('Authentication was cancelled');
-      } else if (result.type === 'error') {
-        setError(result.error?.message || 'OAuth authentication failed');
+      if (session) {
+        // Refresh auth store from Supabase session
+        await useAuthStore.getState().initialize();
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        // Navigate to intended destination or default dashboard
+        await deepLinkingService.navigateToIntendedDestination();
       }
     } catch (err) {
       console.error('OAuth error:', err);
@@ -130,29 +72,6 @@ export default function OAuthScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const processOAuthResult = async (result: any, config: OAuthConfig) => {
-    try {
-      // In a real implementation, you would exchange the code for tokens
-      // For now, we'll simulate a successful OAuth flow
-      
-      const { session, error } = await authService.signInWithOAuth(config.provider);
-      
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      if (session) {
-        await signIn(session.user, session);
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-        
-        // Navigate to intended destination or dashboard
-        await deepLinkingService.navigateToIntendedDestination();
-      }
-    } catch (err) {
-      throw err;
     }
   };
 

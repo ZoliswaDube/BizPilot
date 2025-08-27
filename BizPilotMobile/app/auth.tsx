@@ -18,6 +18,8 @@ import { useAuthStore } from '../src/store/auth';
 import { Button } from '../src/components/ui/Button';
 import { Input } from '../src/components/ui/Input';
 import { Card } from '../src/components/ui/Card';
+import { authService } from '../src/services/authService';
+import { deepLinkingService } from '../src/services/deepLinkingService';
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -61,13 +63,20 @@ export default function AuthScreen() {
   };
 
   const handleGoogleSignIn = async () => {
-    setGoogleLoading(true);
     try {
-      // Simulate Google OAuth flow
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      router.replace('/(tabs)');
+      setGoogleLoading(true);
+      const { session, error } = await authService.signInWithOAuth('google');
+      if (error) {
+        Alert.alert('Google Sign In Error', error.message);
+        return;
+      }
+      if (session) {
+        // Reinitialize auth state and navigate to intended destination (or dashboard)
+        await useAuthStore.getState().initialize();
+        await deepLinkingService.navigateToIntendedDestination();
+      }
     } catch (error) {
-      Alert.alert('Google Sign In Error', 'Failed to sign in with Google');
+      Alert.alert('Google Sign In Error', 'Failed to start Google sign in');
     } finally {
       setGoogleLoading(false);
     }
@@ -77,7 +86,7 @@ export default function AuthScreen() {
     try {
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: 'Authenticate with biometrics',
-        disallowDeviceCredential: false,
+        fallbackLabel: 'Use passcode',
       });
       
       if (result.success) {
@@ -106,9 +115,14 @@ export default function AuthScreen() {
       >
         <KeyboardAvoidingView 
           style={styles.keyboardView}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
         >
-          <ScrollView contentContainerStyle={styles.scrollContent}>
+          <ScrollView 
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
             {/* Header with back button */}
             <TouchableOpacity 
               style={styles.backButton}

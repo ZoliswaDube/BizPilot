@@ -9,10 +9,13 @@ import {
   SafeAreaView,
   RefreshControl,
   Modal,
-  Image,
   TextInput,
   Platform,
+  ViewStyle,
+  TextStyle,
+  ImageStyle,
 } from 'react-native';
+import { Image } from 'expo-image';
 import {
   Plus,
   Search,
@@ -32,6 +35,7 @@ import { theme } from '../../src/styles/theme';
 import { mcp_supabase_execute_sql } from '../../src/services/mcpClient';
 import { useAuthStore } from '../../src/store/auth';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as Haptics from 'expo-haptics';
 
 interface Product {
@@ -121,6 +125,25 @@ export default function ProductsScreen() {
     }
     await fetchProducts();
     setRefreshing(false);
+  };
+
+  const optimizeImage = async (uri: string): Promise<string> => {
+    try {
+      const manipulatedImage = await ImageManipulator.manipulateAsync(
+        uri,
+        [
+          { resize: { width: 800, height: 800 } }, // Resize to max 800x800
+        ],
+        {
+          compress: 0.7, // Compress to 70% quality
+          format: ImageManipulator.SaveFormat.JPEG,
+        }
+      );
+      return manipulatedImage.uri;
+    } catch (error) {
+      console.error('Error optimizing image:', error);
+      return uri; // Return original URI if optimization fails
+    }
   };
 
   const handleCreateProduct = async (productData: {
@@ -216,7 +239,12 @@ export default function ProductsScreen() {
       <View style={styles.productHeader}>
         <View style={styles.productImage}>
           {product.image_url ? (
-            <Image source={{ uri: product.image_url }} style={styles.image} />
+            <Image 
+              source={{ uri: product.image_url }} 
+              style={styles.image}
+              contentFit="cover"
+              transition={200}
+            />
           ) : (
             <Package size={32} color={theme.colors.primary[500]} />
           )}
@@ -527,7 +555,75 @@ const CreateProductModal = ({ visible, onClose, onCreate }: {
   );
 };
 
-const styles = StyleSheet.create({
+interface Styles {
+  container: ViewStyle;
+  header: ViewStyle;
+  title: TextStyle;
+  addButton: ViewStyle;
+  searchContainer: ViewStyle;
+  searchInputContainer: ViewStyle;
+  searchIcon: ViewStyle;
+  searchInput: TextStyle;
+  filterButton: ViewStyle;
+  statsCard: ViewStyle;
+  statsRow: ViewStyle;
+  statItem: ViewStyle;
+  statValue: TextStyle;
+  statLabel: TextStyle;
+  productsList: ViewStyle;
+  productCard: ViewStyle;
+  productHeader: ViewStyle;
+  productImage: ViewStyle;
+  image: ImageStyle;
+  productInfo: ViewStyle;
+  productName: TextStyle;
+  productSku: TextStyle;
+  productCategory: TextStyle;
+  productActions: ViewStyle;
+  actionButton: ViewStyle;
+  productDetails: ViewStyle;
+  productRow: ViewStyle;
+  productLabel: TextStyle;
+  productValue: TextStyle;
+  productMetrics: ViewStyle;
+  metricItem: ViewStyle;
+  metricValue: TextStyle;
+  metricLabel: TextStyle;
+  productDescription: TextStyle;
+  stockInfo: ViewStyle;
+  stockBadge: ViewStyle;
+  stockText: TextStyle;
+  priceInfo: ViewStyle;
+  price: TextStyle;
+  profit: TextStyle;
+  emptyState: ViewStyle;
+  emptyText: TextStyle;
+  footer: ViewStyle;
+  footerText: TextStyle;
+  modalOverlay: ViewStyle;
+  modalContent: ViewStyle;
+  modalContainer: ViewStyle;
+  modalHeader: ViewStyle;
+  modalTitle: TextStyle;
+  modalSubtitle: TextStyle;
+  modalCancelButton: TextStyle;
+  modalSaveButton: TextStyle;
+  formRow: ViewStyle;
+  formGroup: ViewStyle;
+  label: TextStyle;
+  input: TextStyle;
+  modalInput: TextStyle;
+  modalActions: ViewStyle;
+  imageSection: ViewStyle;
+  inputLabel: TextStyle;
+  imagePreview: ViewStyle;
+  previewImage: ImageStyle;
+  removeImageButton: ViewStyle;
+  imageButton: ViewStyle;
+  imageButtonText: TextStyle;
+}
+
+const styles = StyleSheet.create<Styles>({
   container: {
     flex: 1,
     backgroundColor: theme.colors.dark[950],
@@ -541,7 +637,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: theme.fontSize['2xl'],
-    fontWeight: theme.fontWeight.bold,
+    fontWeight: '600' as const,
     color: theme.colors.white,
   },
   addButton: {
@@ -592,7 +688,7 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: theme.fontSize.xl,
-    fontWeight: theme.fontWeight.bold,
+    fontWeight: '600' as const,
     color: theme.colors.white,
   },
   statLabel: {
@@ -613,25 +709,24 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   productImage: {
-    width: 60,
-    height: 60,
-    backgroundColor: theme.colors.dark[800],
-    borderRadius: theme.borderRadius.md,
-    justifyContent: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
     alignItems: 'center',
-    marginRight: theme.spacing.md,
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
   image: {
-    width: 60,
-    height: 60,
-    borderRadius: theme.borderRadius.md,
+    width: '100%',
+    height: '100%',
   },
   productInfo: {
     flex: 1,
   },
   productName: {
     fontSize: theme.fontSize.lg,
-    fontWeight: theme.fontWeight.semibold,
+    fontWeight: '600' as const,
     color: theme.colors.white,
     marginBottom: theme.spacing.xs,
   },
@@ -705,13 +800,13 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: theme.fontSize.lg,
-    fontWeight: theme.fontWeight.semibold,
+    fontWeight: '600' as const,
     color: theme.colors.white,
   },
   modalSaveButton: {
     fontSize: theme.fontSize.md,
     color: theme.colors.primary[500],
-    fontWeight: theme.fontWeight.semibold,
+    fontWeight: '600' as const,
   },
   modalContent: {
     flex: 1,
@@ -722,7 +817,7 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: theme.fontSize.sm,
-    fontWeight: theme.fontWeight.medium,
+    fontWeight: '500' as const,
     color: theme.colors.gray[300],
     marginBottom: theme.spacing.sm,
   },

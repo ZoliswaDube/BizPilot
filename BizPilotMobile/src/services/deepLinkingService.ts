@@ -72,22 +72,30 @@ export class DeepLinkingService {
 
       const parsed = Linking.parse(url);
       const { hostname, path, queryParams } = parsed;
+      const scheme = (parsed as any)?.scheme as string | undefined;
+
+      // Ignore non-app schemes (e.g., exp:// from Metro/dev client)
+      if (scheme && scheme !== 'bizpilot') {
+        console.log('DeepLinking: Ignoring non-app scheme deep link:', scheme);
+        return;
+      }
+      const qp: Record<string, string> = (queryParams ?? {}) as Record<string, string>;
 
       // Handle authentication callbacks
       if (hostname === 'auth' || path?.startsWith('/auth')) {
-        await this.handleAuthCallback(queryParams);
+        await this.handleAuthCallback(qp);
         return;
       }
 
       // Handle password reset
       if (hostname === 'reset-password' || path?.includes('reset-password')) {
-        await this.handlePasswordReset(queryParams);
+        await this.handlePasswordReset(qp);
         return;
       }
 
       // Handle email verification
       if (hostname === 'verify' || path?.includes('verify')) {
-        await this.handleEmailVerification(queryParams);
+        await this.handleEmailVerification(qp);
         return;
       }
 
@@ -101,6 +109,14 @@ export class DeepLinkingService {
   // Handle OAuth authentication callbacks
   private async handleAuthCallback(params: Record<string, string>): Promise<void> {
     try {
+      // If PKCE code is present, let the WebBrowser auth session handler process it.
+      // Our authService.signInWithOAuth() already parses the returned URL and exchanges the code.
+      // Avoid duplicate handling and navigation here.
+      if (params.code) {
+        console.log('DeepLinking: Received PKCE code, deferring to WebBrowser handler');
+        return;
+      }
+
       const callbackData: AuthCallbackData = {
         provider: params.provider,
         access_token: params.access_token,
@@ -155,6 +171,9 @@ export class DeepLinkingService {
         token: params.token,
         error: params.error,
       };
+      const access_token = params.access_token as string | undefined;
+      const refresh_token = params.refresh_token as string | undefined;
+      const type = params.type as string | undefined;
 
       if (resetData.error) {
         router.push({
@@ -163,6 +182,17 @@ export class DeepLinkingService {
             error: resetData.error,
             description: 'Password reset link is invalid or expired',
           },
+        });
+        return;
+      }
+
+      // Supabase sends recovery links with type=recovery and access_token/refresh_token
+      if (type === 'recovery' && access_token) {
+        try {
+          await AsyncStorage.setItem('password_reset_tokens', JSON.stringify({ access_token, refresh_token }));
+        } catch {}
+        router.push({
+          pathname: '/auth/reset-password',
         });
         return;
       }

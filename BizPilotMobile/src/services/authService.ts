@@ -1,7 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { mcp_supabase_execute_sql } from './mcpClient';
+import * as WebBrowser from 'expo-web-browser';
+import { supabase } from '../lib/supabase';
+
+// Complete auth session for WebBrowser
+WebBrowser.maybeCompleteAuthSession();
 
 export interface AuthUser {
   id: string;
@@ -13,7 +17,7 @@ export interface AuthUser {
   created_at: string;
 }
 
-export interface AuthSession {
+export interface BizPilotAuthSession {
   access_token: string;
   refresh_token: string;
   expires_at: number;
@@ -53,7 +57,7 @@ export interface OAuthProvider {
 
 export class AuthService {
   private static instance: AuthService;
-  private session: AuthSession | null = null;
+  private session: BizPilotAuthSession | null = null;
   private biometricEnabled = false;
 
   static getInstance(): AuthService {
@@ -64,7 +68,7 @@ export class AuthService {
   }
 
   // Initialize authentication service
-  async initialize(): Promise<AuthSession | null> {
+  async initialize(): Promise<BizPilotAuthSession | null> {
     try {
       // Check for existing session
       const storedSession = await this.getStoredSession();
@@ -86,41 +90,49 @@ export class AuthService {
   }
 
   // Sign up with email and password
-  async signUp(data: SignUpData): Promise<{ session: AuthSession | null; error: AuthError | null }> {
+  async signUp(data: SignUpData): Promise<{ session: BizPilotAuthSession | null; error: AuthError | null }> {
     try {
-      // In a real implementation, this would call Supabase via MCP
-      const result = await mcp_supabase_execute_sql({
-        query: `
-          INSERT INTO auth.users (email, password, raw_user_meta_data)
-          VALUES ($1, crypt($2, gen_salt('bf')), $3)
-          RETURNING id, email, created_at
-        `,
-        params: [data.email, data.password, { full_name: data.fullName, ...data.metadata }]
+      const { data: spData, error } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: { full_name: data.fullName, ...(data.metadata || {}) },
+        },
       });
 
-      if (result.success && result.data?.[0]) {
-        const user = result.data[0];
-        const session = await this.createSession(user);
-        await this.storeSession(session);
-        this.session = session;
-        
-        return { session, error: null };
+      if (error) {
+        return {
+          session: null,
+          error: { message: error.message, code: error.name },
+        };
       }
 
-      // Mock successful signup for development
-      const mockUser: AuthUser = {
-        id: Date.now().toString(),
-        email: data.email,
-        name: data.fullName,
-        created_at: new Date().toISOString(),
-        last_sign_in: new Date().toISOString(),
-      };
+      // For some projects, signUp may require email verification and return no session
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData.session && spData.user) {
+        const spSession = sessionData.session;
+        const spUser = spData.user as any;
+        const mappedUser: AuthUser = {
+          id: spUser.id,
+          email: spUser.email,
+          name: spUser.user_metadata?.full_name || spUser.user_metadata?.name,
+          avatar_url: spUser.user_metadata?.avatar_url || undefined,
+          created_at: spUser.created_at,
+          last_sign_in: spUser.last_sign_in_at || new Date().toISOString(),
+        };
+        const mappedSession: BizPilotAuthSession = {
+          access_token: spSession.access_token,
+          refresh_token: spSession.refresh_token as string,
+          expires_at: (spSession.expires_at || 0) * 1000,
+          user: mappedUser,
+        };
+        await this.storeSession(mappedSession);
+        this.session = mappedSession;
+        return { session: mappedSession, error: null };
+      }
 
-      const session = await this.createSession(mockUser);
-      await this.storeSession(session);
-      this.session = session;
-
-      return { session, error: null };
+      // No immediate session (email confirmation likely required)
+      return { session: null, error: null };
     } catch (error) {
       return {
         session: null,
@@ -133,41 +145,46 @@ export class AuthService {
   }
 
   // Sign in with email and password
-  async signIn(data: SignInData): Promise<{ session: AuthSession | null; error: AuthError | null }> {
+  async signIn(data: SignInData): Promise<{ session: BizPilotAuthSession | null; error: AuthError | null }> {
     try {
-      // In a real implementation, this would validate credentials via MCP
-      const result = await mcp_supabase_execute_sql({
-        query: `
-          SELECT id, email, raw_user_meta_data, created_at, last_sign_in_at
-          FROM auth.users 
-          WHERE email = $1 AND password = crypt($2, password)
-        `,
-        params: [data.email, data.password]
+      const { data: spData, error } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
       });
 
-      if (result.success && result.data?.[0]) {
-        const user = result.data[0];
-        const session = await this.createSession(user);
-        await this.storeSession(session, data.rememberMe);
-        this.session = session;
-        
-        return { session, error: null };
+      if (error) {
+        return {
+          session: null,
+          error: { message: error.message, code: error.name },
+        };
       }
 
-      // Mock successful sign-in for development
-      const mockUser: AuthUser = {
-        id: '1',
-        email: data.email,
-        name: 'Demo User',
-        created_at: new Date(Date.now() - 86400000).toISOString(),
-        last_sign_in: new Date().toISOString(),
+      if (spData.session && spData.user) {
+        const spSession = spData.session;
+        const spUser = spData.user as any;
+        const mappedUser: AuthUser = {
+          id: spUser.id,
+          email: spUser.email,
+          name: spUser.user_metadata?.full_name || spUser.user_metadata?.name,
+          avatar_url: spUser.user_metadata?.avatar_url || undefined,
+          created_at: spUser.created_at,
+          last_sign_in: spUser.last_sign_in_at || new Date().toISOString(),
+        };
+        const mappedSession: BizPilotAuthSession = {
+          access_token: spSession.access_token,
+          refresh_token: spSession.refresh_token as string,
+          expires_at: (spSession.expires_at || 0) * 1000,
+          user: mappedUser,
+        };
+        await this.storeSession(mappedSession, data.rememberMe);
+        this.session = mappedSession;
+        return { session: mappedSession, error: null };
+      }
+
+      return {
+        session: null,
+        error: { message: 'No session returned', code: 'signin_no_session' },
       };
-
-      const session = await this.createSession(mockUser);
-      await this.storeSession(session, data.rememberMe);
-      this.session = session;
-
-      return { session, error: null };
     } catch (error) {
       return {
         session: null,
@@ -180,7 +197,7 @@ export class AuthService {
   }
 
   // Sign in with biometric authentication
-  async signInWithBiometric(): Promise<{ session: AuthSession | null; error: AuthError | null }> {
+  async signInWithBiometric(): Promise<{ session: BizPilotAuthSession | null; error: AuthError | null }> {
     try {
       // Check if biometric is available and configured
       const isAvailable = await LocalAuthentication.hasHardwareAsync();
@@ -238,25 +255,125 @@ export class AuthService {
     }
   }
 
-  // OAuth sign in
-  async signInWithOAuth(provider: string): Promise<{ session: AuthSession | null; error: AuthError | null }> {
+  // OAuth sign in with expo-auth-session (Google OAuth)
+  async signInWithOAuth(provider: string): Promise<{ session: BizPilotAuthSession | null; error: AuthError | null }> {
     try {
-      // In a real implementation, this would handle OAuth flow
-      // For now, return mock successful OAuth
-      const mockUser: AuthUser = {
-        id: Date.now().toString(),
-        email: `user@${provider}.com`,
-        name: `${provider} User`,
-        avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${provider}`,
-        created_at: new Date().toISOString(),
-        last_sign_in: new Date().toISOString(),
-      };
+      if (provider !== 'google') {
+        return {
+          session: null,
+          error: {
+            message: 'Only Google OAuth is currently supported',
+            code: 'oauth_provider_not_supported'
+          }
+        };
+      }
+      // Start OAuth via Supabase (PKCE). We'll open the returned URL and handle the deep link.
+      const { deepLinkingService } = await import('./deepLinkingService');
+      const redirectTo = deepLinkingService.generateOAuthRedirectUrl(provider);
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          scopes: 'openid profile email',
+          skipBrowserRedirect: true,
+        },
+      });
 
-      const session = await this.createSession(mockUser);
-      await this.storeSession(session);
-      this.session = session;
+      if (error) {
+        return {
+          session: null,
+          error: { message: error.message, code: error.name },
+        };
+      }
 
-      return { session, error: null };
+      if (!data?.url) {
+        return {
+          session: null,
+          error: { message: 'Failed to start OAuth flow', code: 'oauth_start_failed' },
+        };
+      }
+
+      // Open the provider login in a browser session and wait for redirect back
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+      if (result.type !== 'success' || !('url' in result) || !result.url) {
+        return {
+          session: null,
+          error: { message: result.type === 'cancel' ? 'OAuth cancelled by user' : 'OAuth was dismissed', code: result.type === 'cancel' ? 'oauth_cancelled' : 'oauth_dismissed' },
+        };
+      }
+
+      // Parse returned URL for code or tokens
+      const returnedUrl = result.url as string;
+      const query = returnedUrl.split('?')[1] || '';
+      const params = new URLSearchParams(query);
+
+      const oauthError = params.get('error');
+      const oauthErrorDescription = params.get('error_description') || undefined;
+      if (oauthError) {
+        return { session: null, error: { message: oauthErrorDescription || oauthError, code: 'oauth_error' } };
+      }
+
+      const code = params.get('code');
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+
+      if (code) {
+        const { data: spData, error: exError } = await supabase.auth.exchangeCodeForSession(code);
+        if (exError) {
+          return { session: null, error: { message: exError.message, code: exError.name } };
+        }
+        if (spData.session && spData.user) {
+          const spSession = spData.session;
+          const spUser = spData.user as any;
+          const mappedUser: AuthUser = {
+            id: spUser.id,
+            email: spUser.email,
+            name: spUser.user_metadata?.full_name || spUser.user_metadata?.name,
+            avatar_url: spUser.user_metadata?.avatar_url || undefined,
+            created_at: spUser.created_at,
+            last_sign_in: spUser.last_sign_in_at || new Date().toISOString(),
+          };
+          const mappedSession: BizPilotAuthSession = {
+            access_token: spSession.access_token,
+            refresh_token: spSession.refresh_token as string,
+            expires_at: (spSession.expires_at || 0) * 1000,
+            user: mappedUser,
+          };
+          await this.storeSession(mappedSession);
+          this.session = mappedSession;
+          return { session: mappedSession, error: null };
+        }
+      }
+
+      if (accessToken && refreshToken) {
+        const { data: setData, error: setErr } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+        if (setErr) {
+          return { session: null, error: { message: setErr.message, code: setErr.name } };
+        }
+        if (setData.session && setData.user) {
+          const spSession = setData.session;
+          const spUser = setData.user as any;
+          const mappedUser: AuthUser = {
+            id: spUser.id,
+            email: spUser.email,
+            name: spUser.user_metadata?.full_name || spUser.user_metadata?.name,
+            avatar_url: spUser.user_metadata?.avatar_url || undefined,
+            created_at: spUser.created_at,
+            last_sign_in: spUser.last_sign_in_at || new Date().toISOString(),
+          };
+          const mappedSession: BizPilotAuthSession = {
+            access_token: spSession.access_token,
+            refresh_token: spSession.refresh_token as string,
+            expires_at: (spSession.expires_at || 0) * 1000,
+            user: mappedUser,
+          };
+          await this.storeSession(mappedSession);
+          this.session = mappedSession;
+          return { session: mappedSession, error: null };
+        }
+      }
+
+      return { session: null, error: { message: 'Authentication failed', code: 'oauth_incomplete' } };
     } catch (error) {
       return {
         session: null,
@@ -271,25 +388,12 @@ export class AuthService {
   // Reset password
   async resetPassword(data: ResetPasswordData): Promise<{ error: AuthError | null }> {
     try {
-      // In a real implementation, this would send reset email via MCP
-      const result = await mcp_supabase_execute_sql({
-        query: `
-          SELECT id FROM auth.users WHERE email = $1
-        `,
-        params: [data.email]
-      });
-
-      if (result.success && result.data?.[0]) {
-        // Mock successful reset email send
-        return { error: null };
+      const redirectTo = 'bizpilot://reset-password';
+      const { error } = await supabase.auth.resetPasswordForEmail(data.email, { redirectTo });
+      if (error) {
+        return { error: { message: error.message, code: error.name } };
       }
-
-      return {
-        error: {
-          message: 'Email not found',
-          code: 'email_not_found'
-        }
-      };
+      return { error: null };
     } catch (error) {
       return {
         error: {
@@ -303,6 +407,7 @@ export class AuthService {
   // Sign out
   async signOut(): Promise<{ error: AuthError | null }> {
     try {
+      await supabase.auth.signOut();
       await this.clearSession();
       this.session = null;
       return { error: null };
@@ -317,7 +422,7 @@ export class AuthService {
   }
 
   // Get current session
-  getSession(): AuthSession | null {
+  getSession(): BizPilotAuthSession | null {
     return this.session;
   }
 
@@ -410,38 +515,19 @@ export class AuthService {
   }
 
   // Private helper methods
-  private async createSession(user: any): Promise<AuthSession> {
-    const now = Date.now();
-    const expiresAt = now + (24 * 60 * 60 * 1000); // 24 hours
 
-    return {
-      access_token: `mock_access_token_${now}`,
-      refresh_token: `mock_refresh_token_${now}`,
-      expires_at: expiresAt,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.raw_user_meta_data?.full_name || user.name,
-        avatar_url: user.raw_user_meta_data?.avatar_url || user.avatar_url,
-        role: user.role || 'user',
-        last_sign_in: user.last_sign_in_at || new Date().toISOString(),
-        created_at: user.created_at,
-      },
-    };
-  }
-
-  private async storeSession(session: AuthSession, persistent = true): Promise<void> {
+  private async storeSession(session: BizPilotAuthSession, persistent = true): Promise<void> {
     const storage = persistent ? SecureStore : AsyncStorage;
     const key = 'auth_session';
     
-    if (persistent && SecureStore.isAvailableAsync()) {
+    if (persistent && await SecureStore.isAvailableAsync()) {
       await SecureStore.setItemAsync(key, JSON.stringify(session));
     } else {
       await AsyncStorage.setItem(key, JSON.stringify(session));
     }
   }
 
-  private async getStoredSession(): Promise<AuthSession | null> {
+  private async getStoredSession(): Promise<BizPilotAuthSession | null> {
     try {
       // Try SecureStore first
       if (await SecureStore.isAvailableAsync()) {
@@ -474,12 +560,12 @@ export class AuthService {
     }
   }
 
-  private isSessionValid(session: AuthSession): boolean {
+  private isSessionValid(session: BizPilotAuthSession): boolean {
     return session.expires_at > Date.now();
   }
 
   // Refresh session if needed
-  async refreshSession(): Promise<AuthSession | null> {
+  async refreshSession(): Promise<BizPilotAuthSession | null> {
     if (!this.session) return null;
 
     if (this.isSessionValid(this.session)) {
