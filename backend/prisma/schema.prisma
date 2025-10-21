@@ -6,8 +6,8 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -77,8 +77,8 @@ model UserSettings {
   id            String   @id @default(uuid()) 
   userId        String?  @unique @map("user_id") 
   businessName  String?  @map("business_name")
-  hourlyRate    Decimal? @default(15.00) @map("hourly_rate") @db.Decimal(10,2)
-  defaultMargin Decimal? @default(40.00) @map("default_margin") @db.Decimal(10,2)
+  hourlyRate    Decimal? @default(15.00) @map("hourly_rate")
+  defaultMargin Decimal? @default(40.00) @map("default_margin")
   businessId    String?  @map("business_id") 
 
   // Relations
@@ -223,13 +223,13 @@ model Product {
   userId        String?  @map("user_id") 
   businessId    String?  @map("business_id") 
   name          String
-  totalCost     Decimal? @default(0.00) @map("total_cost") @db.Decimal(10,2)
+  totalCost     Decimal? @default(0.00) @map("total_cost")
   laborMinutes  Int?     @default(0) @map("labor_minutes")
-  sellingPrice  Decimal? @default(0.00) @map("selling_price") @db.Decimal(10,2)
-  profitMargin  Decimal? @default(0.00) @map("profit_margin") @db.Decimal(10,2)
+  sellingPrice  Decimal? @default(0.00) @map("selling_price")
+  profitMargin  Decimal? @default(0.00) @map("profit_margin")
   sku           String?
-  minStockLevel Decimal? @map("min_stock_level") @db.Decimal(10,2)
-  reorderPoint  Decimal? @map("reorder_point") @db.Decimal(10,2)
+  minStockLevel Decimal? @map("min_stock_level")
+  reorderPoint  Decimal? @map("reorder_point")
   location      String?
   supplierId    String?  @map("supplier_id") 
   imageUrl      String?  @map("image_url")
@@ -253,8 +253,8 @@ model Ingredient {
   id        String  @id @default(uuid()) 
   productId String? @map("product_id") 
   name      String
-  cost      Decimal @default(0.00) @db.Decimal(10,2)
-  quantity  Decimal @default(0.00) @db.Decimal(10,2)
+  cost      Decimal @default(0.00)
+  quantity  Decimal @default(0.00)
   unit      String  @default("unit")
 
   // Relations
@@ -268,18 +268,18 @@ model Inventory {
   userId           String?  @map("user_id") 
   businessId       String?  @map("business_id") 
   name             String
-  currentQuantity  Decimal  @default(0.00) @map("current_quantity") @db.Decimal(10,2)
+  currentQuantity  Decimal  @default(0.00) @map("current_quantity")
   unit             String   @default("unit")
-  lowStockAlert    Decimal? @default(5.00) @map("low_stock_alert") @db.Decimal(10,2)
-  costPerUnit      Decimal  @default(0.00) @map("cost_per_unit") @db.Decimal(10,2)
+  lowStockAlert    Decimal? @default(5.00) @map("low_stock_alert")
+  costPerUnit      Decimal  @default(0.00) @map("cost_per_unit")
   productId        String?  @map("product_id") 
   batchLotNumber   String?  @map("batch_lot_number")
-  expirationDate   DateTime? @map("expiration_date") @db.Date
+  expirationDate   DateTime? @map("expiration_date")
   description      String?
   supplier         String?
   location         String?
-  minOrderQuantity Decimal? @default(0) @map("min_order_quantity") @db.Decimal(10,2)
-  reorderPoint     Decimal? @default(0) @map("reorder_point") @db.Decimal(10,2)
+  minOrderQuantity Decimal? @default(0) @map("min_order_quantity")
+  reorderPoint     Decimal? @default(0) @map("reorder_point")
   imageUrl         String?  @map("image_url")
   updatedAt        DateTime? @updatedAt @map("updated_at")
 
@@ -299,8 +299,8 @@ model InventoryTransaction {
   businessId     String?  @map("business_id") 
   inventoryId    String   @map("inventory_id") 
   type           String   // add, remove, adjustment, sale, purchase, initial
-  quantityChange Decimal  @map("quantity_change") @db.Decimal(10,2)
-  newQuantity    Decimal  @map("new_quantity") @db.Decimal(10,2)
+  quantityChange Decimal  @map("quantity_change")
+  newQuantity    Decimal  @map("new_quantity")
   transactionDate DateTime @default(now()) @map("transaction_date")
   notes          String?
 
@@ -406,10 +406,10 @@ model Expense {
   id                  String   @id @default(uuid()) 
   businessId          String   @map("business_id") 
   categoryId          String?  @map("category_id") 
-  amount              Decimal  @db.Decimal(10,2)
+  amount              Decimal
   description         String
   receiptUrl          String?  @map("receipt_url")
-  expenseDate         DateTime @map("expense_date") @db.Date
+  expenseDate         DateTime @map("expense_date")
   isRecurring         Boolean? @default(false) @map("is_recurring")
   recurringFrequency  String?  @map("recurring_frequency") // weekly, monthly, quarterly, yearly
   tags                String[]
@@ -432,15 +432,15 @@ model FinancialReport {
   id               String   @id @default(uuid()) 
   businessId       String   @map("business_id") 
   reportType       String   @map("report_type") // daily, weekly, monthly, quarterly, yearly
-  periodStart      DateTime @map("period_start") @db.Date
-  periodEnd        DateTime @map("period_end") @db.Date
-  totalRevenue     Decimal? @default(0) @map("total_revenue") @db.Decimal(12,2)
-  totalExpenses    Decimal? @default(0) @map("total_expenses") @db.Decimal(12,2)
-  netProfit        Decimal? @default(0) @map("net_profit") @db.Decimal(12,2)
-  grossProfit      Decimal? @default(0) @map("gross_profit") @db.Decimal(12,2)
-  profitMargin     Decimal? @default(0) @map("profit_margin") @db.Decimal(5,2)
+  periodStart      DateTime @map("period_start")
+  periodEnd        DateTime @map("period_end")
+  totalRevenue     Decimal? @default(0) @map("total_revenue")
+  totalExpenses    Decimal? @default(0) @map("total_expenses")
+  netProfit        Decimal? @default(0) @map("net_profit")
+  grossProfit      Decimal? @default(0) @map("gross_profit")
+  profitMargin     Decimal? @default(0) @map("profit_margin")
   totalOrders      Int?     @default(0) @map("total_orders")
-  averageOrderValue Decimal? @default(0) @map("average_order_value") @db.Decimal(10,2)
+  averageOrderValue Decimal? @default(0) @map("average_order_value")
   reportData       Json?    @map("report_data")
   createdBy        String?  @map("created_by") 
   createdAt        DateTime @default(now()) @map("created_at")
@@ -462,14 +462,14 @@ model Customer {
   address                 Json?
   notes                   String?
   totalOrders             Int?     @default(0) @map("total_orders")
-  totalSpent              Decimal? @default(0) @map("total_spent") @db.Decimal(12,2)
+  totalSpent              Decimal? @default(0) @map("total_spent")
   lastOrderDate           DateTime? @map("last_order_date")
   customerSince           DateTime @default(now()) @map("customer_since")
   isActive                Boolean? @default(true) @map("is_active")
   createdBy               String?  @map("created_by") 
   company                 String?
   tags                    String[] @default([])
-  averageOrderValue       Decimal? @default(0) @map("average_order_value") @db.Decimal(10,2)
+  averageOrderValue       Decimal? @default(0) @map("average_order_value")
   preferredContactMethod  String?  @default("email") @map("preferred_contact_method") // email, phone, sms
   createdAt               DateTime @default(now()) @map("created_at")
   updatedAt               DateTime @updatedAt @map("updated_at")
@@ -489,20 +489,20 @@ model Order {
   customerId            String?  @map("customer_id") 
   orderNumber           String   @map("order_number")
   status                String?  @default("pending") // pending, confirmed, processing, shipped, delivered, cancelled
-  subtotal              Decimal  @default(0) @db.Decimal(12,2)
-  taxAmount             Decimal  @default(0) @map("tax_amount") @db.Decimal(12,2)
-  totalAmount           Decimal  @default(0) @map("total_amount") @db.Decimal(12,2)
+  subtotal              Decimal  @default(0)
+  taxAmount             Decimal  @default(0) @map("tax_amount")
+  totalAmount           Decimal  @default(0) @map("total_amount")
   paymentStatus         String?  @default("unpaid") @map("payment_status") // unpaid, partial, paid, refunded
   notes                 String?
   orderDate             DateTime @default(now()) @map("order_date")
   deliveryDate          DateTime? @map("delivery_date")
   createdBy             String?  @map("created_by") 
-  discountAmount        Decimal? @default(0) @map("discount_amount") @db.Decimal(12,2)
+  discountAmount        Decimal? @default(0) @map("discount_amount")
   paymentMethod         String?  @map("payment_method")
   shippingAddress       Json?    @map("shipping_address")
   billingAddress        Json?    @map("billing_address")
-  estimatedDeliveryDate DateTime? @map("estimated_delivery_date") @db.Date
-  actualDeliveryDate    DateTime? @map("actual_delivery_date") @db.Date
+  estimatedDeliveryDate DateTime? @map("estimated_delivery_date")
+  actualDeliveryDate    DateTime? @map("actual_delivery_date")
   createdAt             DateTime @default(now()) @map("created_at")
   updatedAt             DateTime @updatedAt @map("updated_at")
 
@@ -523,8 +523,8 @@ model OrderItem {
   inventoryId String?  @map("inventory_id") 
   productName String   @map("product_name")
   quantity    Int
-  unitPrice   Decimal  @map("unit_price") @db.Decimal(10,2)
-  totalPrice  Decimal  @map("total_price") @db.Decimal(10,2)
+  unitPrice   Decimal  @map("unit_price")
+  totalPrice  Decimal  @map("total_price")
   createdAt   DateTime @default(now()) @map("created_at")
 
   // Relations
@@ -554,8 +554,8 @@ model FinancialPeriod {
   id         String   @id @default(uuid()) 
   businessId String   @map("business_id") 
   name       String
-  startDate  DateTime @map("start_date") @db.Date
-  endDate    DateTime @map("end_date") @db.Date
+  startDate  DateTime @map("start_date")
+  endDate    DateTime @map("end_date")
   status     String?  @default("open") // open, closed
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
@@ -613,7 +613,7 @@ model ActivityLog {
   resourceId   String?  @map("resource_id")
   oldValues    Json?    @map("old_values")
   newValues    Json?    @map("new_values")
-  ipAddress    String?  @map("ip_address") @db.Inet
+  ipAddress    String?  @map("ip_address")
   userAgent    String?  @map("user_agent")
   createdAt    DateTime? @default(now()) @map("created_at")
 
