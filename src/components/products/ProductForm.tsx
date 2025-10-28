@@ -117,7 +117,7 @@ export function ProductForm() {
         .from('products')
         .select('*')
         .eq('id', productId)
-        .eq('user_id', user.id)
+        .eq('business_id', business?.id)
         .single()
 
       if (productError) throw productError
@@ -268,7 +268,7 @@ export function ProductForm() {
           .from('products')
           .update(productDataToSave)
           .eq('id', formData.id)
-          .eq('user_id', user.id)
+          .eq('business_id', business?.id)
 
         if (productError) throw productError
 
@@ -298,10 +298,7 @@ export function ProductForm() {
         // Create new product
         const { data: product, error: productError } = await supabase
           .from('products')
-          .insert({
-            ...productDataToSave,
-            user_id: user.id,
-          })
+          .insert(productDataToSave)
           .select()
           .single()
 

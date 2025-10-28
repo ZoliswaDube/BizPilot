@@ -13,7 +13,11 @@ import {
   X,
   Tag, // New icon for Categories
   Truck, // New icon for Suppliers
-  Users // New icon for User Management
+  Users, // New icon for User Management
+  ShoppingCart, // New icon for Orders
+  FileText, // New icon for Invoices
+  DollarSign, // New icon for Payments
+  UserCircle // New icon for Customers
 } from 'lucide-react'
 import { useAuthStore } from '../../store/auth'
 import { Logo } from '../common/Logo'
@@ -23,6 +27,10 @@ const navItems = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Products', href: '/products', icon: Package },
   { name: 'Inventory', href: '/inventory', icon: Warehouse },
+  { name: 'Orders', href: '/orders', icon: ShoppingCart },
+  { name: 'Invoices', href: '/invoices', icon: FileText },
+  { name: 'Payments', href: '/payments', icon: DollarSign },
+  { name: 'Customers', href: '/customers', icon: UserCircle },
   { name: 'Categories', href: '/categories', icon: Tag }, // New
   { name: 'Suppliers', href: '/suppliers', icon: Truck }, // New
   { name: 'AI Assistant', href: '/ai', icon: MessageSquare },

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Plus, Search, Package, Edit, Trash2, Calculator, Tag, Truck, Grid3X3, List } from 'lucide-react'
 import { useAuthStore } from '../../store/auth'
+import { useBusiness } from '../../hooks/useBusiness'
 import { supabase } from '../../lib/supabase'
 import { formatCurrency, formatPercentage } from '../../utils/calculations'
 import { ImageDisplay } from '../ui/image-display'
@@ -29,6 +30,7 @@ interface Product {
 export function ProductList() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
+  const { business } = useBusiness()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -36,13 +38,13 @@ export function ProductList() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
   useEffect(() => {
-    if (user) {
+    if (user && business) {
       fetchProducts()
     }
-  }, [user])
+  }, [user, business])
 
   const fetchProducts = async () => {
-    if (!user) return
+    if (!user || !business) return
 
     try {
       setLoading(true)
@@ -69,7 +71,7 @@ export function ProductList() {
           categories (name),
           suppliers (name)
         `)
-        .eq('user_id', user.id)
+        .eq('business_id', business.id)
         .order('created_at', { ascending: false })
 
       if (error) throw error

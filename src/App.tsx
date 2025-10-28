@@ -30,6 +30,15 @@ import { UserManagement } from './components/users/UserManagement' // New import
 import { OrderList } from './components/orders/OrderList' // New import
 import { OrderForm } from './components/orders/OrderForm' // New import
 import { OrderDetail } from './components/orders/OrderDetail' // New import
+import { InvoiceList } from './components/invoices/InvoiceList' // New import
+import { InvoiceForm } from './components/invoices/InvoiceForm' // New import
+import { InvoiceDetail } from './components/invoices/InvoiceDetail' // New import
+import { PaymentList } from './components/payments/PaymentList' // New import
+import { PaymentForm } from './components/payments/PaymentForm' // New import
+import { PaymentDetail } from './components/payments/PaymentDetail' // New import
+import { CustomerList } from './components/customers/CustomerList' // New import
+import { CustomerForm } from './components/customers/CustomerForm' // New import
+import { CustomerDetail } from './components/customers/CustomerDetail' // New import
 
 function App() {
   const { 
@@ -230,6 +239,97 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <OrderDetail />
+                </Layout>
+              </ProtectedRoute>
+            } />
+
+            {/* Invoice management routes */}
+            <Route path="/invoices" element={
+              <ProtectedRoute>
+                <Layout>
+                  <InvoiceList />
+                </Layout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/invoices/new" element={
+              <ProtectedRoute>
+                <Layout>
+                  <InvoiceForm />
+                </Layout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/invoices/edit/:id" element={
+              <ProtectedRoute>
+                <Layout>
+                  <InvoiceForm />
+                </Layout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/invoices/:id" element={
+              <ProtectedRoute>
+                <Layout>
+                  <InvoiceDetail />
+                </Layout>
+              </ProtectedRoute>
+            } />
+
+            {/* Payment management routes */}
+            <Route path="/payments" element={
+              <ProtectedRoute>
+                <Layout>
+                  <PaymentList />
+                </Layout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/payments/new" element={
+              <ProtectedRoute>
+                <Layout>
+                  <PaymentForm />
+                </Layout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/payments/:id" element={
+              <ProtectedRoute>
+                <Layout>
+                  <PaymentDetail />
+                </Layout>
+              </ProtectedRoute>
+            } />
+
+            {/* Customer management routes */}
+            <Route path="/customers" element={
+              <ProtectedRoute>
+                <Layout>
+                  <CustomerList />
+                </Layout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/customers/new" element={
+              <ProtectedRoute>
+                <Layout>
+                  <CustomerForm />
+                </Layout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/customers/edit/:id" element={
+              <ProtectedRoute>
+                <Layout>
+                  <CustomerForm />
+                </Layout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/customers/:id" element={
+              <ProtectedRoute>
+                <Layout>
+                  <CustomerDetail />
                 </Layout>
               </ProtectedRoute>
             } />

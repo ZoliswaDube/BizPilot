@@ -171,7 +171,10 @@ export function useInvoices(filters?: InvoiceFilters): UseInvoicesReturn {
     if (business?.id) {
       fetchInvoices()
     }
-  }, [business?.id, fetchInvoices])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Note: fetchInvoices is intentionally not in deps to avoid infinite loop
+    // The filter values are explicitly listed instead
+  }, [business?.id, filters?.status, filters?.customer_id, filters?.date_from, filters?.date_to])
 
   return {
     invoices,

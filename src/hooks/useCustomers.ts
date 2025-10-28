@@ -34,7 +34,7 @@ export function useCustomers(): UseCustomersReturn {
   const { user } = useAuthStore()
   const { business } = useBusiness()
 
-  // Fetch customers using MCP server
+  // Fetch customers using Supabase
   const fetchCustomers = useCallback(async () => {
     if (!business?.id) return
 
@@ -42,28 +42,44 @@ export function useCustomers(): UseCustomersReturn {
       setLoading(true)
       setError(null)
 
-      const result = await (window as any).mcpClient?.execute_sql({
-        query: `
-          SELECT 
-            c.*,
-            COUNT(o.id) as total_orders,
-            COALESCE(SUM(o.total_amount), 0) as total_spent,
-            COALESCE(AVG(o.total_amount), 0) as average_order_value,
-            MAX(o.order_date) as last_order_date
-          FROM customers c
-          LEFT JOIN orders o ON c.id = o.customer_id
-          WHERE c.business_id = $1 AND c.is_active = true
-          GROUP BY c.id
-          ORDER BY c.created_at DESC
-        `,
-        params: [business.id]
-      })
+      // Import supabase client
+      const { supabase } = await import('../lib/supabase')
 
-      if (result?.error) {
-        throw new Error(result.error.message || 'Failed to fetch customers')
-      }
+      // Fetch customers
+      const { data: customersData, error: customersError } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('business_id', business.id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
 
-      setCustomers(result?.data || [])
+      if (customersError) throw customersError
+
+      // Fetch orders count and totals for each customer
+      const customersWithStats = await Promise.all(
+        (customersData || []).map(async (customer) => {
+          const { data: orders } = await supabase
+            .from('orders')
+            .select('total_amount, order_date')
+            .eq('customer_id', customer.id)
+
+          const total_orders = orders?.length || 0
+          const total_spent = orders?.reduce((sum, o) => sum + (o.total_amount || 0), 0) || 0
+          const average_order_value = total_orders > 0 ? total_spent / total_orders : 0
+          const last_order_date = orders?.[0]?.order_date || null
+
+          return {
+            ...customer,
+            total_orders,
+            total_spent,
+            average_order_value,
+            last_order_date,
+            customer_since: customer.created_at
+          }
+        })
+      )
+
+      setCustomers(customersWithStats)
     } catch (err) {
       console.error('Error fetching customers:', err)
       setError(err instanceof Error ? err.message : 'Failed to fetch customers')
@@ -79,39 +95,33 @@ export function useCustomers(): UseCustomersReturn {
     }
 
     try {
-      const result = await (window as any).mcpClient?.execute_sql({
-        query: `
-          INSERT INTO customers (
-            business_id, name, email, phone, company, address, notes, 
-            tags, preferred_contact_method, created_by
-          ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
-          ) RETURNING *
-        `,
-        params: [
-          business.id,
-          customerData.name,
-          customerData.email || null,
-          customerData.phone || null,
-          customerData.company || null,
-          customerData.address ? JSON.stringify(customerData.address) : null,
-          customerData.notes || null,
-          customerData.tags || [],
-          customerData.preferred_contact_method || 'email',
-          user.id
-        ]
-      })
+      const { supabase } = await import('../lib/supabase')
 
-      if (result?.error) {
-        throw new Error(result.error.message || 'Failed to create customer')
-      }
+      const { data: newCustomer, error } = await supabase
+        .from('customers')
+        .insert({
+          business_id: business.id,
+          name: customerData.name,
+          email: customerData.email || null,
+          phone: customerData.phone || null,
+          company: customerData.company || null,
+          address: customerData.address || null,
+          notes: customerData.notes || null,
+          tags: customerData.tags || [],
+          preferred_contact_method: customerData.preferred_contact_method || 'email',
+          created_by: user.id,
+          is_active: true
+        })
+        .select()
+        .single()
 
-      const newCustomer = result.data[0]
+      if (error) throw error
+      if (!newCustomer) throw new Error('Failed to create customer')
       
       // Refresh customers list
       await fetchCustomers()
 
-      return newCustomer
+      return newCustomer as Customer
     } catch (err) {
       console.error('Error creating customer:', err)
       throw err
@@ -125,46 +135,30 @@ export function useCustomers(): UseCustomersReturn {
     }
 
     try {
-      const updateFields: string[] = []
-      const params: any[] = []
-      let paramIndex = 1
+      const { supabase } = await import('../lib/supabase')
 
-      // Build dynamic update query
-      Object.entries(updates).forEach(([key, value]) => {
-        if (value !== undefined) {
-          updateFields.push(`${key} = $${paramIndex}`)
-          params.push(typeof value === 'object' ? JSON.stringify(value) : value)
-          paramIndex++
-        }
-      })
-
-      if (updateFields.length === 0) {
+      if (Object.keys(updates).length === 0) {
         throw new Error('No updates provided')
       }
 
-      updateFields.push(`updated_at = NOW()`)
-      params.push(customerId, business.id)
+      const { data: updatedCustomer, error } = await supabase
+        .from('customers')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', customerId)
+        .eq('business_id', business.id)
+        .select()
+        .single()
 
-      const result = await (window as any).mcpClient?.execute_sql({
-        query: `
-          UPDATE customers 
-          SET ${updateFields.join(', ')}
-          WHERE id = $${paramIndex} AND business_id = $${paramIndex + 1}
-          RETURNING *
-        `,
-        params
-      })
-
-      if (result?.error) {
-        throw new Error(result.error.message || 'Failed to update customer')
-      }
-
-      const updatedCustomer = result.data[0]
+      if (error) throw error
+      if (!updatedCustomer) throw new Error('Failed to update customer')
       
       // Refresh customers list
       await fetchCustomers()
 
-      return updatedCustomer
+      return updatedCustomer as Customer
     } catch (err) {
       console.error('Error updating customer:', err)
       throw err
@@ -178,19 +172,19 @@ export function useCustomers(): UseCustomersReturn {
     }
 
     try {
-      // Soft delete by setting is_active to false
-      const result = await (window as any).mcpClient?.execute_sql({
-        query: `
-          UPDATE customers 
-          SET is_active = false, updated_at = NOW()
-          WHERE id = $1 AND business_id = $2
-        `,
-        params: [customerId, business.id]
-      })
+      const { supabase } = await import('../lib/supabase')
 
-      if (result?.error) {
-        throw new Error(result.error.message || 'Failed to delete customer')
-      }
+      // Soft delete by setting is_active to false
+      const { error } = await supabase
+        .from('customers')
+        .update({
+          is_active: false,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', customerId)
+        .eq('business_id', business.id)
+
+      if (error) throw error
 
       // Refresh customers list
       await fetchCustomers()

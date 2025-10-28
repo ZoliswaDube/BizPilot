@@ -136,7 +136,10 @@ export function usePayments(filters?: PaymentFilters): UsePaymentsReturn {
     if (business?.id) {
       fetchPayments()
     }
-  }, [business?.id, fetchPayments])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Note: fetchPayments is intentionally not in deps to avoid infinite loop
+    // The filter values are explicitly listed instead
+  }, [business?.id, filters?.status, filters?.date_from, filters?.date_to])
 
   return {
     payments,
