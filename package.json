@@ -1,9 +1,10 @@
 {
-  "name": "bizpilot",
+  "name": "bizpilot-monorepo",
+  "version": "1.0.0",
+  "description": "BizPilot - Comprehensive Business Management Platform",
   "private": true,
-  "version": "0.0.0",
-  "type": "module",
   "scripts": {
+<<<<<<< HEAD
     "dev": "vite",
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
@@ -39,29 +40,68 @@
     "three": "^0.179.1",
     "xlsx": "^0.18.5",
     "zustand": "^5.0.6"
+=======
+    "install:all": "npm install && npm run install:backend && npm run install:web && npm run install:mobile && npm run install:shared",
+    "install:backend": "cd backend && npm install",
+    "install:web": "cd web && npm install",
+    "install:mobile": "cd mobile && npm install",
+    "install:shared": "cd shared && npm install",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:web\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:web": "cd web && npm run dev",
+    "dev:mobile": "cd mobile && npm start",
+    "build": "npm run build:shared && npm run build:backend && npm run build:web",
+    "build:shared": "cd shared && npm run build",
+    "build:backend": "cd backend && npm run build",
+    "build:web": "cd web && npm run build",
+    "test": "npm run test:backend && npm run test:web",
+    "test:backend": "cd backend && npm run test",
+    "test:web": "cd web && npm run test",
+    "lint": "npm run lint:backend && npm run lint:web",
+    "lint:backend": "cd backend && npm run lint",
+    "lint:web": "cd web && npm run lint",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:build": "docker-compose build",
+    "db:migrate": "cd backend && npx prisma migrate dev",
+    "db:generate": "cd backend && npx prisma generate",
+    "db:studio": "cd backend && npx prisma studio",
+    "clean": "npm run clean:backend && npm run clean:web && npm run clean:shared",
+    "clean:backend": "cd backend && rm -rf dist node_modules",
+    "clean:web": "cd web && rm -rf .next node_modules",
+    "clean:shared": "cd shared && rm -rf dist node_modules"
+>>>>>>> fd3eb9c8966b19fd45bd81fe2de9fa0eba4fa15e
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "^6.0.0",
-    "@testing-library/react": "^14.0.0",
-    "@testing-library/user-event": "^14.4.3",
-    "@types/node": "^20.9.0",
-    "@types/qrcode": "^1.5.5",
-    "@types/react": "^18.2.37",
-    "@types/react-dom": "^18.2.15",
-    "@types/three": "^0.179.0",
-    "@typescript-eslint/eslint-plugin": "^6.10.0",
-    "@typescript-eslint/parser": "^6.10.0",
-    "@vitejs/plugin-react": "^4.1.1",
-    "autoprefixer": "^10.4.16",
-    "eslint": "^8.53.0",
-    "eslint-plugin-react-hooks": "^4.6.0",
-    "eslint-plugin-react-refresh": "^0.4.4",
-    "jsdom": "^26.1.0",
-    "postcss": "^8.4.31",
-    "tailwindcss": "^3.3.5",
-    "typescript": "^5.2.2",
-    "vite": "^4.5.0",
-    "vitest": "^1.0.0"
+    "concurrently": "^8.2.2"
   },
-  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+  "keywords": [
+    "business",
+    "management",
+    "inventory",
+    "pos",
+    "ecommerce",
+    "typescript",
+    "react",
+    "react-native",
+    "nextjs",
+    "nodejs",
+    "express",
+    "prisma",
+    "postgresql"
+  ],
+  "author": "BizPilot Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/bizpilot.git"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.11.0"
+  },
+  "packageManager": "pnpm@10.18.0+sha512.e804f889f1cecc40d572db084eec3e4881739f8dec69c0ff10d2d1beff9a4e309383ba27b5b750059d7f4c149535b6cd0d2cb1ed3aeb739239a4284a68f40cfa"
 }
