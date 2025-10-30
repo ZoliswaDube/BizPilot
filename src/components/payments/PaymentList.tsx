@@ -17,8 +17,8 @@ import {
 } from 'lucide-react'
 import { usePayments } from '../../hooks/usePayments'
 import { useBusiness } from '../../hooks/useBusiness'
+import { useCurrency } from '../../hooks/useCurrency'
 import type { PaymentStatus } from '../../types/payments'
-import { formatCurrency } from '../../utils/calculations'
 
 // Status color mapping
 const STATUS_COLORS: Record<PaymentStatus, string> = {
@@ -57,6 +57,7 @@ const PROVIDER_NAMES: Record<string, string> = {
 export function PaymentList() {
   const navigate = useNavigate()
   const { userRole, hasPermission } = useBusiness()
+  const { format: formatCurrency } = useCurrency()
   
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<PaymentStatus[]>([])
@@ -297,7 +298,7 @@ export function PaymentList() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="text-gray-300 font-medium">
-                          {formatCurrency(payment.amount)} {payment.currency}
+                          {formatCurrency(payment.amount)}
                         </div>
                         {payment.refund_amount > 0 && (
                           <div className="text-sm text-orange-400">

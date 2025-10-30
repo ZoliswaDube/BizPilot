@@ -18,9 +18,10 @@ import {
   Calendar,
   MoreHorizontal
 } from 'lucide-react'
-import { useOrders } from '../../hooks/useOrders'
+import { useOrdersSupabase } from '../../hooks/useOrdersSupabase'
+import { useCurrency } from '../../hooks/useCurrency'
+import { OrderListSkeleton } from '../ui/skeleton'
 import type { Order, OrderStatus, PaymentStatus, OrderFilters } from '../../types/orders'
-import { formatCurrency } from '../../utils/calculations'
 
 // Status color mapping
 const STATUS_COLORS: Record<OrderStatus, string> = {
@@ -54,14 +55,28 @@ interface OrderListProps {
   compact?: boolean
 }
 
-export function OrderList({ onOrderSelect, showActions = true, compact = false }: OrderListProps) {
+export function OrderList() {
   const navigate = useNavigate()
+  const { format: formatCurrency } = useCurrency()
   const [searchTerm, setSearchTerm] = useState('')
   const [showFilters, setShowFilters] = useState(false)
-  const [filters, setFilters] = useState<OrderFilters>({})
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null)
+  const [viewingOrder, setViewingOrder] = useState<Order | null>(null)
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set())
+  const [filters, setFilters] = useState<OrderFilters>({
+    status: [],
+    payment_status: [],
+    customer_id: undefined,
+    date_from: undefined,
+    date_to: undefined,
+    search: undefined
+  })
 
-  const { orders, loading, error, deleteOrder } = useOrders(filters)
+  const { orders, loading, error, timeoutError, deleteOrder, refreshOrders } = useOrdersSupabase(filters)
+  
+  // Define showActions - controls whether action buttons are shown
+  const showActions = true // Always show actions for now
 
   // Filter orders based on search term
   const filteredOrders = useMemo(() => {
@@ -79,15 +94,11 @@ export function OrderList({ onOrderSelect, showActions = true, compact = false }
   }
 
   const handleViewOrder = (order: Order) => {
-    if (onOrderSelect) {
-      onOrderSelect(order)
-    } else {
-      navigate(`/orders/${order.id}`)
-    }
+    setViewingOrder(order)
   }
 
   const handleEditOrder = (order: Order) => {
-    navigate(`/orders/edit/${order.id}`)
+    setEditingOrder(order)
   }
 
   const handleDeleteOrder = async (order: Order) => {
@@ -100,7 +111,7 @@ export function OrderList({ onOrderSelect, showActions = true, compact = false }
       }
     }
   }
-
+  
   const handleSelectOrder = (orderId: string) => {
     const newSelected = new Set(selectedOrders)
     if (newSelected.has(orderId)) {
@@ -110,12 +121,12 @@ export function OrderList({ onOrderSelect, showActions = true, compact = false }
     }
     setSelectedOrders(newSelected)
   }
-
+  
   const handleSelectAll = () => {
     if (selectedOrders.size === filteredOrders.length) {
       setSelectedOrders(new Set())
     } else {
-      setSelectedOrders(new Set(filteredOrders.map(order => order.id)))
+      setSelectedOrders(new Set(filteredOrders.map(o => o.id)))
     }
   }
 
@@ -127,25 +138,44 @@ export function OrderList({ onOrderSelect, showActions = true, compact = false }
     })
   }
 
-  if (loading) {
+  // Show skeleton while loading
+  if (loading && orders.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-2 text-gray-400">Loading orders...</p>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="space-y-6"
+      >
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-100">Orders</h1>
+            <p className="text-gray-400">Manage your sales orders</p>
+          </div>
         </div>
-      </div>
+        <OrderListSkeleton items={5} />
+      </motion.div>
     )
   }
 
-  if (error) {
+  if (error || timeoutError) {
     return (
-      <div className="card bg-red-900/20 border-red-500/30">
-        <div className="text-red-400">
-          <h3 className="font-medium">Error loading orders</h3>
-          <p className="text-sm mt-1">{error}</p>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="card bg-red-900/20 border-red-500/30"
+      >
+        <div className="text-red-400 text-center py-8">
+          <XCircle className="h-12 w-12 mx-auto mb-4" />
+          <h3 className="font-medium text-lg mb-2">Unable to load orders</h3>
+          <p className="text-sm mb-4">{error || 'Connection timeout. Please check your internet connection.'}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 rounded-lg transition-colors"
+          >
+            Refresh Page
+          </button>
         </div>
-      </div>
+      </motion.div>
     )
   }
 
@@ -176,25 +206,32 @@ export function OrderList({ onOrderSelect, showActions = true, compact = false }
       </div>
 
       {/* Search and Filters */}
-      <div className="card">
+      <motion.div 
+        className="card"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+      >
         <div className="flex items-center space-x-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
               type="text"
               placeholder="Search orders by number, customer, or notes..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="input pl-10 w-full"
+              className="input-field pl-10 w-full"
             />
           </div>
-          <button
+          <motion.button
             onClick={() => setShowFilters(!showFilters)}
             className={`btn-secondary flex items-center space-x-2 ${showFilters ? 'bg-primary-600' : ''}`}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
             <Filter className="h-4 w-4" />
             <span>Filters</span>
-          </button>
+          </motion.button>
         </div>
 
         {/* Filter Panel */}
@@ -264,7 +301,7 @@ export function OrderList({ onOrderSelect, showActions = true, compact = false }
             </div>
           </motion.div>
         )}
-      </div>
+      </motion.div>
 
       {/* Orders Summary */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

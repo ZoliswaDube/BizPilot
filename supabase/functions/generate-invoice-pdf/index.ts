@@ -6,10 +6,33 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Currency configuration - TODO: Get from invoice/business settings
+interface CurrencyConfig {
+  code: string;
+  symbol: string;
+  locale: string;
+  decimalPlaces: number;
+}
+
+const currencyConfigs: Record<string, CurrencyConfig> = {
+  ZAR: { code: 'ZAR', symbol: 'R', locale: 'en-ZA', decimalPlaces: 2 },
+  USD: { code: 'USD', symbol: '$', locale: 'en-US', decimalPlaces: 2 },
+  EUR: { code: 'EUR', symbol: '€', locale: 'de-DE', decimalPlaces: 2 },
+  GBP: { code: 'GBP', symbol: '£', locale: 'en-GB', decimalPlaces: 2 },
+}
+
 // Simple PDF generation using HTML/CSS
-function generatePDFHTML(invoice: any): string {
-  const formatCurrency = (amount: number) => `R${amount.toFixed(2)}`
-  const formatDate = (date: string) => new Date(date).toLocaleDateString('en-ZA', {
+function generatePDFHTML(invoice: any, currencyCode: string = 'ZAR'): string {
+  const config = currencyConfigs[currencyCode] || currencyConfigs.ZAR
+  
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat(config.locale, {
+      style: 'currency',
+      currency: config.code,
+    }).format(amount)
+  }
+  
+  const formatDate = (date: string) => new Date(date).toLocaleDateString(config.locale, {
     year: 'numeric',
     month: 'long',
     day: 'numeric'
@@ -210,7 +233,7 @@ function generatePDFHTML(invoice: any): string {
       <p><strong>Issue Date:</strong> ${formatDate(invoice.issue_date)}</p>
       <p><strong>Due Date:</strong> ${formatDate(invoice.due_date)}</p>
       ${invoice.paid_date ? `<p><strong>Paid Date:</strong> ${formatDate(invoice.paid_date)}</p>` : ''}
-      <p><strong>Currency:</strong> ZAR (South African Rand)</p>
+      <p><strong>Currency:</strong> ${config.code}</p>
       ${invoice.status === 'overdue' ? '<p style="color: #dc2626; font-weight: bold;">⚠️ OVERDUE</p>' : ''}
     </div>
   </div>
@@ -338,8 +361,11 @@ serve(async (req) => {
       throw new Error('Invoice not found')
     }
 
-    // Generate HTML
-    const htmlContent = generatePDFHTML(invoice)
+    // Get currency from business settings or default to ZAR
+    const currencyCode = invoice.business?.currency || 'ZAR'
+
+    // Generate HTML with dynamic currency
+    const htmlContent = generatePDFHTML(invoice, currencyCode)
 
     // For now, we'll return the HTML
     // In production, you'd use a service like Puppeteer or a PDF API

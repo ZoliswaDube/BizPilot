@@ -16,8 +16,8 @@ import {
   Loader2
 } from 'lucide-react'
 import { useBusiness } from '../../hooks/useBusiness'
+import { useCurrency } from '../../hooks/useCurrency'
 import { supabase } from '../../lib/supabase'
-import { formatCurrency } from '../../utils/calculations'
 import type { Payment, PaymentStatus } from '../../types/payments'
 
 const STATUS_COLORS: Record<PaymentStatus, string> = {
@@ -56,6 +56,7 @@ export function PaymentDetail() {
   const navigate = useNavigate()
   const { id } = useParams()
   const { business } = useBusiness()
+  const { format: formatCurrency, formatDate } = useCurrency()
 
   const [payment, setPayment] = useState<Payment | null>(null)
   const [invoice, setInvoice] = useState<any>(null)
@@ -106,16 +107,7 @@ export function PaymentDetail() {
     }
   }
 
-  const formatDate = (dateString: string | undefined) => {
-    if (!dateString) return 'N/A'
-    return new Date(dateString).toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
+  // Remove duplicate formatDate - using the one from useCurrency hook
 
   if (loading) {
     return (
@@ -181,7 +173,7 @@ export function PaymentDetail() {
         <div className="text-center">
           <div className="text-sm text-gray-400 mb-2">Payment Amount</div>
           <div className="text-4xl font-bold text-gray-100 mb-2">
-            {formatCurrency(payment.amount)} {payment.currency}
+            {formatCurrency(payment.amount)}
           </div>
           {payment.refund_amount > 0 && (
             <div className="text-sm space-y-1">
@@ -189,7 +181,7 @@ export function PaymentDetail() {
                 Refunded: {formatCurrency(payment.refund_amount)}
               </div>
               <div className="text-gray-300 font-medium">
-                Net Amount: {formatCurrency(netAmount)} {payment.currency}
+                Net Amount: {formatCurrency(netAmount)}
               </div>
             </div>
           )}

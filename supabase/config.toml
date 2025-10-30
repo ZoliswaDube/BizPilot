@@ -1,0 +1,52 @@
+# Supabase CLI Configuration
+# This file is used by the Supabase CLI to connect to your project
+
+# Project ID - Get this from your Supabase project settings
+# Format: https://app.supabase.com/project/YOUR_PROJECT_ID
+project_id = "ecqtlekrdhtaxhuvgsyo"
+
+[api]
+# Port to use for the local API server
+port = 54321
+# Schemas to expose in your API. Tables, views and stored procedures in these schemas will be accessible via the API
+schemas = ["public", "storage", "graphql_public"]
+# Extra schemas to add to the search_path of every request. These schemas are not exposed in your API
+extra_search_path = ["public", "extensions"]
+# Max rows returned from a view, table, or stored procedure
+max_rows = 1000
+
+[db]
+# Port to use for the local database server
+port = 54322
+# The database major version to use
+major_version = 17
+
+[studio]
+# Port to use for the Supabase Studio
+port = 54323
+
+[inbucket]
+# Port to use for the Inbucket email testing server
+port = 54324
+
+[storage]
+# The maximum file size allowed (in bytes)
+file_size_limit = 52428800
+
+[auth]
+# Enable/disable authentication
+enabled = true
+# The base URL of your website
+site_url = "http://localhost:5173"
+# Additional redirect URLs. Used when authenticating with OAuth providers
+additional_redirect_urls = ["https://localhost:5173"]
+# JWT expiry limit. JWT tokens issued by Supabase expire after this time
+jwt_expiry = 3600
+# Enable/disable signup
+enable_signup = true
+
+[auth.email]
+# Enable/disable signup with email
+enable_signup = true
+# Enable/disable email confirmations
+enable_confirmations = true

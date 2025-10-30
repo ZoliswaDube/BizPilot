@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Plus, Search, Package, Edit, Trash2, Calculator, Tag, Truck, Grid3X3, List } from 'lucide-react'
+import { Plus, Search, Package, Edit, Trash2, Calculator, Tag, Truck, Grid3X3, List, AlertCircle } from 'lucide-react'
 import { useAuthStore } from '../../store/auth'
 import { useBusiness } from '../../hooks/useBusiness'
+import { useCurrency } from '../../hooks/useCurrency'
 import { supabase } from '../../lib/supabase'
-import { formatCurrency, formatPercentage } from '../../utils/calculations'
+import { formatPercentage } from '../../utils/calculations'
 import { ImageDisplay } from '../ui/image-display'
+import { ProductCardSkeleton } from '../ui/skeleton'
 
 interface Product {
   id: string
@@ -31,9 +33,11 @@ export function ProductList() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
   const { business } = useBusiness()
+  const { format: formatCurrency } = useCurrency()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [timeoutError, setTimeoutError] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
@@ -46,9 +50,18 @@ export function ProductList() {
   const fetchProducts = async () => {
     if (!user || !business) return
 
+    setLoading(true)
+    setError('')
+    setTimeoutError(false)
+    
+    // Set 15 second timeout
+    const timeoutId = setTimeout(() => {
+      setTimeoutError(true)
+      setLoading(false)
+      setError('Loading is taking longer than expected. Please check your connection.')
+    }, 15000)
+    
     try {
-      setLoading(true)
-      setError('')
 
       // Fetch products with ingredient count, category name, and supplier name
       const { data, error } = await supabase
@@ -86,8 +99,10 @@ export function ProductList() {
 
       setProducts(productsWithDetails as Product[])
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch products')
+      console.error('Error fetching products:', err)
+      setError('Failed to load products')
     } finally {
+      clearTimeout(timeoutId)
       setLoading(false)
     }
   }
@@ -120,14 +135,50 @@ export function ProductList() {
     product.suppliers?.name?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  if (loading) {
+  // Show skeleton loaders while loading
+  if (loading && products.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Loading products...</p>
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="space-y-6"
+      >
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-100">Products</h1>
+            <p className="text-gray-400">Manage your product catalog</p>
+          </div>
         </div>
-      </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {[...Array(8)].map((_, i) => (
+            <ProductCardSkeleton key={i} />
+          ))}
+        </div>
+      </motion.div>
+    )
+  }
+  
+  // Show error state
+  if (error || timeoutError) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="card bg-red-900/20 border-red-500/30"
+      >
+        <div className="text-red-400 text-center py-8">
+          <AlertCircle className="h-12 w-12 mx-auto mb-4" />
+          <h3 className="font-medium text-lg mb-2">Unable to load products</h3>
+          <p className="text-sm mb-4">{error}</p>
+          <button
+            onClick={() => fetchProducts()}
+            className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 rounded-lg transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      </motion.div>
     )
   }
 

@@ -1,4 +1,6 @@
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js'
 import { Line } from 'react-chartjs-2'
+import { useCurrency } from '../../hooks/useCurrency'
 import { chartTheme, defaultChartOptions } from './ChartRegistry'
 
 interface Product {
@@ -13,6 +15,7 @@ interface ProfitTrendChartProps {
 }
 
 export function ProfitTrendChart({ products }: ProfitTrendChartProps) {
+  const { format: formatCurrency } = useCurrency()
   // Sort products by creation date and calculate cumulative profit
   const sortedProducts = [...products].sort((a, b) => 
     new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
@@ -71,7 +74,7 @@ export function ProfitTrendChart({ products }: ProfitTrendChartProps) {
           afterLabel: function(context: any) {
             const index = context.dataIndex
             const dailyProfit = trendData[index]?.dailyProfit || 0
-            return `Daily Addition: $${dailyProfit.toFixed(2)}`
+            return `Daily Addition: ${formatCurrency(dailyProfit)}`
           }
         }
       }
@@ -84,7 +87,7 @@ export function ProfitTrendChart({ products }: ProfitTrendChartProps) {
         ticks: {
           ...defaultChartOptions.scales?.y?.ticks,
           callback: function(value: any) {
-            return '$' + value.toFixed(0)
+            return formatCurrency(value)
           }
         }
       }

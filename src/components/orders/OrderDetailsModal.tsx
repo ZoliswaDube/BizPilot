@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { X, Package, User, Calendar, CreditCard, FileText, Truck } from 'lucide-react'
 import { useOrders } from '../../hooks/useOrders'
+import { useCurrency } from '../../hooks/useCurrency'
 import type { Order } from '../../types/orders'
 const ORDER_STATUS_LABELS = {
   pending: 'Pending',
@@ -39,6 +40,7 @@ interface OrderDetailsModalProps {
 
 export function OrderDetailsModal({ isOpen, onClose, order: initialOrder }: OrderDetailsModalProps) {
   const { getOrderById } = useOrders()
+  const { format: formatCurrency, formatDate } = useCurrency()
   const [order, setOrder] = useState<Order | null>(initialOrder)
   const [loading, setLoading] = useState(false)
 
@@ -62,9 +64,6 @@ export function OrderDetailsModal({ isOpen, onClose, order: initialOrder }: Orde
   }, [isOpen, initialOrder?.id, getOrderById])
 
   if (!isOpen || !order) return null
-
-  const formatCurrency = (amount: number) => `R${amount.toFixed(2)}`
-  const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('en-ZA')
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">

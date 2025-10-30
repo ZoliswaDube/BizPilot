@@ -16,14 +16,15 @@ import {
   Tag
 } from 'lucide-react'
 import { useBusiness } from '../../hooks/useBusiness'
+import { useCurrency } from '../../hooks/useCurrency'
 import { supabase } from '../../lib/supabase'
-import { formatCurrency } from '../../utils/calculations'
 import type { Customer } from '../../types/orders'
 
 export function CustomerDetail() {
   const navigate = useNavigate()
   const { id } = useParams()
   const { business, userRole, hasPermission } = useBusiness()
+  const { format: formatCurrency } = useCurrency()
 
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [orders, setOrders] = useState<any[]>([])

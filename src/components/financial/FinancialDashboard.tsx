@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { CalendarDays, DollarSign, TrendingUp, TrendingDown, PieChart, BarChart3, Download } from 'lucide-react'
 import { useFinancialReporting } from '../../hooks/useFinancialReporting'
+import { useCurrency } from '../../hooks/useCurrency'
 import type { FinancialReport } from '../../hooks/useFinancialReporting'
 
 export function FinancialDashboard() {
   const { generateFinancialReport, getCurrentMonthSummary, loading } = useFinancialReporting()
+  const { format: formatCurrency, formatDate } = useCurrency()
   const [currentReport, setCurrentReport] = useState<FinancialReport | null>(null)
   const [customReport, setCustomReport] = useState<FinancialReport | null>(null)
   const [startDate, setStartDate] = useState('')
@@ -35,9 +37,6 @@ export function FinancialDashboard() {
       setReportLoading(false)
     }
   }
-
-  const formatCurrency = (amount: number) => `R${amount.toFixed(2)}`
-  const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('en-ZA')
 
   if (loading) {
     return (

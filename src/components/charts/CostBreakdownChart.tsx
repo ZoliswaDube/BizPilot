@@ -1,4 +1,6 @@
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 import { Doughnut } from 'react-chartjs-2'
+import { useCurrency } from '../../hooks/useCurrency'
 import { chartTheme, defaultChartOptions } from './ChartRegistry'
 
 interface CostBreakdownData {
@@ -12,6 +14,7 @@ interface CostBreakdownChartProps {
 }
 
 export function CostBreakdownChart({ data }: CostBreakdownChartProps) {
+  const { format: formatCurrency } = useCurrency()
   const chartData = {
     labels: ['Material Costs', 'Labor Costs'],
     datasets: [
@@ -51,7 +54,7 @@ export function CostBreakdownChart({ data }: CostBreakdownChartProps) {
             const value = context.parsed
             const total = data.totalCost
             const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0'
-            return `${context.label}: $${value.toFixed(2)} (${percentage}%)`
+            return `${context.label}: ${formatCurrency(value)} (${percentage}%)`
           }
         }
       }

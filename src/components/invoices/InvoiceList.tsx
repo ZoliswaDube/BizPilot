@@ -21,8 +21,8 @@ import {
 import { useInvoices } from '../../hooks/useInvoices'
 import { useCustomers } from '../../hooks/useCustomers'
 import { useBusiness } from '../../hooks/useBusiness'
+import { useCurrency } from '../../hooks/useCurrency'
 import type { InvoiceStatus } from '../../types/payments'
-import { formatCurrency } from '../../utils/calculations'
 
 // Status color mapping
 const STATUS_COLORS: Record<InvoiceStatus, string> = {
@@ -48,6 +48,7 @@ const STATUS_ICONS: Record<InvoiceStatus, React.ComponentType<any>> = {
 export function InvoiceList() {
   const navigate = useNavigate()
   const { userRole, hasPermission } = useBusiness()
+  const { format: formatCurrency } = useCurrency()
   
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus[]>([])

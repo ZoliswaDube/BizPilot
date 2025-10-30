@@ -22,6 +22,7 @@ import {
 import { useAuthStore } from '../../store/auth'
 import { Logo } from '../common/Logo'
 import { supabase } from '../../lib/supabase'
+import { CurrencySelector } from '../CurrencySelector'
 
 const navItems = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -169,6 +170,11 @@ export function Navigation() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
         >
+          {/* Currency Selector */}
+          <div className="mb-3">
+            <CurrencySelector className="w-full" showLabel={true} />
+          </div>
+
           <div className="flex items-center mb-3">
             {user?.user_metadata?.avatar_url ? (
               <motion.img 

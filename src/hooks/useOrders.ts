@@ -69,6 +69,20 @@ export function useOrders(filters?: OrderFilters): UseOrdersReturn {
     }
   }, [filters])
 
+  // Calculate order totals
+  const calculateOrderTotal = useCallback(async (items: CreateOrderItemRequest[], discountAmount = 0): Promise<OrderTotal> => {
+    const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
+    const tax_amount = subtotal * 0.1 // 10% tax rate - should be configurable
+    const total_amount = subtotal + tax_amount - discountAmount
+
+    return {
+      subtotal,
+      tax_amount,
+      discount_amount: discountAmount,
+      total_amount: Math.max(0, total_amount) // Ensure total is not negative
+    }
+  }, [])
+
   // Create new order
   const createOrder = useCallback(async (orderData: CreateOrderRequest): Promise<Order> => {
     try {
@@ -155,20 +169,6 @@ export function useOrders(filters?: OrderFilters): UseOrdersReturn {
       isValid: true,
       errors: [],
       warnings: []
-    }
-  }, [])
-
-  // Calculate order totals
-  const calculateOrderTotal = useCallback(async (items: CreateOrderItemRequest[], discountAmount = 0): Promise<OrderTotal> => {
-    const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
-    const tax_amount = subtotal * 0.1 // 10% tax rate - should be configurable
-    const total_amount = subtotal + tax_amount - discountAmount
-
-    return {
-      subtotal,
-      tax_amount,
-      discount_amount: discountAmount,
-      total_amount: Math.max(0, total_amount) // Ensure total is not negative
     }
   }, [])
 

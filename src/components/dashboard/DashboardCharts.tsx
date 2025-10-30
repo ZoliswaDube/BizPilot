@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '../../store/auth'
+import { useFinancialReporting } from '../../hooks/useFinancialReporting'
+import { useCurrency } from '../../hooks/useCurrency'
+import type { FinancialReport } from '../../hooks/useFinancialReporting'
 import { supabase } from '../../lib/supabase'
 import { ProfitMarginChart } from '../charts/ProfitMarginChart'
 import { CostBreakdownChart } from '../charts/CostBreakdownChart'
@@ -32,6 +35,7 @@ interface Ingredient {
 
 export function DashboardCharts() {
   const { user } = useAuthStore()
+  const { format: formatCurrency } = useCurrency()
   const [products, setProducts] = useState<Product[]>([])
   const [inventory, setInventory] = useState<InventoryItem[]>([])
   const [ingredients, setIngredients] = useState<Ingredient[]>([])
@@ -208,13 +212,13 @@ export function DashboardCharts() {
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-primary-400">
-              ${costBreakdownData.totalCost.toFixed(0)}
+              {formatCurrency(costBreakdownData.totalCost)}
             </p>
             <p className="text-sm text-gray-300">Total Cost Base</p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-primary-400">
-              ${products.reduce((sum, p) => sum + (p.selling_price - p.total_cost), 0).toFixed(0)}
+              {formatCurrency(products.reduce((sum, p) => sum + (p.selling_price - p.total_cost), 0))}
             </p>
             <p className="text-sm text-gray-300">Profit Potential</p>
           </div>

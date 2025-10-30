@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react'
 import { Save, User, Loader2, CheckCircle, Mail, Camera, Building, TrendingUp } from 'lucide-react'
 import { useAuthStore } from '../../store/auth'
 import { useUserSettings } from '../../hooks/useUserSettings'
+import { useCurrency } from '../../hooks/useCurrency'
 import { ManualNumberInput } from '../ui/manual-number-input'
-import { formatCurrency, formatPercentage } from '../../utils/calculations'
+import { formatPercentage } from '../../utils/calculations'
 
 export function UserSettings() {
   const { settings, loading: settingsLoading, error: settingsError, updateSettings } = useUserSettings()
   const { userProfile, updateProfile } = useAuthStore()
+  const { format: formatCurrency } = useCurrency()
   
   const [businessFormData, setBusinessFormData] = useState({
     business_name: '',

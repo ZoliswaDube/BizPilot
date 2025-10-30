@@ -19,7 +19,7 @@ import {
 import { useAuthStore } from '../../store/auth'
 import { useBusiness } from '../../hooks/useBusiness'
 import { useInvoices } from '../../hooks/useInvoices'
-import { formatCurrency } from '../../utils/calculations'
+import { useCurrency } from '../../hooks/useCurrency'
 import { supabase } from '../../lib/supabase'
 import type { InvoiceWithItems, InvoiceStatus } from '../../types/payments'
 
@@ -39,6 +39,7 @@ export function InvoiceDetail() {
   const { user } = useAuthStore()
   const { business, userRole, hasPermission } = useBusiness()
   const { sendInvoice, generateInvoicePDF } = useInvoices()
+  const { format: formatCurrency } = useCurrency()
 
   const [invoice, setInvoice] = useState<InvoiceWithItems | null>(null)
   const [loading, setLoading] = useState(true)

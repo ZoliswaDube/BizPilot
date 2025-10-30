@@ -57,7 +57,12 @@ function App() {
         onExtendSession={extendSession}
         onLogout={handleInactivityTimeout}
       />
-      <Router>
+      <Router 
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true
+        } as any}
+      >
         <AnimatePresence mode="wait">
           <Routes>
             {/* Home page */}

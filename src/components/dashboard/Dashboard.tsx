@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Package, Warehouse, TrendingUp, AlertTriangle, Loader2, Building2, ArrowRight } from 'lucide-react'
+import { Package, Warehouse, TrendingUp, AlertTriangle, Building2, ArrowRight } from 'lucide-react'
 import { useAuthStore } from '../../store/auth'
-import { useInventory } from '../../hooks/useInventory' // New import
-import { useBusiness } from '../../hooks/useBusiness' // New import
+import { useInventory } from '../../hooks/useInventory'
+import { useBusiness } from '../../hooks/useBusiness'
 import { supabase } from '../../lib/supabase'
 import { formatPercentage } from '../../utils/calculations'
 import { DashboardCharts } from './DashboardCharts'
+import { StatCardSkeleton, PageSkeleton } from '../ui/skeleton'
 import '../charts/ChartRegistry' // Initialize Chart.js
 
 interface DashboardStats {
@@ -102,22 +103,8 @@ export function Dashboard() {
   // Show business setup prompt when business loading is complete but no business exists
   const showBusinessSetup = !businessLoading && !business;
 
-  // Only show loading spinner if we're actually loading something
-  if (overallLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary-600" />
-          <p className="mt-2 text-gray-400">
-            {isBusinessDataLoading ? 'Loading business data...' : 
-             isProductDataLoading ? 'Loading products...' : 
-             isInventoryDataLoading ? 'Loading inventory...' : 
-             'Loading dashboard...'}
-          </p>
-        </div>
-      </div>
-    )
-  }
+  // Show skeleton loaders instead of spinner for better UX
+  // Keep the data visible and just show loading states
 
   return (
     <motion.div 
@@ -208,44 +195,55 @@ export function Dashboard() {
       {/* Hide the rest of the dashboard content if business setup is needed */}
       {!showBusinessSetup && (
         <>
-          {/* Stats Cards */}
+          {/* Stats Cards - Show skeletons while loading, data when ready */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              { icon: Package, label: 'Total Products', value: stats.totalProducts, color: 'blue' },
-              { icon: Warehouse, label: 'Inventory Items', value: stats.inventoryItems, color: 'green' },
-              { icon: TrendingUp, label: 'Avg. Margin', value: formatPercentage(stats.avgMargin), color: 'primary' },
-              { icon: AlertTriangle, label: 'Low Stock', value: stats.lowStockItems, color: 'red' }
-            ].map((stat, index) => (
-              <motion.div 
-                key={stat.label}
-                className="card"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 + index * 0.1 }}
-                whileHover={{ scale: 1.02, y: -4 }}
-              >
-                <div className="flex items-center">
-                  <motion.div 
-                    className={`p-2 bg-gradient-to-br from-${stat.color}-600/20 to-${stat.color}-500/20 rounded-lg border border-${stat.color}-500/30`}
-                    whileHover={{ scale: 1.1, rotate: 5 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                  >
-                    <stat.icon className={`h-6 w-6 text-${stat.color}-400`} />
-                  </motion.div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-400">{stat.label}</p>
-                    <motion.p 
-                      className="text-2xl font-bold text-gray-100"
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ delay: 0.4 + index * 0.1, type: "spring", stiffness: 300 }}
+            {overallLoading ? (
+              // Show skeleton loaders
+              <>
+                <StatCardSkeleton />
+                <StatCardSkeleton />
+                <StatCardSkeleton />
+                <StatCardSkeleton />
+              </>
+            ) : (
+              // Show actual data
+              [
+                { icon: Package, label: 'Total Products', value: stats.totalProducts, color: 'blue' },
+                { icon: Warehouse, label: 'Inventory Items', value: stats.inventoryItems, color: 'green' },
+                { icon: TrendingUp, label: 'Avg. Margin', value: formatPercentage(stats.avgMargin), color: 'primary' },
+                { icon: AlertTriangle, label: 'Low Stock', value: stats.lowStockItems, color: 'red' }
+              ].map((stat, index) => (
+                <motion.div 
+                  key={stat.label}
+                  className="card"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 + index * 0.1 }}
+                  whileHover={{ scale: 1.02, y: -4 }}
+                >
+                  <div className="flex items-center">
+                    <motion.div 
+                      className={`p-2 bg-gradient-to-br from-${stat.color}-600/20 to-${stat.color}-500/20 rounded-lg border border-${stat.color}-500/30`}
+                      whileHover={{ scale: 1.1, rotate: 5 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                    >
+                      <stat.icon className={`h-6 w-6 text-${stat.color}-400`} />
+                    </motion.div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-400">{stat.label}</p>
+                      <motion.p 
+                        className="text-2xl font-bold text-gray-100"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ delay: 0.4 + index * 0.1, type: "spring", stiffness: 300 }}
                     >
                       {stat.value}
                     </motion.p>
                   </div>
                 </div>
               </motion.div>
-            ))}
+            ))
+            )}
           </div>
 
           {/* Quick Actions */}

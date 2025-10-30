@@ -228,9 +228,10 @@ class InvoiceService {
       if (updateError) throw updateError
 
       // Optionally send email (implement email service separately)
-      if (sendEmail) {
-        await this.emailInvoice(invoiceId)
-      }
+      // TODO: Create send-invoice-email edge function before enabling
+      // if (sendEmail) {
+      //   await this.emailInvoice(invoiceId)
+      // }
 
       return true
     } catch (error) {

@@ -9,6 +9,7 @@ import {
   Edit, 
   Trash2, 
   Users,
+  UserX,
   Mail,
   Phone,
   Building2,
@@ -19,19 +20,27 @@ import {
 } from 'lucide-react'
 import { useCustomers } from '../../hooks/useCustomers'
 import { useBusiness } from '../../hooks/useBusiness'
+import { useCurrency } from '../../hooks/useCurrency'
 import type { Customer } from '../../types/orders'
-import { formatCurrency } from '../../utils/calculations'
+import { CustomerListSkeleton } from '../ui/skeleton'
 
 export function CustomerList() {
   const navigate = useNavigate()
-  const { userRole, hasPermission } = useBusiness()
+  const { business } = useBusiness()
+  const { format: formatCurrency } = useCurrency()
+  const { customers, loading, error, deleteCustomer, refreshCustomers } = useCustomers()
   
   const [searchTerm, setSearchTerm] = useState('')
+  const [filterType, setFilterType] = useState<'all' | 'individual' | 'business'>('all')
+  const [selectedCustomers, setSelectedCustomers] = useState<Set<string>>(new Set())
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [timeoutError, setTimeoutError] = useState(false)
+
+  const { userRole, hasPermission } = useBusiness()
+  
   const [showFilters, setShowFilters] = useState(false)
   const [sortBy, setSortBy] = useState<'name' | 'total_spent' | 'total_orders' | 'recent'>('name')
   
-  const { customers, loading, error, deleteCustomer } = useCustomers()
-
   // Check permissions
   const canCreate = hasPermission('customers', 'create') || userRole === 'admin' || userRole === 'manager'
   const canEdit = hasPermission('customers', 'update') || userRole === 'admin' || userRole === 'manager'
@@ -115,25 +124,44 @@ export function CustomerList() {
     return parts.length > 0 ? parts.join(', ') : null
   }
 
-  if (loading) {
+  // Show skeleton while loading
+  if (loading && customers.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-2 text-gray-400">Loading customers...</p>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="space-y-6"
+      >
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-100">Customers</h1>
+            <p className="text-gray-400">Manage your customer database</p>
+          </div>
         </div>
-      </div>
+        <CustomerListSkeleton items={5} />
+      </motion.div>
     )
   }
 
-  if (error) {
+  if (error || timeoutError) {
     return (
-      <div className="card bg-red-900/20 border-red-500/30">
-        <div className="text-red-400">
-          <h3 className="font-medium">Error loading customers</h3>
-          <p className="text-sm mt-1">{error}</p>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="card bg-red-900/20 border-red-500/30"
+      >
+        <div className="text-red-400 text-center py-8">
+          <UserX className="h-12 w-12 mx-auto mb-4" />
+          <h3 className="font-medium text-lg mb-2">Unable to load customers</h3>
+          <p className="text-sm mb-4">{error || 'Connection timeout. Please check your internet connection.'}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 rounded-lg transition-colors"
+          >
+            Refresh Page
+          </button>
         </div>
-      </div>
+      </motion.div>
     )
   }
 
