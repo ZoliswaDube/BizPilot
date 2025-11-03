@@ -5,17 +5,20 @@ import Backend from 'i18next-http-backend';
 import { detectLocationBasedLocale } from './locationDetector';
 
 // Language detector plugin with custom location detection
+let cachedLocale: string | null = null;
+
+// Initialize location detection asynchronously
+detectLocationBasedLocale().then(locale => {
+  cachedLocale = locale;
+}).catch(error => {
+  console.error('Location-based locale detection failed:', error);
+});
+
 const locationDetector = new LanguageDetector();
 locationDetector.addDetector({
   name: 'locationBased',
-  lookup: async () => {
-    try {
-      const locale = await detectLocationBasedLocale();
-      return locale;
-    } catch (error) {
-      console.error('Location-based locale detection failed:', error);
-      return null;
-    }
+  lookup: () => {
+    return cachedLocale || undefined;
   },
   cacheUserLanguage: (lng: string) => {
     localStorage.setItem('i18nextLng', lng);

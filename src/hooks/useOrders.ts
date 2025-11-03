@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuthStore } from '../store/auth'
-import { ordersApi, type Order, type CreateOrderRequest, type UpdateOrderRequest } from '../lib/api'
+import { ordersApi } from '../lib/api'
 import type { 
+  Order,
+  CreateOrderRequest,
+  UpdateOrderRequest,
   OrderStatus,
   InventoryValidation,
   OrderTotal,
@@ -60,7 +63,7 @@ export function useOrders(filters?: OrderFilters): UseOrdersReturn {
       }
 
       const response = await ordersApi.list(params)
-      setOrders(response.data.data || [])
+      setOrders(response.data.data as any as Order[] || [])
     } catch (err) {
       console.error('Error fetching orders:', err)
       setError(err instanceof Error ? err.message : 'Failed to fetch orders')
@@ -71,7 +74,7 @@ export function useOrders(filters?: OrderFilters): UseOrdersReturn {
 
   // Calculate order totals
   const calculateOrderTotal = useCallback(async (items: CreateOrderItemRequest[], discountAmount = 0): Promise<OrderTotal> => {
-    const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
+    const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
     const tax_amount = subtotal * 0.1 // 10% tax rate - should be configurable
     const total_amount = subtotal + tax_amount - discountAmount
 
@@ -87,30 +90,30 @@ export function useOrders(filters?: OrderFilters): UseOrdersReturn {
   const createOrder = useCallback(async (orderData: CreateOrderRequest): Promise<Order> => {
     try {
       // Calculate totals if not provided
-      const totals = await calculateOrderTotal(orderData.items, orderData.discountAmount || 0)
+      const totals = await calculateOrderTotal(orderData.items, orderData.discount_amount || 0)
       
       const orderRequest = {
-        customerId: orderData.customerId,
+        customerId: orderData.customer_id,
         items: orderData.items.map(item => ({
-          productId: item.productId,
-          inventoryId: item.inventoryId,
-          productName: item.productName,
+          productId: item.product_id,
+          inventoryId: item.inventory_id,
+          productName: item.product_name,
           quantity: item.quantity,
-          unitPrice: item.unitPrice,
+          unitPrice: item.unit_price,
         })),
         subtotal: totals.subtotal,
         taxAmount: totals.tax_amount,
         totalAmount: totals.total_amount,
-        discountAmount: orderData.discountAmount || 0,
-        paymentMethod: orderData.paymentMethod,
+        discountAmount: orderData.discount_amount || 0,
+        paymentMethod: orderData.payment_method,
         notes: orderData.notes,
-        deliveryDate: orderData.deliveryDate,
-        shippingAddress: orderData.shippingAddress,
-        billingAddress: orderData.billingAddress,
-      }
+        deliveryDate: orderData.estimated_delivery_date,
+        shippingAddress: orderData.shipping_address,
+        billingAddress: orderData.billing_address,
+      } as any
 
       const response = await ordersApi.create(orderRequest)
-      const newOrder = response.data
+      const newOrder = response.data as any as Order
 
       // Refresh orders list
       await fetchOrders()
@@ -125,8 +128,8 @@ export function useOrders(filters?: OrderFilters): UseOrdersReturn {
   // Update order
   const updateOrder = useCallback(async (orderId: string, updates: UpdateOrderRequest): Promise<Order> => {
     try {
-      const response = await ordersApi.update(orderId, updates)
-      const updatedOrder = response.data
+      const response = await ordersApi.update(orderId, updates as any)
+      const updatedOrder = response.data as any as Order
       
       // Refresh orders list
       await fetchOrders()

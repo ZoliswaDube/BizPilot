@@ -387,7 +387,7 @@ export function PaymentDetail() {
             <div>
               <p className="font-medium">Payment Refunded</p>
               <p className="text-sm text-orange-400/80">
-                {formatCurrency(payment.refund_amount)} was refunded on {formatDate(payment.refunded_at || undefined)}
+                {formatCurrency(payment.refund_amount)} was refunded on {payment.refunded_at ? formatDate(payment.refunded_at) : 'N/A'}
               </p>
             </div>
           </div>
