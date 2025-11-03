@@ -311,11 +311,27 @@ export function AuthCallback() {
           if (type === 'email_change' || type === 'signup') {
             console.log('🔐 AuthCallback: Email verification successful')
             clearTimeout(timeoutRef.current!)
-            setStatus('success')
-            setMessage('Email verified successfully! You can now sign in.')
-            setTimeout(() => {
-              navigate('/auth')
-            }, 3000)
+            
+            // Check if user now has a session after verification
+            const { data: { session: verifiedSession } } = await supabase.auth.getSession()
+            
+            if (verifiedSession) {
+              // User is automatically signed in after verification
+              console.log('🔐 AuthCallback: User auto-signed in after verification, redirecting to business setup')
+              setStatus('success')
+              setMessage('Email verified successfully! Setting up your account...')
+              setTimeout(() => {
+                navigate('/business/new')
+              }, 1500)
+            } else {
+              // User needs to sign in manually
+              console.log('🔐 AuthCallback: User needs to sign in after verification')
+              setStatus('success')
+              setMessage('Email verified successfully! Please sign in to continue.')
+              setTimeout(() => {
+                navigate('/auth?verified=true')
+              }, 2500)
+            }
           } else if (type === 'recovery') {
             console.log('🔐 AuthCallback: Password recovery verification successful')
             clearTimeout(timeoutRef.current!)
