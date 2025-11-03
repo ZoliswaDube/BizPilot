@@ -430,40 +430,104 @@ export function AuthCallback() {
       port: window.location.port
     })
     
-    // Simple, direct approach: just check for session and redirect
-    const checkSessionAndRedirect = async () => {
-      console.log('🔐 AuthCallback: Starting simple session check')
+    // Fast OAuth handling - check for code/tokens immediately
+    const handleOAuthCallback = async () => {
+      console.log('🔐 AuthCallback: Starting fast OAuth handling')
       
       try {
-        // Wait a moment for OAuth to complete
-        await new Promise(resolve => setTimeout(resolve, 2000))
+        // Check URL params immediately
+        const code = searchParams.get('code')
+        const hash = window.location.hash
+        const hashParams = new URLSearchParams(hash.replace('#', ''))
+        const accessToken = hashParams.get('access_token')
+        const error = searchParams.get('error') || hashParams.get('error')
         
-        // Check for session
+        // Handle errors first
+        if (error) {
+          const errorDescription = searchParams.get('error_description') || hashParams.get('error_description')
+          console.log('🔐 AuthCallback: OAuth error detected', { error, errorDescription })
+          const errorParams = new URLSearchParams({
+            error: error || 'Authentication failed',
+            error_description: errorDescription || 'An error occurred during authentication.',
+            error_code: 'OAUTH_ERROR'
+          })
+          navigate(`/auth/error?${errorParams.toString()}`)
+          return
+        }
+        
+        // Handle PKCE code exchange immediately
+        if (code) {
+          console.log('🔐 AuthCallback: PKCE code detected, exchanging immediately')
+          setStatus('loading')
+          setMessage('Processing authentication...')
+          
+          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+          
+          if (exchangeError) {
+            console.error('🔐 AuthCallback: Code exchange failed', exchangeError)
+            const errorParams = new URLSearchParams({
+              error: 'Authentication failed',
+              error_description: exchangeError.message || 'Failed to complete authentication.',
+              error_code: 'CODE_EXCHANGE_ERROR'
+            })
+            navigate(`/auth/error?${errorParams.toString()}`)
+            return
+          }
+          
+          if (data.session) {
+            console.log('🔐 AuthCallback: Session created successfully, redirecting')
+            setStatus('success')
+            setMessage('Authentication successful! Redirecting...')
+            window.history.replaceState({}, document.title, '/auth/callback')
+            setTimeout(() => navigate('/dashboard', { replace: true }), 500)
+            return
+          }
+        }
+        
+        // Handle implicit flow (access_token in hash)
+        if (accessToken) {
+          console.log('🔐 AuthCallback: Access token detected in hash')
+          handleAuthCallback()
+          return
+        }
+        
+        // Handle email verification
+        const type = searchParams.get('type')
+        const tokenHash = searchParams.get('token_hash')
+        if (type && tokenHash) {
+          console.log('🔐 AuthCallback: Email verification detected')
+          handleAuthCallback()
+          return
+        }
+        
+        // Check for existing session as fallback
+        console.log('🔐 AuthCallback: No OAuth params, checking for existing session')
         const { data: { session } } = await supabase.auth.getSession()
         
         if (session) {
-          console.log('🔐 AuthCallback: Session found, redirecting to dashboard')
+          console.log('🔐 AuthCallback: Existing session found')
           setStatus('success')
-          setMessage('Authentication successful! Redirecting...')
-          
-          // Clean up URL
-          window.history.replaceState({}, document.title, '/auth/callback')
-          
-          // Redirect to dashboard
-          setTimeout(() => {
-            navigate('/dashboard', { replace: true })
-          }, 1000)
+          setMessage('Welcome back! Redirecting...')
+          setTimeout(() => navigate('/dashboard', { replace: true }), 500)
         } else {
-          console.log('🔐 AuthCallback: No session found, falling back to complex handling')
-          handleAuthCallback()
+          console.log('🔐 AuthCallback: No session found, redirecting to auth')
+          setStatus('error')
+          setMessage('Authentication failed. Please try again.')
+          setTimeout(() => navigate('/auth'), 2000)
         }
       } catch (error) {
-        console.error('🔐 AuthCallback: Error in simple session check', error)
-        handleAuthCallback()
+        console.error('🔐 AuthCallback: Error in OAuth handling', error)
+        const errorParams = new URLSearchParams({
+          error: 'Unexpected error',
+          error_description: 'An unexpected error occurred during authentication.',
+          error_code: 'UNEXPECTED_ERROR'
+        })
+        navigate(`/auth/error?${errorParams.toString()}`)
       }
     }
     
-    checkSessionAndRedirect()
+    handleOAuthCallback()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate, searchParams, retryCount])
 
   const handleManualRetry = () => {
