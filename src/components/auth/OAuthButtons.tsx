@@ -52,11 +52,19 @@ export function OAuthButtons({ }: OAuthButtonsProps) {
       if (error) {
         console.error('🔐 OAuthButtons: OAuth error', { provider, error })
         
-        // Handle specific error cases
+        // Handle specific error cases with detailed messages
         if (error.code === 'AUTH_IN_PROGRESS') {
-          setError('Authentication is already in progress. Please wait or refresh the page to try again.')
+          setError('⏳ Authentication is already in progress. Please wait or refresh the page to try again.')
+        } else if (error.code === 'user_already_exists') {
+          setError(`❌ An account with this ${provider} email already exists. Please sign in instead.`)
+        } else if (error.message?.includes('redirect')) {
+          setError(`⚠️ Redirect issue detected. Please ensure your browser allows redirects and try again.`)
+        } else if (error.message?.includes('popup')) {
+          setError(`⚠️ Popup blocked. Please allow popups for this site and try again.`)
+        } else if (error.message?.includes('network')) {
+          setError(`📡 Network error. Please check your internet connection and try again.`)
         } else {
-          setError(error.message || `Failed to sign in with ${provider}`)
+          setError(`❌ Failed to sign in with ${provider}. ${error.message || 'Please try again.'}`)
         }
         setLoading(null)
       } else {

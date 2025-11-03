@@ -20,7 +20,7 @@ export function EmailAuthForm({ mode, onModeChange, onSuccess }: EmailAuthFormPr
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState<React.ReactNode>('')
-  const [success, setSuccess] = useState('')
+  const [success, setSuccess] = useState<React.ReactNode>('')
   const [loading, setLoading] = useState(false)
   
   const { signUp, signIn, resetPassword, resendVerification } = useAuthStore()
@@ -98,12 +98,24 @@ export function EmailAuthForm({ mode, onModeChange, onSuccess }: EmailAuthFormPr
             } else {
               // Email confirmation is enabled, user needs to verify email first
               console.log('🔐 EmailAuthForm: Email confirmation required')
-              setSuccess('Account created successfully! Please check your email and click the verification link to complete your registration. After verifying, you can sign in.')
-              // Clear the form
-              setEmail('')
+              setSuccess(
+                <div className="space-y-2">
+                  <p className="font-semibold text-green-300">✅ Account Created Successfully!</p>
+                  <p>A verification email has been sent to <span className="font-medium">{email}</span></p>
+                  <p className="text-sm">Please check your inbox and click the verification link to activate your account.</p>
+                  <p className="text-xs text-green-300/80 mt-2">After verification, you'll be able to sign in and set up your business profile.</p>
+                </div>
+              )
+              // Clear the form but keep email for convenience
               setPassword('')
               setConfirmPassword('')
               setFullName('')
+              
+              // After 10 seconds, switch to signin tab
+              setTimeout(() => {
+                setSuccess('')
+                onModeChange('signin')
+              }, 10000)
             }
           }
           break
@@ -123,7 +135,12 @@ export function EmailAuthForm({ mode, onModeChange, onSuccess }: EmailAuthFormPr
           result = await resetPassword(email)
           console.log('🔐 EmailAuthForm: Reset result', { error: result.error?.message, hasError: !!result.error })
           if (!result.error) {
-            setSuccess('Password reset email sent! Check your inbox for instructions.')
+            setSuccess(
+              <div className="space-y-2">
+                <p className="font-semibold text-green-300">✅ Password Reset Email Sent!</p>
+                <p>Check your inbox at <span className="font-medium">{email}</span> for instructions.</p>
+              </div>
+            )
           }
           break
           
@@ -153,16 +170,55 @@ export function EmailAuthForm({ mode, onModeChange, onSuccess }: EmailAuthFormPr
     })
     
     const message = error.message || error.toString()
+    const code = error.code || ''
     
-    if (message.includes('AUTH_IN_PROGRESS')) {
-      setError('Authentication already in progress. Please wait a moment.')
+    // Handle specific error codes first
+    if (code === 'user_already_exists' || message.includes('User already registered')) {
+      setError(
+        <div className="space-y-2">
+          <p className="font-semibold">❌ Email Already Registered</p>
+          <p>This email address is already associated with an account.</p>
+          <p className="text-sm">Please sign in instead or use a different email.</p>
+        </div>
+      )
+    } else if (code === 'email_exists' || message.includes('already registered')) {
+      setError(
+        <div className="space-y-2">
+          <p className="font-semibold">❌ Email Already In Use</p>
+          <p>An account with this email already exists.</p>
+          <button
+            onClick={() => onModeChange('signin')}
+            className="text-primary-400 hover:text-primary-300 text-sm underline"
+          >
+            Switch to Sign In
+          </button>
+        </div>
+      )
+    } else if (message.includes('AUTH_IN_PROGRESS')) {
+      setError(
+        <div className="space-y-2">
+          <p className="font-semibold">⏳ Authentication In Progress</p>
+          <p>Another authentication is currently in progress. Please wait a moment.</p>
+        </div>
+      )
     } else if (message.includes('Invalid login credentials')) {
-      setError('Invalid email or password. Please check your credentials and try again.')
+      setError(
+        <div className="space-y-2">
+          <p className="font-semibold">❌ Invalid Credentials</p>
+          <p>Email or password is incorrect. Please check and try again.</p>
+        </div>
+      )
     } else if (message.includes('Email rate limit exceeded')) {
-      setError('Too many attempts. Please wait a few minutes before trying again.')
+      setError(
+        <div className="space-y-2">
+          <p className="font-semibold">⏸️ Too Many Attempts</p>
+          <p>You've made too many requests. Please wait a few minutes before trying again.</p>
+        </div>
+      )
     } else if (message.includes('Email not confirmed')) {
       setError(
         <div className="space-y-2">
+          <p className="font-semibold">📧 Email Not Verified</p>
           <p>Please verify your email address before signing in.</p>
           <button
             onClick={handleResendVerification}
@@ -174,15 +230,26 @@ export function EmailAuthForm({ mode, onModeChange, onSuccess }: EmailAuthFormPr
         </div>
       )
     } else if (message.includes('Email link is invalid or has expired')) {
-      setError('This verification link has expired. Please request a new one.')
-    } else if (message.includes('User already registered')) {
-      setError('This email is already registered. Please sign in instead or use a different email.')
+      setError(
+        <div className="space-y-2">
+          <p className="font-semibold">⏱️ Link Expired</p>
+          <p>This verification link has expired. Please request a new one.</p>
+        </div>
+      )
     } else if (message.includes('Password should be at least 6 characters')) {
-      setError('Password must be at least 6 characters long.')
-    } else if (message.includes('Invalid email')) {
-      setError('Please enter a valid email address.')
-    } else if (message.includes('Unable to validate email address')) {
-      setError('Please enter a valid email address.')
+      setError(
+        <div className="space-y-2">
+          <p className="font-semibold">❌ Weak Password</p>
+          <p>Password must be at least 6 characters long.</p>
+        </div>
+      )
+    } else if (message.includes('Invalid email') || message.includes('Unable to validate email address')) {
+      setError(
+        <div className="space-y-2">
+          <p className="font-semibold">❌ Invalid Email</p>
+          <p>Please enter a valid email address.</p>
+        </div>
+      )
     } else if (message.includes('Signup is disabled')) {
       setError('New user registration is currently disabled. Please contact support.')
     } else if (message.includes('Password is too weak')) {
@@ -208,7 +275,12 @@ export function EmailAuthForm({ mode, onModeChange, onSuccess }: EmailAuthFormPr
       if (error) {
         setError(error.message)
       } else {
-        setSuccess('Verification email resent! Check your inbox.')
+        setSuccess(
+          <div className="space-y-2">
+            <p className="font-semibold text-green-300">✅ Verification Email Resent!</p>
+            <p>Check your inbox at <span className="font-medium">{email}</span></p>
+          </div>
+        )
       }
     } catch (err) {
       console.error('🔐 EmailAuthForm: Error in handleResendVerification', err)
@@ -244,20 +316,23 @@ export function EmailAuthForm({ mode, onModeChange, onSuccess }: EmailAuthFormPr
       <AnimatePresence>
         {success && (
           <motion.div 
-            className="bg-green-900/20 border border-green-500/30 text-green-400 px-4 py-3 rounded-lg text-sm flex items-start"
+            className="bg-green-900/30 border-2 border-green-500/50 text-green-300 px-5 py-4 rounded-lg text-sm shadow-lg shadow-green-500/10"
             initial={{ opacity: 0, scale: 0.8, y: -20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.8, y: -20 }}
             transition={{ duration: 0.3, type: "spring", stiffness: 300, damping: 30 }}
           >
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.1, type: "spring", stiffness: 300, damping: 30 }}
-            >
-              <CheckCircle className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
-            </motion.div>
-            <div>{success}</div>
+            <div className="flex items-start">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.1, type: "spring", stiffness: 300, damping: 30 }}
+                className="mr-3"
+              >
+                <CheckCircle className="h-5 w-5 text-green-400 flex-shrink-0" />
+              </motion.div>
+              <div className="flex-1">{success}</div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

@@ -39,11 +39,17 @@ export function useBusiness() {
 
   // Load business data when user changes
   useEffect(() => {
-    if (!user) return
+    if (!user) {
+      console.log('[useBusiness] No user, skipping load')
+      return
+    }
     
+    console.log('[useBusiness] Loading business for user:', user.id)
     // Load business data (will use cache if available)
-    loadBusiness(user.id)
-  }, [user?.id]) // Only depend on user.id to avoid unnecessary re-renders
+    loadBusiness(user.id).catch(err => {
+      console.error('[useBusiness] Failed to load business:', err)
+    })
+  }, [user?.id, loadBusiness]) // Include loadBusiness to ensure latest version
 
   // Wrapper functions that use the store functions with current user
   const createBusiness = async (businessData: BusinessData) => {

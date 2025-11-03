@@ -75,7 +75,17 @@ export function Navigation() {
   }, [user])
 
   const handleSignOut = async () => {
-    await signOut()
+    console.log('🔌 Navigation: handleSignOut called')
+    try {
+      await signOut()
+      console.log('🔌 Navigation: SignOut successful, redirecting to home')
+      // Navigate to home page after successful signOut
+      window.location.href = '/'
+    } catch (error) {
+      console.error('🔌 Navigation: Error during signOut', error)
+      // Even on error, redirect to home
+      window.location.href = '/'
+    }
   }
 
   // Combine regular nav items with admin items
