@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/auth'
 import { useBusiness } from './useBusiness'
@@ -16,35 +16,15 @@ export function useInventory() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!user) {
-      setLoading(false)
-      setInventory([])
-      setError(null)
+  // Define fetchInventory with useCallback to avoid infinite loops
+  const fetchInventory = useCallback(async () => {
+    if (!user || !business) {
+      console.log('[useInventory] fetchInventory: No user or business')
       return
     }
-
-    if (businessLoading) {
-      // Still loading business data, keep loading state
-      return
-    }
-
-    if (!business) {
-      // User has no business, set empty state
-      setLoading(false)
-      setInventory([])
-      setError(null)
-      return
-    }
-
-    // User has business, fetch inventory
-    fetchInventory()
-  }, [user, business, businessLoading])
-
-  const fetchInventory = async () => {
-    if (!user || !business) return
 
     try {
+      console.log('[useInventory] Fetching inventory for business:', business.id)
       setLoading(true)
       setError(null)
       const { data, error } = await supabase
@@ -54,13 +34,49 @@ export function useInventory() {
         .order('name', { ascending: true })
 
       if (error) throw error
+      console.log('[useInventory] Fetched inventory items:', data?.length || 0)
       setInventory(data || [])
     } catch (err) {
+      console.error('[useInventory] Error fetching inventory:', err)
       setError(err instanceof Error ? err.message : 'Failed to fetch inventory')
     } finally {
       setLoading(false)
     }
-  }
+  }, [user, business]) // Dependencies for useCallback
+
+  useEffect(() => {
+    console.log('[useInventory] Effect triggered', { 
+      hasUser: !!user, 
+      hasBusiness: !!business, 
+      businessLoading 
+    })
+
+    if (!user) {
+      console.log('[useInventory] No user, clearing inventory')
+      setLoading(false)
+      setInventory([])
+      setError(null)
+      return
+    }
+
+    if (businessLoading) {
+      // Still loading business data, keep loading state
+      console.log('[useInventory] Business still loading, waiting...')
+      return
+    }
+
+    if (!business) {
+      // User has no business, set empty state
+      console.log('[useInventory] No business found, clearing inventory')
+      setLoading(false)
+      setInventory([])
+      setError(null)
+      return
+    }
+
+    // User has business, fetch inventory
+    fetchInventory()
+  }, [user, business, businessLoading, fetchInventory])
 
   const addInventoryItem = async (newItem: Omit<InsertInventoryItem, 'business_id'>) => {
     if (!user || !business) return { data: null, error: 'User not authenticated or no business' }

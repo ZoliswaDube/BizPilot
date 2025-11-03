@@ -211,7 +211,22 @@ export function ProductForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!user) return
+    console.log('🛒 ProductForm: handleSubmit called', { 
+      user: !!user, 
+      business: !!business,
+      businessId: business?.id 
+    })
+    
+    if (!user) {
+      setError('You must be logged in to save products')
+      return
+    }
+    
+    if (!business || !business.id) {
+      setError('No business found. Please create or join a business first.')
+      console.error('🛒 ProductForm: No business available', { business })
+      return
+    }
     
     // Validation
     if (!formData.name.trim()) {
@@ -252,34 +267,48 @@ export function ProductForm() {
       selling_price: calculations.sellingPrice,
       profit_margin: calculations.profitMargin,
       sku: formData.sku.trim() || null,
-      min_stock_level: parseFloat(formData.minStockLevel),
-      reorder_point: parseFloat(formData.reorderPoint),
+      min_stock_level: parseFloat(formData.minStockLevel) || 0,
+      reorder_point: parseFloat(formData.reorderPoint) || 0,
       location: formData.location.trim() || null,
       supplier_id: formData.supplierId,
       image_url: formData.imageUrl.trim() || null,
       barcode: formData.barcode.trim() || null,
       category_id: formData.categoryId,
-      business_id: business?.id || null,
+      business_id: business.id, // ✅ Now guaranteed to exist
     }
+
+    console.log('🛒 ProductForm: Product data to save', {
+      ...productDataToSave,
+      ingredientCount: validIngredients.length
+    })
 
     try {
       if (isEditMode && formData.id) {
         // Update existing product
+        console.log('🛒 ProductForm: Updating product', formData.id)
         const { error: productError } = await supabase
           .from('products')
           .update(productDataToSave)
           .eq('id', formData.id)
-          .eq('business_id', business?.id)
+          .eq('business_id', business.id)
 
-        if (productError) throw productError
+        if (productError) {
+          console.error('🛒 ProductForm: Error updating product', productError)
+          throw productError
+        }
+        console.log('🛒 ProductForm: Product updated successfully')
 
         // Delete existing ingredients
+        console.log('🛒 ProductForm: Deleting old ingredients')
         const { error: deleteError } = await supabase
           .from('ingredients')
           .delete()
           .eq('product_id', formData.id)
 
-        if (deleteError) throw deleteError
+        if (deleteError) {
+          console.error('🛒 ProductForm: Error deleting ingredients', deleteError)
+          throw deleteError
+        }
 
         // Insert new ingredients
         const ingredientInserts = validIngredients.map(ingredient => ({
@@ -290,20 +319,36 @@ export function ProductForm() {
           unit: ingredient.unit
         }))
 
+        console.log('🛒 ProductForm: Inserting updated ingredients', ingredientInserts.length)
         const { error: ingredientsError } = await supabase
           .from('ingredients')
           .insert(ingredientInserts)
 
-        if (ingredientsError) throw ingredientsError
+        if (ingredientsError) {
+          console.error('🛒 ProductForm: Error inserting ingredients', ingredientsError)
+          throw ingredientsError
+        }
+        console.log('🛒 ProductForm: Ingredients updated successfully')
       } else {
         // Create new product
+        console.log('🛒 ProductForm: Creating new product')
         const { data: product, error: productError } = await supabase
           .from('products')
           .insert(productDataToSave)
           .select()
           .single()
 
-        if (productError) throw productError
+        if (productError) {
+          console.error('🛒 ProductForm: Error creating product', {
+            error: productError,
+            code: productError.code,
+            message: productError.message,
+            details: productError.details,
+            hint: productError.hint
+          })
+          throw productError
+        }
+        console.log('🛒 ProductForm: Product created successfully', product.id)
 
         // Insert ingredients
         const ingredientInserts = validIngredients.map(ingredient => ({
@@ -314,17 +359,50 @@ export function ProductForm() {
           unit: ingredient.unit
         }))
 
+        console.log('🛒 ProductForm: Inserting ingredients', ingredientInserts.length)
         const { error: ingredientsError } = await supabase
           .from('ingredients')
           .insert(ingredientInserts)
 
-        if (ingredientsError) throw ingredientsError
+        if (ingredientsError) {
+          console.error('🛒 ProductForm: Error inserting ingredients', {
+            error: ingredientsError,
+            code: ingredientsError.code,
+            message: ingredientsError.message
+          })
+          throw ingredientsError
+        }
+        console.log('🛒 ProductForm: Ingredients inserted successfully')
       }
 
+      console.log('🛒 ProductForm: Product saved successfully, navigating to products list')
       navigate('/products')
     } catch (err) {
-      console.error('Error saving product:', err)
-      setError(err instanceof Error ? err.message : 'Failed to save product')
+      console.error('🛒 ProductForm: Error saving product', err)
+      
+      // Enhanced error messages
+      let errorMessage = 'Failed to save product'
+      
+      if (err instanceof Error) {
+        // Check for specific Supabase errors
+        const supabaseError = err as any
+        
+        if (supabaseError.code === '23505') {
+          errorMessage = 'A product with this SKU or barcode already exists'
+        } else if (supabaseError.code === '42501') {
+          errorMessage = 'Permission denied. Please check your business role.'
+        } else if (supabaseError.code === '23502') {
+          errorMessage = 'Missing required field. Please fill in all required fields.'
+        } else if (supabaseError.code === '23503') {
+          errorMessage = 'Invalid reference. Please check category or supplier selection.'
+        } else if (supabaseError.message) {
+          errorMessage = supabaseError.message
+        } else {
+          errorMessage = err.message
+        }
+      }
+      
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }

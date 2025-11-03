@@ -365,17 +365,37 @@ export const useAuthStore = create<AuthState>()(
       
       signOut: async () => {
         console.log('🔐 useAuthStore: signOut called')
-        set({ loading: true })
         
-        // Stop inactivity tracking on logout
-        get().stopInactivityTracking()
-        
-        const result = await supabase.auth.signOut()
-        console.log('🔐 useAuthStore: signOut result', { error: result.error?.message })
-        get().setUserProfile(null)
-        get().setBusinessUser(null)
-        set({ loading: false })
-        return { error: result.error }
+        try {
+          // Stop inactivity tracking FIRST
+          get().stopInactivityTracking()
+          
+          // Clear local state immediately to prevent UI flicker
+          get().setUserProfile(null)
+          get().setBusinessUser(null)
+          set({ 
+            user: null, 
+            session: null,
+            loading: false 
+          })
+          
+          // Sign out from Supabase
+          const result = await supabase.auth.signOut()
+          console.log('🔐 useAuthStore: signOut result', { error: result.error?.message })
+          
+          return { error: result.error }
+        } catch (error) {
+          console.error('🔐 useAuthStore: Error during signOut', error)
+          // Even if signOut fails, clear local state
+          get().setUserProfile(null)
+          get().setBusinessUser(null)
+          set({ 
+            user: null, 
+            session: null,
+            loading: false 
+          })
+          return { error: error as any }
+        }
       },
       
       resetPassword: async (email: string) => {
@@ -500,19 +520,20 @@ export const useAuthStore = create<AuthState>()(
           inactivityTimeRemaining: 0
         })
         
-        // Force logout with all session clearing
-        await get().signOut()
-        
         // Stop inactivity tracking
         get().stopInactivityTracking()
         
-        // Clear all stored data
+        // Force logout
+        await get().signOut()
+        
+        // Clear Supabase auth completely (but NOT all localStorage - preserves currency, language, etc.)
         try {
-          localStorage.clear()
-          sessionStorage.clear()
-          
-          // Clear Supabase session completely
           await supabase.auth.signOut({ scope: 'global' })
+          
+          // Only clear auth-related items from localStorage
+          localStorage.removeItem('sb-ecqtlekrdhtaxhuvgsyo-auth-token')
+          localStorage.removeItem('supabase.auth.token')
+          localStorage.removeItem('oauth_loading_time')
           
           // Clear indexedDB if used by Supabase
           if ('indexedDB' in window) {
@@ -524,8 +545,8 @@ export const useAuthStore = create<AuthState>()(
           console.error('🔐 Error clearing sessions:', error)
         }
         
-        // Redirect to login
-        window.location.href = '/auth'
+        // Redirect to login with timeout message
+        window.location.href = '/auth?reason=inactivity'
       },
 
       setInactivityWarning: (show: boolean, timeRemaining = 0) => {

@@ -9,50 +9,53 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { user, loading, signOut } = useAuthStore()
+  const { user, loading, setLoading } = useAuthStore()
   const navigate = useNavigate()
   const [loadingTimeout, setLoadingTimeout] = useState(false)
+  const [initialLoad, setInitialLoad] = useState(true)
 
-  // Handle stuck loading state and trigger background validation
+  // Handle stuck loading state (only on initial load, not during signOut)
   useEffect(() => {
-    if (loading) {
+    // Mark as no longer initial load after first render
+    if (initialLoad) {
       const timer = setTimeout(() => {
-        console.log('🔐 ProtectedRoute: Loading timeout reached, checking auth state')
+        setInitialLoad(false)
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [initialLoad])
+
+  useEffect(() => {
+    // Only apply timeout logic during initial authentication check
+    // Not during normal operations like signOut
+    if (loading && initialLoad) {
+      const timer = setTimeout(() => {
+        console.log('🔐 ProtectedRoute: Initial loading timeout reached')
         setLoadingTimeout(true)
         
-        // If still loading after 15 seconds, there might be an auth issue
-        // Clear any stuck OAuth state and redirect to error page
+        // Clear stuck OAuth state
         const oauthLoadingTime = window.localStorage.getItem('oauth_loading_time')
         if (oauthLoadingTime) {
           const timeDiff = Date.now() - parseInt(oauthLoadingTime)
           if (timeDiff > 15000) {
             console.log('🔐 ProtectedRoute: Clearing stuck OAuth state')
             window.localStorage.removeItem('oauth_loading_time')
-            signOut().then(() => {
-              navigate('/auth/error?error=Authentication%20Timeout&error_description=Authentication%20took%20too%20long.%20Please%20try%20again.')
-            })
-            return
           }
         }
         
-        // Proactively validate/refresh session
+        // Validate session
         SessionManager.validateAndRefreshSession().finally(() => {
-          // If no user after timeout, redirect to auth error
-          if (!user) {
-            signOut().then(() => {
-              navigate('/auth/error?error=Authentication%20Failed&error_description=Unable%20to%20verify%20your%20authentication.%20Please%20sign%20in%20again.')
-            })
-          }
+          setLoadingTimeout(false)
+          setLoading(false)
         })
       }, 15000) // 15 second timeout
 
       return () => clearTimeout(timer)
-    } else {
-      setLoadingTimeout(false)
     }
-  }, [loading, user, signOut, navigate])
+  }, [loading, initialLoad])
 
-  if (loading && !loadingTimeout) {
+  // Show loading only during initial authentication check
+  if (loading && initialLoad && !loadingTimeout) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -64,11 +67,9 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     )
   }
 
-  if (loadingTimeout) {
-    return <Navigate to="/auth/error?error=Authentication%20Timeout&error_description=Authentication%20took%20too%20long.%20Please%20try%20again." replace />
-  }
-
-  if (!user) {
+  // If no user and not loading, redirect to home (not error page)
+  if (!user && !loading) {
+    console.log('🔐 ProtectedRoute: No user, redirecting to home')
     return <Navigate to="/" replace />
   }
 

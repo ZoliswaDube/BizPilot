@@ -6,6 +6,7 @@ import { AuthTabs } from './AuthTabs'
 import { EmailAuthForm } from './EmailAuthForm'
 import { OAuthButtons } from './OAuthButtons'
 import { useAuthStore } from '../../store/auth'
+import { supabase } from '../../lib/supabase'
 
 type AuthMode = 'signin' | 'signup' | 'reset'
 
@@ -22,9 +23,35 @@ export function AuthForm() {
     }
   }, [user, loading, navigate])
 
-  const handleAuthSuccess = () => {
-    console.log('🔐 AuthForm: handleAuthSuccess called, navigating to dashboard')
-    navigate('/dashboard')
+  const handleAuthSuccess = async () => {
+    console.log('🔐 AuthForm: handleAuthSuccess called')
+    
+    // Check if user has a business profile
+    const { user } = useAuthStore.getState()
+    if (user) {
+      try {
+        const { data: businessUser } = await supabase
+          .from('business_users')
+          .select('business_id')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .maybeSingle()
+        
+        if (businessUser?.business_id) {
+          console.log('🔐 AuthForm: User has business, redirecting to dashboard')
+          navigate('/dashboard')
+        } else {
+          console.log('🔐 AuthForm: User has no business, redirecting to business setup')
+          navigate('/business/new')
+        }
+      } catch (error) {
+        console.error('🔐 AuthForm: Error checking business status', error)
+        // Fallback to dashboard which will show business setup prompt
+        navigate('/dashboard')
+      }
+    } else {
+      navigate('/dashboard')
+    }
   }
 
   const getTitle = () => {

@@ -836,14 +836,28 @@ export type Database = {
 }
 
 export function getURL() {
+  // Priority order:
+  // 1. VITE_SITE_URL from .env
+  // 2. VITE_VERCEL_URL from Vercel deployment
+  // 3. window.location.origin (production/actual domain)
+  // 4. localhost fallback (development)
   let url = import.meta.env.VITE_SITE_URL ?? 
     import.meta.env.VITE_VERCEL_URL ?? 
-    'http://localhost:5173/'
+    ((typeof window !== 'undefined' ? window.location.origin : '') ||
+    'http://localhost:5173/')
   
-  // Make sure to include `https://` when not localhost.
+  console.log('🌐 getURL() called', { 
+    url, 
+    VITE_SITE_URL: import.meta.env.VITE_SITE_URL,
+    VITE_VERCEL_URL: import.meta.env.VITE_VERCEL_URL,
+    windowOrigin: typeof window !== 'undefined' ? window.location.origin : 'N/A'
+  })
+  
+  // Make sure to include `https://` when not localhost
   url = url.includes('http') ? url : `https://${url}`
-  // Make sure to include trailing (/) when not localhost.
+  // Make sure to include trailing `/`
   url = url.charAt(url.length - 1) === '/' ? url : `${url}/`
   
+  console.log('🌐 getURL() final URL:', url)
   return url
 }
