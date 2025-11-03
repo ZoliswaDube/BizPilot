@@ -99,11 +99,26 @@ export class SessionManager {
    * Handle page visibility changes (when user switches tabs)
    */
   private static setupVisibilityHandler() {
+    let lastValidation = 0
+    const MIN_VALIDATION_INTERVAL = 60000 // 1 minute minimum between validations
+    
     document.addEventListener('visibilitychange', async () => {
       if (!document.hidden) {
-        // User is back, validate session
-        console.log('🔐 SessionManager: User returned to tab, validating session')
-        await this.validateAndRefreshSession()
+        const now = Date.now()
+        const timeSinceLastValidation = now - lastValidation
+        
+        // Only validate if it's been more than 1 minute since last validation
+        if (timeSinceLastValidation > MIN_VALIDATION_INTERVAL) {
+          console.log('🔐 SessionManager: User returned to tab, checking session')
+          lastValidation = now
+          
+          // Don't await - let it happen in background to avoid blocking UI
+          this.validateAndRefreshSession().catch(error => {
+            console.error('🔐 SessionManager: Background validation failed:', error)
+          })
+        } else {
+          console.log('🔐 SessionManager: Skipping validation, too soon since last check')
+        }
       }
     })
   }

@@ -13,16 +13,25 @@ import {
   X,
   Tag, // New icon for Categories
   Truck, // New icon for Suppliers
-  Users // New icon for User Management
+  Users, // New icon for User Management
+  ShoppingCart, // New icon for Orders
+  FileText, // New icon for Invoices
+  DollarSign, // New icon for Payments
+  UserCircle // New icon for Customers
 } from 'lucide-react'
 import { useAuthStore } from '../../store/auth'
 import { Logo } from '../common/Logo'
 import { supabase } from '../../lib/supabase'
+import { CurrencySelector } from '../CurrencySelector'
 
 const navItems = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Products', href: '/products', icon: Package },
   { name: 'Inventory', href: '/inventory', icon: Warehouse },
+  { name: 'Orders', href: '/orders', icon: ShoppingCart },
+  { name: 'Invoices', href: '/invoices', icon: FileText },
+  { name: 'Payments', href: '/payments', icon: DollarSign },
+  { name: 'Customers', href: '/customers', icon: UserCircle },
   { name: 'Categories', href: '/categories', icon: Tag }, // New
   { name: 'Suppliers', href: '/suppliers', icon: Truck }, // New
   { name: 'AI Assistant', href: '/ai', icon: MessageSquare },
@@ -161,6 +170,11 @@ export function Navigation() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
         >
+          {/* Currency Selector */}
+          <div className="mb-3">
+            <CurrencySelector className="w-full" showLabel={true} />
+          </div>
+
           <div className="flex items-center mb-3">
             {user?.user_metadata?.avatar_url ? (
               <motion.img 

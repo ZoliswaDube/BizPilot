@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { X, User, Mail, Phone, MapPin, FileText, ShoppingBag, CreditCard } from 'lucide-react'
 import { useCustomers } from '../../hooks/useCustomers'
+import { useCurrency } from '../../hooks/useCurrency'
 import type { Customer } from '../../types/orders'
 
 interface CustomerDetailsModalProps {
@@ -11,6 +12,7 @@ interface CustomerDetailsModalProps {
 
 export function CustomerDetailsModal({ isOpen, onClose, customer: initialCustomer }: CustomerDetailsModalProps) {
   const { refreshCustomers } = useCustomers()
+  const { format: formatCurrency, formatDate } = useCurrency()
   const [customer, setCustomer] = useState<Customer | null>(initialCustomer)
   const [loading, setLoading] = useState(false)
 
@@ -35,9 +37,6 @@ export function CustomerDetailsModal({ isOpen, onClose, customer: initialCustome
   }, [isOpen, initialCustomer?.id, refreshCustomers])
 
   if (!isOpen || !customer) return null
-
-  const formatCurrency = (amount: number) => `R${amount.toFixed(2)}`
-  const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('en-ZA')
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">

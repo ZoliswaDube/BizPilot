@@ -1,3 +1,4 @@
+// BizPilot Main Entry Point - Updated Oct 30, 2025
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import * as Sentry from '@sentry/react'
@@ -5,6 +6,7 @@ import App from './App.tsx'
 import './index.css'
 import './components/charts/ChartRegistry' // Initialize Chart.js
 import { SessionManager } from './lib/supabase'
+import './lib/i18n/config' // Initialize i18n
 
 // Initialize Sentry
 Sentry.init({
@@ -34,8 +36,8 @@ Sentry.init({
   },
 })
 
-// Initialize session watchdog to avoid stuck auth states after inactivity
-SessionManager.initialize()
+// DISABLED: SessionManager causes infinite loading on tab switches
+// SessionManager.initialize()
 
 // Create the Sentry-wrapped App component
 const SentryApp = Sentry.withErrorBoundary(App, {

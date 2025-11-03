@@ -4,6 +4,7 @@ import { User, Session, AuthError, Provider } from '@supabase/supabase-js'
 import * as Sentry from '@sentry/react'
 import { supabase, getURL } from '../lib/supabase'
 import { ensureUserProfile } from '../lib/mcp'
+import { inactivityService } from '../services/inactivityService'
 import type { Database } from '../lib/supabase'
 
 type UserProfile = Database['public']['Tables']['user_profiles']['Row']
@@ -16,6 +17,10 @@ interface AuthState {
   userProfile: UserProfile | null
   businessUser: BusinessUser | null
   loading: boolean
+  
+  // Inactivity state
+  showInactivityWarning: boolean
+  inactivityTimeRemaining: number
   
   // Derived state
   role: string | null
@@ -33,6 +38,13 @@ interface AuthState {
   resendVerification: (email: string) => Promise<{ error: AuthError | null }>
   updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: string | null }>
   refreshProfile: () => Promise<void>
+  
+  // Inactivity actions
+  startInactivityTracking: () => void
+  stopInactivityTracking: () => void
+  extendSession: () => void
+  handleInactivityTimeout: () => Promise<void>
+  setInactivityWarning: (show: boolean, timeRemaining?: number) => void
   
   // Internal actions
   setUser: (user: User | null) => void
@@ -53,6 +65,10 @@ export const useAuthStore = create<AuthState>()(
       userProfile: null,
       businessUser: null,
       loading: true,
+      
+      // Inactivity state
+      showInactivityWarning: false,
+      inactivityTimeRemaining: 0,
       
       // Derived state
       role: null,
@@ -241,6 +257,12 @@ export const useAuthStore = create<AuthState>()(
           error: result.error?.message 
         })
         
+        // Start inactivity tracking on successful sign-in
+        if (result.data?.user && result.data?.session && !result.error) {
+          console.log('🔐 useAuthStore: Starting inactivity tracking after successful sign-in')
+          get().startInactivityTracking()
+        }
+        
         set({ loading: false })
         return { error: result.error }
       },
@@ -344,6 +366,10 @@ export const useAuthStore = create<AuthState>()(
       signOut: async () => {
         console.log('🔐 useAuthStore: signOut called')
         set({ loading: true })
+        
+        // Stop inactivity tracking on logout
+        get().stopInactivityTracking()
+        
         const result = await supabase.auth.signOut()
         console.log('🔐 useAuthStore: signOut result', { error: result.error?.message })
         get().setUserProfile(null)
@@ -420,6 +446,93 @@ export const useAuthStore = create<AuthState>()(
           await get().fetchBusinessUser(user.id)
           console.log('🔐 useAuthStore: Profile and business data refreshed')
         }
+      },
+
+      // Inactivity methods
+      startInactivityTracking: () => {
+        console.log('🔐 useAuthStore: Starting inactivity tracking')
+        
+        inactivityService.setCallbacks({
+          onTimeout: () => {
+            get().handleInactivityTimeout()
+          },
+          onWarning: () => {
+            const timeRemaining = inactivityService.getTimeUntilTimeout()
+            console.log('🔐 useAuthStore: Inactivity warning triggered, time remaining:', timeRemaining)
+            get().setInactivityWarning(true, timeRemaining)
+          },
+          onActivity: () => {
+            // Reset warning if user becomes active
+            const { showInactivityWarning } = get()
+            if (showInactivityWarning) {
+              get().setInactivityWarning(false, 0)
+            }
+          }
+        })
+        
+        inactivityService.start()
+      },
+
+      stopInactivityTracking: () => {
+        console.log('🔐 useAuthStore: Stopping inactivity tracking')
+        inactivityService.stop()
+        set({ 
+          showInactivityWarning: false,
+          inactivityTimeRemaining: 0
+        })
+      },
+
+      extendSession: () => {
+        console.log('🔐 useAuthStore: Extending session - resetting inactivity timer')
+        inactivityService.reset()
+        set({ 
+          showInactivityWarning: false,
+          inactivityTimeRemaining: 0
+        })
+      },
+
+      handleInactivityTimeout: async () => {
+        console.log('🔐 useAuthStore: Handling inactivity timeout - forcing logout')
+        
+        // Clear warning state first
+        set({ 
+          showInactivityWarning: false,
+          inactivityTimeRemaining: 0
+        })
+        
+        // Force logout with all session clearing
+        await get().signOut()
+        
+        // Stop inactivity tracking
+        get().stopInactivityTracking()
+        
+        // Clear all stored data
+        try {
+          localStorage.clear()
+          sessionStorage.clear()
+          
+          // Clear Supabase session completely
+          await supabase.auth.signOut({ scope: 'global' })
+          
+          // Clear indexedDB if used by Supabase
+          if ('indexedDB' in window) {
+            const deleteDB = indexedDB.deleteDatabase('supabase-auth-token')
+            deleteDB.onsuccess = () => console.log('🔐 Cleared Supabase IndexedDB')
+            deleteDB.onerror = () => console.log('🔐 Failed to clear Supabase IndexedDB')
+          }
+        } catch (error) {
+          console.error('🔐 Error clearing sessions:', error)
+        }
+        
+        // Redirect to login
+        window.location.href = '/auth'
+      },
+
+      setInactivityWarning: (show: boolean, timeRemaining = 0) => {
+        set({ 
+          showInactivityWarning: show,
+          inactivityTimeRemaining: timeRemaining
+        })
       },
     }),
     {
