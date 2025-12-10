@@ -2,10 +2,21 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { User, Session, AuthError, Provider } from '@supabase/supabase-js'
 import * as Sentry from '@sentry/react'
-import { supabase, getURL } from '../lib/supabase'
+import { supabase } from '../lib/supabase'
 import { ensureUserProfile } from '../lib/mcp'
 import { inactivityService } from '../services/inactivityService'
 import type { Database } from '../lib/supabase'
+import { 
+  authConfig, 
+  getAuthCallbackPath, 
+  getPasswordResetPath,
+  clearAuthStorage,
+  isOAuthStuck,
+  resetOAuthState,
+  markOAuthStarted,
+  markOAuthCompleted,
+  logAuth
+} from '../config/auth'
 
 type UserProfile = Database['public']['Tables']['user_profiles']['Row']
 type BusinessUser = Database['public']['Tables']['business_users']['Row']
@@ -191,11 +202,11 @@ export const useAuthStore = create<AuthState>()(
       
       // Auth methods
       signUp: async (email: string, password: string, metadata?: { full_name?: string }) => {
-        console.log('🔐 useAuthStore: signUp called', { email: email.substring(0, 3) + '***', hasMetadata: !!metadata })
+        logAuth('signUp called', { email: email.substring(0, 3) + '***', hasMetadata: !!metadata })
         
         const { loading } = get()
         if (loading) {
-          console.log('🔐 useAuthStore: Sign-up already in progress, ignoring request')
+          logAuth('Sign-up already in progress, ignoring request')
           return { error: null }
         }
         
@@ -205,12 +216,12 @@ export const useAuthStore = create<AuthState>()(
           email,
           password,
           options: {
-            emailRedirectTo: `${getURL()}auth/callback`,
+            emailRedirectTo: getAuthCallbackPath(),
             data: metadata || {}
           }
         })
         
-        console.log('🔐 useAuthStore: signUp result', { 
+        logAuth('signUp result', { 
           hasUser: !!result.data?.user,
           hasSession: !!result.data?.session,
           error: result.error?.message 
@@ -236,11 +247,11 @@ export const useAuthStore = create<AuthState>()(
       },
       
       signIn: async (email: string, password: string) => {
-        console.log('🔐 useAuthStore: signIn called', { email: email.substring(0, 3) + '***' })
+        logAuth('signIn called', { email: email.substring(0, 3) + '***' })
         
         const { loading } = get()
         if (loading) {
-          console.log('🔐 useAuthStore: Sign-in already in progress, ignoring request')
+          logAuth('Sign-in already in progress, ignoring request')
           return { error: null }
         }
         
@@ -251,7 +262,7 @@ export const useAuthStore = create<AuthState>()(
           password,
         })
         
-        console.log('🔐 useAuthStore: signIn result', { 
+        logAuth('signIn result', { 
           hasUser: !!result.data?.user,
           hasSession: !!result.data?.session,
           error: result.error?.message 
@@ -259,7 +270,7 @@ export const useAuthStore = create<AuthState>()(
         
         // Start inactivity tracking on successful sign-in
         if (result.data?.user && result.data?.session && !result.error) {
-          console.log('🔐 useAuthStore: Starting inactivity tracking after successful sign-in')
+          logAuth('Starting inactivity tracking after successful sign-in')
           get().startInactivityTracking()
         }
         
@@ -268,35 +279,31 @@ export const useAuthStore = create<AuthState>()(
       },
       
       signInWithProvider: async (provider: Provider) => {
-        console.log('🔐 useAuthStore: signInWithProvider called', { 
+        logAuth('signInWithProvider called', { 
           provider, 
           currentLoading: get().loading,
-          oauthLoadingTime: window.localStorage.getItem('oauth_loading_time')
+          oauthLoadingTime: window.localStorage.getItem(authConfig.storageKeys.oauthLoadingTime)
         })
         
         try {
           // Check for stuck OAuth state and reset if needed
-          const oauthLoadingTime = window.localStorage.getItem('oauth_loading_time')
-          if (oauthLoadingTime) {
-            const timeDiff = Date.now() - parseInt(oauthLoadingTime)
-            if (timeDiff > 30000) { // 30 seconds
-              console.log('🔐 useAuthStore: Resetting stuck loading state')
-              set({ loading: false })
-              window.localStorage.removeItem('oauth_loading_time')
-            }
+          if (isOAuthStuck()) {
+            logAuth('Resetting stuck OAuth state')
+            set({ loading: false })
+            resetOAuthState()
           }
           
           const { loading } = get()
           if (loading) {
-            console.log('🔐 useAuthStore: OAuth already in progress, ignoring request')
+            logAuth('OAuth already in progress, ignoring request')
             return { error: null }
           }
           
           set({ loading: true })
-          window.localStorage.setItem('oauth_loading_time', Date.now().toString())
+          markOAuthStarted()
           
-          const redirectUrl = `${getURL()}auth/callback`
-          console.log('🔐 useAuthStore: Initiating OAuth flow', { provider, redirectUrl })
+          const redirectUrl = getAuthCallbackPath()
+          logAuth('Initiating OAuth flow', { provider, redirectUrl })
           
           const result = await supabase.auth.signInWithOAuth({
             provider,
@@ -305,37 +312,37 @@ export const useAuthStore = create<AuthState>()(
             },
           })
           
-          console.log('🔐 useAuthStore: signInWithProvider result', { 
+          logAuth('signInWithProvider result', { 
             hasUrl: !!result.data?.url,
             error: result.error?.message,
             errorCode: result.error?.code
           })
           
           if (result.error) {
-            console.error('🔐 useAuthStore: OAuth error', { 
+            logAuth('OAuth error', { 
               provider, 
               error: result.error.message,
               code: result.error.code,
               details: result.error
             })
             set({ loading: false })
-            window.localStorage.removeItem('oauth_loading_time')
+            markOAuthCompleted()
             return { error: result.error }
           }
           
           if (!result.data?.url) {
-            console.error('🔐 useAuthStore: No OAuth URL returned', { provider })
+            logAuth('No OAuth URL returned', { provider })
             set({ loading: false })
-            window.localStorage.removeItem('oauth_loading_time')
+            markOAuthCompleted()
             return { 
               error: { 
-                message: 'Failed to initiate OAuth flow. Please try again.', 
+                message: authConfig.errors.oauthFailed, 
                 code: 'OAUTH_NO_URL' 
               } as AuthError 
             }
           }
           
-          console.log('🔐 useAuthStore: OAuth flow initiated successfully', { 
+          logAuth('OAuth flow initiated successfully', { 
             provider, 
             hasUrl: !!result.data.url,
             urlLength: result.data.url?.length,
@@ -346,14 +353,13 @@ export const useAuthStore = create<AuthState>()(
           // The loading state will be cleared when the auth state changes or by the timeout mechanism
           return { error: null }
         } catch (err) {
-          console.error('🔐 useAuthStore: Unexpected error in signInWithProvider', { 
+          logAuth('Unexpected error in signInWithProvider', { 
             provider, 
             error: err,
-            errorMessage: err instanceof Error ? err.message : 'Unknown error',
-            errorStack: err instanceof Error ? err.stack : undefined
+            errorMessage: err instanceof Error ? err.message : 'Unknown error'
           })
           set({ loading: false })
-          window.localStorage.removeItem('oauth_loading_time')
+          markOAuthCompleted()
           return { 
             error: { 
               message: `Failed to sign in with ${provider}. Please try again.`, 
@@ -364,7 +370,7 @@ export const useAuthStore = create<AuthState>()(
       },
       
       signOut: async () => {
-        console.log('🔐 useAuthStore: signOut called')
+        logAuth('signOut called')
         
         try {
           // Stop inactivity tracking FIRST
@@ -381,11 +387,11 @@ export const useAuthStore = create<AuthState>()(
           
           // Sign out from Supabase
           const result = await supabase.auth.signOut()
-          console.log('🔐 useAuthStore: signOut result', { error: result.error?.message })
+          logAuth('signOut result', { error: result.error?.message })
           
           return { error: result.error }
         } catch (error) {
-          console.error('🔐 useAuthStore: Error during signOut', error)
+          logAuth('Error during signOut', error)
           // Even if signOut fails, clear local state
           get().setUserProfile(null)
           get().setBusinessUser(null)
@@ -399,18 +405,18 @@ export const useAuthStore = create<AuthState>()(
       },
       
       resetPassword: async (email: string) => {
-        console.log('🔐 useAuthStore: resetPassword called', { email: email.substring(0, 3) + '***' })
+        logAuth('resetPassword called', { email: email.substring(0, 3) + '***' })
         const result = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${getURL()}auth/reset-password`,
+          redirectTo: getPasswordResetPath(),
         })
-        console.log('🔐 useAuthStore: resetPassword result', { error: result.error?.message })
+        logAuth('resetPassword result', { error: result.error?.message })
         return { error: result.error }
       },
       
       updatePassword: async (password: string) => {
-        console.log('🔐 useAuthStore: updatePassword called')
+        logAuth('updatePassword called')
         const result = await supabase.auth.updateUser({ password })
-        console.log('🔐 useAuthStore: updatePassword result', { 
+        logAuth('updatePassword result', { 
           hasUser: !!result.data?.user,
           error: result.error?.message 
         })
@@ -418,15 +424,15 @@ export const useAuthStore = create<AuthState>()(
       },
       
       resendVerification: async (email: string) => {
-        console.log('🔐 useAuthStore: resendVerification called', { email: email.substring(0, 3) + '***' })
+        logAuth('resendVerification called', { email: email.substring(0, 3) + '***' })
         const result = await supabase.auth.resend({
           type: 'signup',
           email,
           options: {
-            emailRedirectTo: `${getURL()}auth/callback`
+            emailRedirectTo: getAuthCallbackPath()
           }
         })
-        console.log('🔐 useAuthStore: resendVerification result', { error: result.error?.message })
+        logAuth('resendVerification result', { error: result.error?.message })
         return { error: result.error }
       },
       
@@ -436,14 +442,14 @@ export const useAuthStore = create<AuthState>()(
           return { error: 'User not authenticated' }
         }
 
-        console.log('🔐 useAuthStore: updateProfile called', { userId: user.id, updates })
+        logAuth('updateProfile called', { userId: user.id, updates })
         try {
           const { error } = await supabase
             .from('user_profiles')
             .update(updates)
             .eq('user_id', user.id)
 
-          console.log('🔐 useAuthStore: updateProfile result', { error: error?.message })
+          logAuth('updateProfile result', { error: error?.message })
 
           if (error) throw error
 
@@ -451,26 +457,26 @@ export const useAuthStore = create<AuthState>()(
           await get().fetchUserProfile(user.id)
           return { error: null }
         } catch (err) {
-          console.error('🔐 useAuthStore: Error in updateProfile', err)
+          logAuth('Error in updateProfile', err)
           const errorMessage = err instanceof Error ? err.message : 'Failed to update profile'
           return { error: errorMessage }
         }
       },
       
       refreshProfile: async () => {
-        console.log('🔐 useAuthStore: refreshProfile called')
+        logAuth('refreshProfile called')
         const { user } = get()
         if (user) {
           // Refresh both user profile and business user data
           await get().fetchUserProfile(user.id)
           await get().fetchBusinessUser(user.id)
-          console.log('🔐 useAuthStore: Profile and business data refreshed')
+          logAuth('Profile and business data refreshed')
         }
       },
 
       // Inactivity methods
       startInactivityTracking: () => {
-        console.log('🔐 useAuthStore: Starting inactivity tracking')
+        logAuth('Starting inactivity tracking')
         
         inactivityService.setCallbacks({
           onTimeout: () => {
@@ -478,7 +484,7 @@ export const useAuthStore = create<AuthState>()(
           },
           onWarning: () => {
             const timeRemaining = inactivityService.getTimeUntilTimeout()
-            console.log('🔐 useAuthStore: Inactivity warning triggered, time remaining:', timeRemaining)
+            logAuth('Inactivity warning triggered', { timeRemaining })
             get().setInactivityWarning(true, timeRemaining)
           },
           onActivity: () => {
@@ -494,7 +500,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       stopInactivityTracking: () => {
-        console.log('🔐 useAuthStore: Stopping inactivity tracking')
+        logAuth('Stopping inactivity tracking')
         inactivityService.stop()
         set({ 
           showInactivityWarning: false,
@@ -503,7 +509,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       extendSession: () => {
-        console.log('🔐 useAuthStore: Extending session - resetting inactivity timer')
+        logAuth('Extending session - resetting inactivity timer')
         inactivityService.reset()
         set({ 
           showInactivityWarning: false,
@@ -512,7 +518,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       handleInactivityTimeout: async () => {
-        console.log('🔐 useAuthStore: Handling inactivity timeout - forcing logout')
+        logAuth('Handling inactivity timeout - forcing logout')
         
         // Clear warning state first
         set({ 
@@ -526,23 +532,12 @@ export const useAuthStore = create<AuthState>()(
         // Force logout
         await get().signOut()
         
-        // Clear Supabase auth completely (but NOT all localStorage - preserves currency, language, etc.)
+        // Clear Supabase auth completely using centralized function
         try {
           await supabase.auth.signOut({ scope: 'global' })
-          
-          // Only clear auth-related items from localStorage
-          localStorage.removeItem('sb-ecqtlekrdhtaxhuvgsyo-auth-token')
-          localStorage.removeItem('supabase.auth.token')
-          localStorage.removeItem('oauth_loading_time')
-          
-          // Clear indexedDB if used by Supabase
-          if ('indexedDB' in window) {
-            const deleteDB = indexedDB.deleteDatabase('supabase-auth-token')
-            deleteDB.onsuccess = () => console.log('🔐 Cleared Supabase IndexedDB')
-            deleteDB.onerror = () => console.log('🔐 Failed to clear Supabase IndexedDB')
-          }
+          clearAuthStorage()
         } catch (error) {
-          console.error('🔐 Error clearing sessions:', error)
+          logAuth('Error clearing sessions', error)
         }
         
         // Redirect to login with timeout message
