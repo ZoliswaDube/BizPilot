@@ -49,6 +49,56 @@ export function logAuthError(event: string, error: unknown): void {
 }
 
 /**
+ * Normalize URL to ensure proper format (https and trailing slash)
+ */
+function normalizeUrl(url: string): string {
+  // Ensure https for non-localhost
+  if (!url.includes('localhost') && !url.includes('http')) {
+    url = `https://${url}`;
+  }
+  // Ensure trailing slash
+  return url.endsWith('/') ? url : `${url}/`;
+}
+
+/**
+ * Get the callback URL for OAuth redirects
+ * Uses window.location.origin in production for automatic detection
+ */
+export function getAuthCallbackUrl(): string {
+  // Priority: env var > window origin > localhost
+  const siteUrl = import.meta.env.VITE_SITE_URL;
+  const vercelUrl = import.meta.env.VITE_VERCEL_URL;
+  
+  if (siteUrl) {
+    return normalizeUrl(siteUrl);
+  }
+  
+  if (vercelUrl) {
+    return normalizeUrl(vercelUrl);
+  }
+  
+  if (typeof window !== 'undefined' && window.location.origin) {
+    return normalizeUrl(window.location.origin);
+  }
+  
+  return 'http://localhost:5173/';
+}
+
+/**
+ * Get the full auth callback path
+ */
+export function getAuthCallbackPath(): string {
+  return `${getAuthCallbackUrl()}auth/callback`;
+}
+
+/**
+ * Get the password reset callback path
+ */
+export function getPasswordResetPath(): string {
+  return `${getAuthCallbackUrl()}auth/reset-password`;
+}
+
+/**
  * Centralized authentication configuration
  */
 export const authConfig = {
@@ -56,56 +106,6 @@ export const authConfig = {
    * URL Configuration
    */
   urls: {
-    /**
-     * Get the callback URL for OAuth redirects
-     * Uses window.location.origin in production for automatic detection
-     */
-    getCallbackUrl(): string {
-      // Priority: env var > window origin > localhost
-      const siteUrl = import.meta.env.VITE_SITE_URL;
-      const vercelUrl = import.meta.env.VITE_VERCEL_URL;
-      
-      if (siteUrl) {
-        return this.normalizeUrl(siteUrl);
-      }
-      
-      if (vercelUrl) {
-        return this.normalizeUrl(vercelUrl);
-      }
-      
-      if (typeof window !== 'undefined' && window.location.origin) {
-        return this.normalizeUrl(window.location.origin);
-      }
-      
-      return 'http://localhost:5173/';
-    },
-    
-    /**
-     * Get the full auth callback path
-     */
-    getAuthCallbackPath(): string {
-      return `${this.getCallbackUrl()}auth/callback`;
-    },
-    
-    /**
-     * Get the password reset callback path
-     */
-    getPasswordResetPath(): string {
-      return `${this.getCallbackUrl()}auth/reset-password`;
-    },
-    
-    /**
-     * Normalize URL to ensure proper format
-     */
-    normalizeUrl(url: string): string {
-      // Ensure https for non-localhost
-      if (!url.includes('localhost') && !url.includes('http')) {
-        url = `https://${url}`;
-      }
-      // Ensure trailing slash
-      return url.endsWith('/') ? url : `${url}/`;
-    },
-    
     /**
      * Routes that don't require authentication
      */
