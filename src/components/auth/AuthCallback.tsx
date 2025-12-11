@@ -15,6 +15,7 @@ export function AuthCallback() {
   const timeoutRef = useRef<NodeJS.Timeout>()
   const retryTimeoutRef = useRef<NodeJS.Timeout>()
   const isNavigatingRef = useRef(false)
+  const hasProcessedRef = useRef(false) // Prevent infinite loop
 
   // Clear timeouts on unmount
   useEffect(() => {
@@ -421,18 +422,30 @@ export function AuthCallback() {
   }
 
   useEffect(() => {
-    console.log('🔐 AuthCallback: Component mounted', {
-      currentUrl: window.location.href,
-      pathname: window.location.pathname,
-      search: window.location.search,
-      hash: window.location.hash,
-      hostname: window.location.hostname,
-      port: window.location.port
-    })
+    // Prevent infinite loop - only run once
+    if (hasProcessedRef.current) {
+      return
+    }
+    
+    if (import.meta.env.DEV) {
+      console.log('🔐 AuthCallback: Component mounted', {
+        currentUrl: window.location.href,
+        pathname: window.location.pathname,
+        search: window.location.search,
+        hash: window.location.hash,
+        hostname: window.location.hostname,
+        port: window.location.port
+      })
+    }
+    
+    // Mark as processing to prevent re-runs
+    hasProcessedRef.current = true
     
     // Fast OAuth handling - check for code/tokens immediately
     const handleOAuthCallback = async () => {
-      console.log('🔐 AuthCallback: Starting fast OAuth handling')
+      if (import.meta.env.DEV) {
+        console.log('🔐 AuthCallback: Starting fast OAuth handling')
+      }
       
       try {
         // Check URL params immediately
@@ -451,7 +464,7 @@ export function AuthCallback() {
             error_description: errorDescription || 'An error occurred during authentication.',
             error_code: 'OAUTH_ERROR'
           })
-          navigate(`/auth/error?${errorParams.toString()}`)
+          navigate(`/auth/error?${errorParams.toString()}`, { replace: true })
           return
         }
         
@@ -470,7 +483,7 @@ export function AuthCallback() {
               error_description: exchangeError.message || 'Failed to complete authentication.',
               error_code: 'CODE_EXCHANGE_ERROR'
             })
-            navigate(`/auth/error?${errorParams.toString()}`)
+            navigate(`/auth/error?${errorParams.toString()}`, { replace: true })
             return
           }
           
@@ -478,7 +491,7 @@ export function AuthCallback() {
             console.log('🔐 AuthCallback: Session created successfully, redirecting')
             setStatus('success')
             setMessage('Authentication successful! Redirecting...')
-            window.history.replaceState({}, document.title, '/auth/callback')
+            // Use navigate instead of window.history to properly clean up
             setTimeout(() => navigate('/dashboard', { replace: true }), 500)
             return
           }
@@ -527,8 +540,7 @@ export function AuthCallback() {
     }
     
     handleOAuthCallback()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navigate, searchParams, retryCount])
+  }, []) // Empty deps - only run once on mount
 
   const handleManualRetry = () => {
     console.log('🔐 AuthCallback: Manual retry requested')

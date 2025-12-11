@@ -39,7 +39,15 @@ enabled = true
 # The base URL of your website
 site_url = "http://localhost:5173"
 # Additional redirect URLs. Used when authenticating with OAuth providers
-additional_redirect_urls = ["https://localhost:5173"]
+# Add your production and staging URLs here when deploying
+additional_redirect_urls = [
+  "https://localhost:5173",
+  "http://localhost:5173/auth/callback",
+  "https://localhost:5173/auth/callback",
+  # Add production URLs (uncomment and update):
+  # "https://yourdomain.com/auth/callback",
+  # "https://yourdomain.com/**",
+]
 # JWT expiry limit. JWT tokens issued by Supabase expire after this time
 jwt_expiry = 3600
 # Enable/disable signup
