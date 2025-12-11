@@ -44,7 +44,7 @@ additional_redirect_urls = [
   "https://localhost:5173",
   "http://localhost:5173/auth/callback",
   "https://localhost:5173/auth/callback",
-  # Add production URLs:
+  # Add production URLs (uncomment and update):
   # "https://yourdomain.com/auth/callback",
   # "https://yourdomain.com/**",
 ]

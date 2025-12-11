@@ -16,6 +16,9 @@ export function AuthErrorPage() {
                           errorDescription.toLowerCase().includes('unauthorized') ||
                           errorCode === 'OAUTH_ERROR'
 
+  // Get current origin once to avoid repetition
+  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'Unknown'
+
   const handleRetry = () => {
     console.log('🔐 AuthErrorPage: Retrying authentication')
     navigate('/auth')
@@ -112,15 +115,15 @@ export function AuthErrorPage() {
                       <li>Navigate to Authentication → URL Configuration</li>
                       <li>Add the following to "Redirect URLs":</li>
                       <li className="ml-4 font-mono text-primary-300">
-                        {typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback
+                        {currentOrigin}/auth/callback
                       </li>
                       <li className="ml-4 font-mono text-primary-300">
-                        {typeof window !== 'undefined' ? window.location.origin : ''}/**
+                        {currentOrigin}/**
                       </li>
                       <li>Save and try again</li>
                     </ol>
                     <p className="mt-2 text-yellow-300">
-                      💡 Current site: {typeof window !== 'undefined' ? window.location.origin : 'Unknown'}
+                      💡 Current site: {currentOrigin}
                     </p>
                   </div>
                 </>
