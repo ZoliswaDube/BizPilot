@@ -12,8 +12,9 @@ export function AuthErrorPage() {
   const errorCode = searchParams.get('error_code') || ''
 
   // Check if this is an OAuth redirect configuration error
-  const isRedirectError = errorDescription.toLowerCase().includes('redirect') || 
-                          errorDescription.toLowerCase().includes('unauthorized') ||
+  const errorDescLower = errorDescription.toLowerCase()
+  const isRedirectError = errorDescLower.includes('redirect') || 
+                          errorDescLower.includes('unauthorized') ||
                           errorCode === 'OAUTH_ERROR'
 
   // Get current origin once to avoid repetition

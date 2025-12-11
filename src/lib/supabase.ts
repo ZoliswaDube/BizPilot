@@ -846,7 +846,9 @@ export function getURL() {
     ((typeof window !== 'undefined' ? window.location.origin : '') ||
     'http://localhost:5173/')
   
-  const isDevelopment = import.meta.env.DEV || url.includes('localhost')
+  const isDevelopment = import.meta.env.DEV || 
+    (typeof window !== 'undefined' && 
+     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
   
   if (isDevelopment) {
     console.log('🌐 getURL() called', { 
