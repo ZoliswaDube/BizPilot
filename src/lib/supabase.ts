@@ -837,10 +837,10 @@ export type Database = {
 
 export function getURL() {
   // Priority order:
-  // 1. VITE_SITE_URL from .env
+  // 1. VITE_SITE_URL from .env (explicit configuration)
   // 2. VITE_VERCEL_URL from Vercel deployment
-  // 3. window.location.origin (production/actual domain)
-  // 4. localhost fallback (development)
+  // 3. window.location.origin (current domain - works for any deployment)
+  // 4. localhost fallback (development only)
   let url = import.meta.env.VITE_SITE_URL ?? 
     import.meta.env.VITE_VERCEL_URL ?? 
     ((typeof window !== 'undefined' ? window.location.origin : '') ||
@@ -850,7 +850,9 @@ export function getURL() {
     url, 
     VITE_SITE_URL: import.meta.env.VITE_SITE_URL,
     VITE_VERCEL_URL: import.meta.env.VITE_VERCEL_URL,
-    windowOrigin: typeof window !== 'undefined' ? window.location.origin : 'N/A'
+    windowOrigin: typeof window !== 'undefined' ? window.location.origin : 'N/A',
+    hostname: typeof window !== 'undefined' ? window.location.hostname : 'N/A',
+    protocol: typeof window !== 'undefined' ? window.location.protocol : 'N/A'
   })
   
   // Make sure to include `https://` when not localhost
@@ -859,5 +861,8 @@ export function getURL() {
   url = url.charAt(url.length - 1) === '/' ? url : `${url}/`
   
   console.log('🌐 getURL() final URL:', url)
+  console.log('⚠️ IMPORTANT: Ensure this URL is added to Supabase Auth -> URL Configuration -> Redirect URLs')
+  console.log('   Add both:', `${url}auth/callback`, 'and', `${url}**`)
+  
   return url
 }

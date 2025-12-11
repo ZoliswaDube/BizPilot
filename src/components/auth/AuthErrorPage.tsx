@@ -11,6 +11,11 @@ export function AuthErrorPage() {
   const errorDescription = searchParams.get('error_description') || 'An unexpected error occurred during authentication.'
   const errorCode = searchParams.get('error_code') || ''
 
+  // Check if this is an OAuth redirect configuration error
+  const isRedirectError = errorDescription.toLowerCase().includes('redirect') || 
+                          errorDescription.toLowerCase().includes('unauthorized') ||
+                          errorCode === 'OAUTH_ERROR'
+
   const handleRetry = () => {
     console.log('🔐 AuthErrorPage: Retrying authentication')
     navigate('/auth')
@@ -96,14 +101,41 @@ export function AuthErrorPage() {
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.8 }}
             >
-              <p className="font-medium mb-2">What you can try:</p>
-              <ul className="text-left space-y-1 text-xs">
-                <li>• Check your internet connection</li>
-                <li>• Try signing in again</li>
-                <li>• Clear your browser cache and cookies</li>
-                <li>• Try a different browser</li>
-                <li>• Contact support if the problem persists</li>
-              </ul>
+              {isRedirectError ? (
+                <>
+                  <p className="font-medium mb-2">⚠️ OAuth Configuration Issue</p>
+                  <div className="text-left space-y-2 text-xs">
+                    <p>This error typically occurs when the redirect URL is not configured in Supabase.</p>
+                    <p className="font-medium mt-2">For Administrators:</p>
+                    <ol className="list-decimal list-inside space-y-1 ml-2">
+                      <li>Go to your Supabase Dashboard</li>
+                      <li>Navigate to Authentication → URL Configuration</li>
+                      <li>Add the following to "Redirect URLs":</li>
+                      <li className="ml-4 font-mono text-primary-300">
+                        {typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback
+                      </li>
+                      <li className="ml-4 font-mono text-primary-300">
+                        {typeof window !== 'undefined' ? window.location.origin : ''}/**
+                      </li>
+                      <li>Save and try again</li>
+                    </ol>
+                    <p className="mt-2 text-yellow-300">
+                      💡 Current site: {typeof window !== 'undefined' ? window.location.origin : 'Unknown'}
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="font-medium mb-2">What you can try:</p>
+                  <ul className="text-left space-y-1 text-xs">
+                    <li>• Check your internet connection</li>
+                    <li>• Try signing in again</li>
+                    <li>• Clear your browser cache and cookies</li>
+                    <li>• Try a different browser</li>
+                    <li>• Contact support if the problem persists</li>
+                  </ul>
+                </>
+              )}
             </motion.div>
 
             <motion.div 
