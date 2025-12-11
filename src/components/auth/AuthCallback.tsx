@@ -424,25 +424,28 @@ export function AuthCallback() {
   useEffect(() => {
     // Prevent infinite loop - only run once
     if (hasProcessedRef.current) {
-      console.log('🔐 AuthCallback: Already processed, skipping')
       return
     }
     
-    console.log('🔐 AuthCallback: Component mounted', {
-      currentUrl: window.location.href,
-      pathname: window.location.pathname,
-      search: window.location.search,
-      hash: window.location.hash,
-      hostname: window.location.hostname,
-      port: window.location.port
-    })
+    if (import.meta.env.DEV) {
+      console.log('🔐 AuthCallback: Component mounted', {
+        currentUrl: window.location.href,
+        pathname: window.location.pathname,
+        search: window.location.search,
+        hash: window.location.hash,
+        hostname: window.location.hostname,
+        port: window.location.port
+      })
+    }
     
     // Mark as processing to prevent re-runs
     hasProcessedRef.current = true
     
     // Fast OAuth handling - check for code/tokens immediately
     const handleOAuthCallback = async () => {
-      console.log('🔐 AuthCallback: Starting fast OAuth handling')
+      if (import.meta.env.DEV) {
+        console.log('🔐 AuthCallback: Starting fast OAuth handling')
+      }
       
       try {
         // Check URL params immediately
@@ -537,8 +540,7 @@ export function AuthCallback() {
     }
     
     handleOAuthCallback()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Remove searchParams dependency to prevent infinite loop
+  }, []) // Empty deps - only run once on mount
 
   const handleManualRetry = () => {
     console.log('🔐 AuthCallback: Manual retry requested')
