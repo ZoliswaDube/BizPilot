@@ -39,6 +39,7 @@ import { PaymentDetail } from './components/payments/PaymentDetail' // New impor
 import { CustomerList } from './components/customers/CustomerList' // New import
 import { CustomerForm } from './components/customers/CustomerForm' // New import
 import { CustomerDetail } from './components/customers/CustomerDetail' // New import
+import { FinancialDashboard } from './components/financial/FinancialDashboard' // Financial reporting
 
 function App() {
   const { 
@@ -335,6 +336,15 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <CustomerDetail />
+                </Layout>
+              </ProtectedRoute>
+            } />
+
+            {/* Financial reporting route */}
+            <Route path="/reports" element={
+              <ProtectedRoute>
+                <Layout>
+                  <FinancialDashboard />
                 </Layout>
               </ProtectedRoute>
             } />
